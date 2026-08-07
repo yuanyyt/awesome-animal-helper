@@ -1,0 +1,2 @@
+"""Wikipedia animal information crawler."""
+
