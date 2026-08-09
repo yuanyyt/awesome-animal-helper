@@ -4,10 +4,12 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import AsyncIterator
 
-from fastapi import FastAPI, Query
+import httpx
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 
+from .amap_client import AmapClient, AmapServiceError, amap_proxy_target
 from .repository import AnimalRepository
-from .schemas import AnimalListResponse
+from .schemas import AnimalListResponse, MapGuideResponse
 
 
 @lru_cache(maxsize=1)
@@ -17,12 +19,21 @@ def get_repository() -> AnimalRepository:
     return AnimalRepository()
 
 
+@lru_cache(maxsize=1)
+def get_amap_client() -> AmapClient:
+    """Build the server-side AMap client without exposing its key."""
+
+    return AmapClient.from_env()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Validate and cache source data before accepting requests."""
 
     get_repository()
     yield
+    if get_amap_client.cache_info().currsize:
+        get_amap_client().close()
 
 
 app = FastAPI(
@@ -42,3 +53,71 @@ async def list_animals(
     """List, search, or locate animals through one stable endpoint."""
 
     return get_repository().query(q=q, site=site, name=name)
+
+
+@app.get("/api/map", response_model=MapGuideResponse)
+def get_map_guide() -> MapGuideResponse:
+    """Return AMap-backed venue coordinates and safe map configuration."""
+
+    try:
+        return get_amap_client().build_guide(get_repository().site_summaries())
+    except (AmapServiceError, httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="地图服务暂不可用，请稍后重试") from exc
+
+
+@app.get("/api/map/image", response_class=Response)
+def get_map_image() -> Response:
+    """Proxy the AMap static map so the Web Service key stays server-side."""
+
+    try:
+        client = get_amap_client()
+        guide = client.build_guide(get_repository().site_summaries())
+        content, media_type = client.static_map(guide.center)
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+    except (AmapServiceError, httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="地图图片暂不可用，请稍后重试") from exc
+
+
+@app.api_route(
+    "/api/amap-service/{path:path}",
+    methods=["GET", "POST"],
+    response_class=Response,
+)
+async def proxy_amap_js_service(path: str, request: Request) -> Response:
+    """Proxy allow-listed AMap JS API services and append the secret jscode."""
+    amap = get_amap_client()
+    if not amap.js_api_enabled:
+        raise HTTPException(status_code=503, detail="高德 JS API 安全代理未配置")
+    try:
+        target = amap_proxy_target(path)
+        params = [
+            (key, value)
+            for key, value in request.query_params.multi_items()
+            if key.casefold() != "jscode"
+        ]
+        params.append(("jscode", amap.security_key))
+        headers = {}
+        if content_type := request.headers.get("content-type"):
+            headers["Content-Type"] = content_type
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            upstream = await client.request(
+                request.method,
+                target,
+                params=params,
+                content=await request.body(),
+                headers=headers,
+            )
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="高德 JS API 代理请求失败") from exc
+
+    response_headers = {"Cache-Control": upstream.headers.get("cache-control", "no-store")}
+    return Response(
+        content=upstream.content,
+        status_code=upstream.status_code,
+        media_type=upstream.headers.get("content-type", "application/json").split(";", 1)[0],
+        headers=response_headers,
+    )

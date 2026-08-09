@@ -1,4 +1,4 @@
-import type { AnimalListResponse } from "./types";
+import type { AnimalListResponse, MapGuide } from "./types";
 
 export interface AnimalQuery {
   q?: string;
@@ -23,3 +23,10 @@ export async function fetchAnimals(
   return response.json() as Promise<AnimalListResponse>;
 }
 
+export async function fetchMapGuide(signal?: AbortSignal): Promise<MapGuide> {
+  const response = await fetch("/api/map", { signal });
+  if (!response.ok) {
+    throw new Error(`地图配置请求失败（${response.status}）`);
+  }
+  return response.json() as Promise<MapGuide>;
+}

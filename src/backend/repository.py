@@ -71,6 +71,11 @@ class AnimalRepository:
             filtered_count=len(items),
         )
 
+    def site_summaries(self) -> list[SiteSummary]:
+        """Return venue metadata in workbook order."""
+
+        return self._site_summaries()
+
     def _site_summaries(self) -> list[SiteSummary]:
         counts = Counter(site for animal in self._animals for site in animal.sites)
         return [
@@ -158,4 +163,3 @@ def _split_facts(value: str | None) -> list[str]:
     if not text:
         return []
     return [fact.strip() for fact in re.split(r"\s*；\s*", text) if fact.strip()]
-

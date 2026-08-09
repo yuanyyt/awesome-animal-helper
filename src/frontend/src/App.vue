@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
-import { fetchAnimals } from "./api";
+import { fetchAnimals, fetchMapGuide } from "./api";
 import AnimalCard from "./components/AnimalCard.vue";
 import AnimalDetailDialog from "./components/AnimalDetailDialog.vue";
 import ForestPlaceholder from "./components/ForestPlaceholder.vue";
+import GuideChatBox from "./components/GuideChatBox.vue";
 import GuideIllustration from "./components/GuideIllustration.vue";
 import SearchDialog from "./components/SearchDialog.vue";
 import SiteFilter from "./components/SiteFilter.vue";
-import type { AnimalDetail, AnimalListResponse } from "./types";
+import ZooMap from "./components/ZooMap.vue";
+import type { AnimalDetail, AnimalListResponse, MapGuide } from "./types";
 
 const data = ref<AnimalListResponse>();
 const selectedSite = ref("");
@@ -16,18 +18,40 @@ const selectedAnimal = ref<AnimalDetail | null>(null);
 const searchOpen = ref(false);
 const loading = ref(true);
 const error = ref("");
+const mapGuide = ref<MapGuide>();
+const mapLoading = ref(true);
+const mapError = ref("");
 let controller: AbortController | undefined;
+let mapController: AbortController | undefined;
 let lastTrigger: HTMLElement | null = null;
 
 onMounted(() => {
   void loadAnimals();
+  void loadMap();
   window.addEventListener("keydown", handleGlobalShortcut);
 });
 
 onBeforeUnmount(() => {
   controller?.abort();
+  mapController?.abort();
   window.removeEventListener("keydown", handleGlobalShortcut);
 });
+
+async function loadMap(): Promise<void> {
+  mapController?.abort();
+  mapController = new AbortController();
+  mapLoading.value = true;
+  mapError.value = "";
+  try {
+    mapGuide.value = await fetchMapGuide(mapController.signal);
+  } catch (reason) {
+    if ((reason as Error).name !== "AbortError") {
+      mapError.value = "园区地图暂时没有打开，请稍后重试。";
+    }
+  } finally {
+    mapLoading.value = false;
+  }
+}
 
 async function loadAnimals(site = selectedSite.value): Promise<void> {
   controller?.abort();
@@ -95,6 +119,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
         <strong>红山动物志</strong>
       </a>
       <nav class="site-nav__links" aria-label="主要导航">
+        <a href="#map">园区地图</a>
         <a href="#venues">场馆漫游</a>
         <a href="#animals">动物图鉴</a>
         <button class="search-pill" type="button" aria-label="搜索动物，快捷键 Control 或 Command K" @click="openSearch">
@@ -124,6 +149,22 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       <div class="guide-hero__art">
         <GuideIllustration />
       </div>
+    </section>
+
+    <section id="map" class="map-section" aria-labelledby="map-title">
+      <div class="section-heading map-section__heading">
+        <h2 id="map-title">先在地图上，找到今天的第一站。</h2>
+        <p>点按高德地图中的场馆标记，名册会同步筛选住在那里的动物。</p>
+      </div>
+      <ZooMap
+        :guide="mapGuide"
+        :selected-site="selectedSite"
+        :loading="mapLoading"
+        :error="mapError"
+        @select="changeSite"
+        @retry="loadMap"
+      />
+      <GuideChatBox />
     </section>
 
     <section id="venues" class="venue-section" aria-labelledby="venues-title">

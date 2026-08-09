@@ -37,3 +37,36 @@ class AnimalListResponse(BaseModel):
     total: int
     filtered_count: int
 
+
+class MapLocation(BaseModel):
+    """One GCJ-02 coordinate returned by AMap."""
+
+    longitude: float
+    latitude: float
+
+
+class MapPoint(MapLocation):
+    """A zoo venue matched to an AMap POI."""
+
+    site: str
+    poi_name: str
+    address: str
+    animal_count: int
+
+
+class MapJsConfig(BaseModel):
+    """Public JS API configuration; the security code stays server-side."""
+
+    api_key: str
+    service_host: str
+
+
+class MapGuideResponse(BaseModel):
+    """Map configuration consumed by the Vue guide."""
+
+    center: MapLocation
+    zoom: int
+    image_url: str
+    points: list[MapPoint]
+    provider: str
+    js_api: MapJsConfig | None = None

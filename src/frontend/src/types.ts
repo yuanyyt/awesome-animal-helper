@@ -27,3 +27,28 @@ export interface AnimalListResponse {
   filtered_count: number;
 }
 
+export interface MapLocation {
+  longitude: number;
+  latitude: number;
+}
+
+export interface MapPoint extends MapLocation {
+  site: string;
+  poi_name: string;
+  address: string;
+  animal_count: number;
+}
+
+export interface MapJsConfig {
+  api_key: string;
+  service_host: string;
+}
+
+export interface MapGuide {
+  center: MapLocation;
+  zoom: number;
+  image_url: string;
+  points: MapPoint[];
+  provider: string;
+  js_api: MapJsConfig | null;
+}
