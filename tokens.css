@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light;
+
+  --color-paper: oklch(96% 0.025 92);
+  --color-paper-2: oklch(92% 0.035 94);
+  --color-paper-3: oklch(98.5% 0.014 92);
+  --color-ink: oklch(27% 0.07 145);
+  --color-ink-2: oklch(39% 0.055 145);
+  --color-muted: oklch(45% 0.04 137);
+  --color-rule: oklch(77% 0.035 130);
+  --color-rule-strong: oklch(48% 0.05 137);
+  --color-accent: oklch(45% 0.12 140);
+  --color-accent-soft: oklch(91% 0.06 102);
+  --color-accent-ink: oklch(98% 0.012 92);
+  --color-cyan: oklch(72% 0.1 210);
+  --color-cyan-soft: oklch(92% 0.04 194);
+  --color-coral: oklch(66% 0.17 42);
+  --color-coral-soft: oklch(92% 0.045 48);
+  --color-leaf: oklch(62% 0.13 137);
+  --color-leaf-soft: oklch(86% 0.065 132);
+  --color-sun: oklch(82% 0.15 88);
+  --color-focus: oklch(44% 0.16 250);
+  --color-danger: oklch(45% 0.16 26);
+  --color-success: oklch(43% 0.13 145);
+  --color-overlay: oklch(20% 0.035 145 / 62%);
+  --color-shadow: oklch(35% 0.06 137 / 16%);
+  --color-skeleton: oklch(88% 0.035 102);
+
+  --font-display: Georgia, "Songti SC", STSong, "Noto Serif CJK SC", serif;
+  --font-body: "Inter Variable", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
+  --space-dialog-top: 12vh;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+  --text-2xl: clamp(2rem, 4vw, 3.5rem);
+  --text-display: clamp(3.25rem, 6.8vw, 6.5rem);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-round: 999px;
+
+  --rule-hair: 1px;
+  --rule-strong: 2px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-short: 120ms;
+  --dur-medium: 220ms;
+  --dur-long: 420ms;
+}

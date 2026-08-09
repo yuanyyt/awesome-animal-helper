@@ -12,3 +12,6 @@ wheels/
 .env
 AGENTS.md
 _temp/
+.codex/
+temp/
+node_modules/

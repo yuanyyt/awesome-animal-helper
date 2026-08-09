@@ -1,0 +1,9 @@
+{
+  "scanned_at": "2026-08-10",
+  "framework": "Vue 3 + Vite + TypeScript",
+  "font_stack": "Editorial serif display + Inter Variable + CJK system fallbacks",
+  "palette": "Custom Forest Almanac OKLCH tokens",
+  "motion": "CSS transform and opacity only",
+  "spacing": "4px base scale",
+  "design_system": "tokens.css"
+}
