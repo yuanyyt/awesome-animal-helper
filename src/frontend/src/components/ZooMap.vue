@@ -1,26 +1,34 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
-import type { MapGuide, MapPoint } from "../types";
+import type { MapGuide, MapNamedLocation, MapPoint, RouteOption } from "../types";
 
 const props = defineProps<{
   guide?: MapGuide;
   selectedSite: string;
+  routeSites: string[];
+  origin: MapNamedLocation | null;
+  activeRoute: RouteOption | null;
   loading: boolean;
   error: string;
 }>();
 
 const emit = defineEmits<{
   select: [site: string];
+  routeToggle: [site: string];
+  originChange: [origin: MapNamedLocation];
   retry: [];
 }>();
 
 const imageFailed = ref(false);
 const interactiveFailed = ref(false);
 const interactiveReady = ref(false);
+const settingOrigin = ref(false);
 const mapContainer = ref<HTMLElement>();
 let map: AmapMap | undefined;
 let amapMarkers: AmapMarker[] = [];
+let routeLine: AmapOverlay | undefined;
+let originMarker: AmapMarker | undefined;
 let readinessTimer: number | undefined;
 const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
@@ -32,6 +40,24 @@ watch(
     if (guide) void initializeInteractiveMap();
   },
   { immediate: true },
+);
+
+watch(
+  () => props.routeSites,
+  () => updateInteractiveMarkers(props.selectedSite),
+  { deep: true },
+);
+
+watch(
+  () => props.activeRoute,
+  () => updateRouteOverlay(),
+  { deep: true },
+);
+
+watch(
+  () => props.origin,
+  () => updateOriginMarker(),
+  { deep: true },
 );
 
 watch(
@@ -62,6 +88,7 @@ async function initializeInteractiveMap(): Promise<void> {
       resizeEnable: true,
     });
     map.on("complete", markInteractiveMapReady);
+    map.on("click", handleMapClick);
     readinessTimer = window.setTimeout(() => {
       if (interactiveReady.value) return;
       destroyInteractiveMap();
@@ -78,11 +105,14 @@ async function initializeInteractiveMap(): Promise<void> {
       content.addEventListener("click", (event) => {
         event.stopPropagation();
         emit("select", point.site);
+        emit("routeToggle", point.site);
       });
       return marker;
     });
     map.add(amapMarkers);
     updateInteractiveMarkers(props.selectedSite);
+    updateOriginMarker();
+    updateRouteOverlay();
   } catch {
     destroyInteractiveMap();
     interactiveFailed.value = true;
@@ -109,7 +139,11 @@ function updateInteractiveMarkers(site: string): void {
   for (const marker of amapMarkers) {
     const button = marker.getContent();
     const active = button.getAttribute("aria-label")?.startsWith(`查看${site}，`) ?? false;
+    const routeSite = props.routeSites.some((item) =>
+      button.getAttribute("aria-label")?.startsWith(`查看${item}，`),
+    );
     button.classList.toggle("is-active", active);
+    button.classList.toggle("is-route-stop", routeSite);
     button.setAttribute("aria-pressed", String(active));
   }
 }
@@ -118,9 +152,59 @@ function destroyInteractiveMap(): void {
   if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
   readinessTimer = undefined;
   amapMarkers = [];
+  routeLine = undefined;
+  originMarker = undefined;
   map?.destroy();
   map = undefined;
   interactiveReady.value = false;
+}
+
+function handleMapClick(event: AmapMapClickEvent): void {
+  if (!settingOrigin.value) return;
+  emit("originChange", {
+    name: "地图选定起点",
+    longitude: event.lnglat.getLng(),
+    latitude: event.lnglat.getLat(),
+  });
+  settingOrigin.value = false;
+}
+
+function updateOriginMarker(): void {
+  if (!map || !window.AMap) return;
+  if (originMarker) map.remove(originMarker);
+  originMarker = undefined;
+  if (!props.origin) return;
+  const content = document.createElement("span");
+  content.className = "zoo-map__origin-marker";
+  content.textContent = "起";
+  originMarker = new window.AMap.Marker({
+    position: [props.origin.longitude, props.origin.latitude],
+    content,
+    offset: new window.AMap.Pixel(-18, -18),
+    title: props.origin.name,
+  });
+  map.add(originMarker);
+}
+
+function updateRouteOverlay(): void {
+  if (!map || !window.AMap) return;
+  if (routeLine) map.remove(routeLine);
+  routeLine = undefined;
+  const path = props.activeRoute?.polyline.map(
+    (point) => [point.longitude, point.latitude] as [number, number],
+  );
+  if (!path?.length) return;
+  routeLine = new window.AMap.Polyline({
+    path,
+    strokeColor: "#b84a12",
+    strokeWeight: 7,
+    strokeOpacity: 0.9,
+    lineJoin: "round",
+    lineCap: "round",
+    showDir: true,
+  });
+  map.add(routeLine);
+  map.setFitView([routeLine], false, [60, 60, 60, 60]);
 }
 
 function markerStyle(point: MapPoint, pointIndex: number): Record<string, string> {
@@ -163,16 +247,26 @@ interface AmapMarker {
   getContent(): HTMLButtonElement;
 }
 
+interface AmapOverlay {}
+
+interface AmapMapClickEvent {
+  lnglat: { getLng(): number; getLat(): number };
+}
+
 interface AmapMap {
-  add(markers: AmapMarker[]): void;
+  add(markers: AmapMarker[] | AmapMarker | AmapOverlay): void;
+  remove(overlay: AmapMarker | AmapOverlay): void;
   destroy(): void;
   on(event: "complete", handler: () => void): void;
+  on(event: "click", handler: (event: AmapMapClickEvent) => void): void;
   panTo(position: [number, number]): void;
+  setFitView(overlays: AmapOverlay[], immediately: boolean, padding: number[]): void;
 }
 
 interface AmapGlobal {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AmapMap;
   Marker: new (options: Record<string, unknown>) => AmapMarker;
+  Polyline: new (options: Record<string, unknown>) => AmapOverlay;
   Pixel: new (x: number, y: number) => object;
 }
 
@@ -222,6 +316,17 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
     </div>
 
     <template v-else>
+      <div class="zoo-map__planner-tools">
+        <p><strong>{{ routeSites.length }}</strong> 个场馆已加入路线</p>
+        <button
+          type="button"
+          :class="{ 'is-active': settingOrigin }"
+          :disabled="!guide.js_api || interactiveFailed"
+          @click="settingOrigin = !settingOrigin"
+        >
+          {{ settingOrigin ? "请点击地图设置起点" : "在地图上设置起点" }}
+        </button>
+      </div>
       <div class="zoo-map__canvas">
         <template v-if="guide.js_api && !interactiveFailed">
           <div
@@ -245,12 +350,15 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             v-for="(point, index) in guide.points"
             :key="point.site"
             class="zoo-map__marker"
-            :class="{ 'is-active': selectedSite === point.site }"
+            :class="{
+              'is-active': selectedSite === point.site,
+              'is-route-stop': routeSites.includes(point.site),
+            }"
             :style="markerStyle(point, index)"
             type="button"
             :aria-label="`查看${point.site}，${point.animal_count}种动物`"
             :aria-pressed="selectedSite === point.site"
-            @click="emit('select', point.site)"
+            @click="emit('select', point.site); emit('routeToggle', point.site)"
           >
             <span>{{ index + 1 }}</span>
           </button>
@@ -272,10 +380,13 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
         <li v-for="(point, index) in guide.points" :key="`place-${point.site}`">
           <button
             type="button"
-            :class="{ 'is-active': selectedSite === point.site }"
+            :class="{
+              'is-active': selectedSite === point.site,
+              'is-route-stop': routeSites.includes(point.site),
+            }"
             :aria-label="`选择${point.site}场馆`"
             :aria-pressed="selectedSite === point.site"
-            @click="emit('select', point.site)"
+            @click="emit('select', point.site); emit('routeToggle', point.site)"
           >
             <span>{{ index + 1 }}</span>
             {{ point.site }}

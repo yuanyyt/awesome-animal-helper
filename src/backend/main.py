@@ -8,8 +8,15 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 
 from .amap_client import AmapClient, AmapServiceError, amap_proxy_target
+from .guide_agent import GuideAgentError, GuideAgentService
 from .repository import AnimalRepository
-from .schemas import AnimalListResponse, MapGuideResponse
+from .schemas import (
+    AnimalListResponse,
+    GuideChatRequest,
+    GuideChatResponse,
+    GuideContinueRequest,
+    MapGuideResponse,
+)
 
 
 @lru_cache(maxsize=1)
@@ -24,6 +31,13 @@ def get_amap_client() -> AmapClient:
     """Build the server-side AMap client without exposing its key."""
 
     return AmapClient.from_env()
+
+
+@lru_cache(maxsize=1)
+def get_guide_agent() -> GuideAgentService:
+    """Build the Agno guide lazily so animal and map endpoints remain independent."""
+
+    return GuideAgentService(get_amap_client(), get_repository())
 
 
 @asynccontextmanager
@@ -53,6 +67,41 @@ async def list_animals(
     """List, search, or locate animals through one stable endpoint."""
 
     return get_repository().query(q=q, site=site, name=name)
+
+
+@app.post("/api/guide/chat", response_model=GuideChatResponse)
+async def chat_with_guide(request: GuideChatRequest) -> GuideChatResponse:
+    """Start one conversational route-planning turn."""
+
+    try:
+        return await get_guide_agent().chat(
+            request.message,
+            request.session_id,
+            request.map_context,
+        )
+    except GuideAgentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="导览员暂时无法回答，请稍后重试") from exc
+
+
+@app.post("/api/guide/chat/{run_id}/continue", response_model=GuideChatResponse)
+async def continue_guide_chat(
+    run_id: str,
+    request: GuideContinueRequest,
+) -> GuideChatResponse:
+    """Resolve the current Agno HITL fields and resume a paused run."""
+
+    try:
+        return await get_guide_agent().continue_run(
+            run_id,
+            request.session_id,
+            request.values,
+        )
+    except GuideAgentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="导览会话暂时无法继续，请稍后重试") from exc
 
 
 @app.get("/api/map", response_model=MapGuideResponse)

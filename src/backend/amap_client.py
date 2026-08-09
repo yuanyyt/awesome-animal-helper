@@ -11,11 +11,20 @@ from dataclasses import dataclass
 import httpx
 from dotenv import load_dotenv
 
-from .schemas import MapGuideResponse, MapJsConfig, MapLocation, MapPoint, SiteSummary
+from .schemas import (
+    MapGuideResponse,
+    MapJsConfig,
+    MapLocation,
+    MapNamedLocation,
+    MapPoint,
+    RouteStep,
+    SiteSummary,
+)
 
 POI_TEXT_URL = "https://restapi.amap.com/v5/place/text"
 POI_AROUND_URL = "https://restapi.amap.com/v5/place/around"
 STATIC_MAP_URL = "https://restapi.amap.com/v3/staticmap"
+WALKING_ROUTE_URL = "https://restapi.amap.com/v3/direction/walking"
 
 ZOO_KEYWORD = "南京红山森林动物园"
 ZOO_REGION = "南京"
@@ -57,6 +66,16 @@ class _Poi:
     distance: int | None = None
 
 
+@dataclass(frozen=True)
+class WalkingRoute:
+    """Normalized walking path returned by AMap."""
+
+    distance_meters: int
+    duration_seconds: int
+    steps: tuple[RouteStep, ...]
+    polyline: tuple[MapLocation, ...]
+
+
 class AmapClient:
     """Resolve zoo POIs and proxy static maps without exposing the API key."""
 
@@ -82,6 +101,7 @@ class AmapClient:
         self.http = http or httpx.Client(timeout=timeout, follow_redirects=True)
         self._guide_cache: dict[tuple[tuple[str, int], ...], MapGuideResponse] = {}
         self._image_cache: tuple[bytes, str] | None = None
+        self._walking_cache: dict[tuple[float, float, float, float], WalkingRoute] = {}
 
     @classmethod
     def from_env(cls) -> AmapClient:
@@ -118,6 +138,7 @@ class AmapClient:
             image_url="/api/map/image",
             points=points,
             provider="高德地图",
+            default_origin=self._default_origin(center_poi, nearby),
             js_api=(
                 MapJsConfig(
                     api_key=self.js_api_key,
@@ -129,6 +150,29 @@ class AmapClient:
         )
         self._guide_cache[cache_key] = guide
         return guide
+
+    def walking_route(self, origin: MapLocation, destination: MapLocation) -> WalkingRoute:
+        """Return and cache one AMap walking route between GCJ-02 coordinates."""
+
+        cache_key = (
+            round(origin.longitude, 6),
+            round(origin.latitude, 6),
+            round(destination.longitude, 6),
+            round(destination.latitude, 6),
+        )
+        if cached := self._walking_cache.get(cache_key):
+            return cached
+        data = self._get_json(
+            WALKING_ROUTE_URL,
+            {
+                "origin": f"{origin.longitude:.6f},{origin.latitude:.6f}",
+                "destination": f"{destination.longitude:.6f},{destination.latitude:.6f}",
+                "output": "JSON",
+            },
+        )
+        route = _parse_walking_route(data)
+        self._walking_cache[cache_key] = route
+        return route
 
     def static_map(self, center: MapLocation) -> tuple[bytes, str]:
         if self._image_cache is not None:
@@ -189,6 +233,16 @@ class AmapClient:
             )
             found.extend(_parse_pois(data))
         return list({(poi.name, poi.longitude, poi.latitude): poi for poi in found}.values())
+
+    @staticmethod
+    def _default_origin(center: _Poi, nearby: list[_Poi]) -> MapNamedLocation:
+        entrances = [poi for poi in nearby if "门" in poi.name and "红山" in poi.name]
+        entrance = min(entrances, key=lambda poi: poi.distance or 999_999) if entrances else center
+        return MapNamedLocation(
+            name=entrance.name if entrance is not center else "红山森林动物园入口",
+            longitude=entrance.longitude,
+            latitude=entrance.latitude,
+        )
 
     def _get_json(self, url: str, params: dict[str, object]) -> dict:
         for attempt in range(self.retries + 1):
@@ -262,6 +316,51 @@ def _parse_pois(data: dict) -> list[_Poi]:
 
 def _normalize(value: str) -> str:
     return re.sub(r"[^\w\u4e00-\u9fff]", "", value).casefold()
+
+
+def _parse_walking_route(data: dict) -> WalkingRoute:
+    try:
+        path = data["route"]["paths"][0]
+        distance = int(float(path["distance"]))
+        duration = int(float(path["duration"]))
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise AmapServiceError("高德未返回可用的步行路线") from exc
+
+    steps: list[RouteStep] = []
+    polyline: list[MapLocation] = []
+    for raw in path.get("steps", []):
+        step_polyline = _parse_polyline(str(raw.get("polyline", "")))
+        if step_polyline:
+            polyline.extend(step_polyline[1:] if polyline and polyline[-1] == step_polyline[0] else step_polyline)
+        steps.append(
+            RouteStep(
+                instruction=str(raw.get("instruction", "继续步行")).strip() or "继续步行",
+                distance_meters=_safe_int(raw.get("distance")),
+                duration_seconds=_safe_int(raw.get("duration")),
+                walk_type=str(raw.get("walk_type", "")).strip() or None,
+            )
+        )
+    if not polyline:
+        raise AmapServiceError("高德步行路线缺少坐标轨迹")
+    return WalkingRoute(distance, duration, tuple(steps), tuple(polyline))
+
+
+def _parse_polyline(value: str) -> list[MapLocation]:
+    points: list[MapLocation] = []
+    for pair in value.split(";"):
+        try:
+            longitude, latitude = (float(item) for item in pair.split(",", 1))
+        except (TypeError, ValueError):
+            continue
+        points.append(MapLocation(longitude=longitude, latitude=latitude))
+    return points
+
+
+def _safe_int(value: object) -> int:
+    try:
+        return int(float(str(value)))
+    except ValueError:
+        return 0
 
 
 def amap_proxy_target(path: str) -> str:

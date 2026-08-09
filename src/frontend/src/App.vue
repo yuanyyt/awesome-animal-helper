@@ -10,7 +10,13 @@ import GuideIllustration from "./components/GuideIllustration.vue";
 import SearchDialog from "./components/SearchDialog.vue";
 import SiteFilter from "./components/SiteFilter.vue";
 import ZooMap from "./components/ZooMap.vue";
-import type { AnimalDetail, AnimalListResponse, MapGuide } from "./types";
+import type {
+  AnimalDetail,
+  AnimalListResponse,
+  MapGuide,
+  MapNamedLocation,
+  RouteOption,
+} from "./types";
 
 const data = ref<AnimalListResponse>();
 const selectedSite = ref("");
@@ -21,6 +27,9 @@ const error = ref("");
 const mapGuide = ref<MapGuide>();
 const mapLoading = ref(true);
 const mapError = ref("");
+const selectedRouteSites = ref<string[]>([]);
+const routeOrigin = ref<MapNamedLocation | null>(null);
+const activeRoute = ref<RouteOption | null>(null);
 let controller: AbortController | undefined;
 let mapController: AbortController | undefined;
 let lastTrigger: HTMLElement | null = null;
@@ -44,6 +53,7 @@ async function loadMap(): Promise<void> {
   mapError.value = "";
   try {
     mapGuide.value = await fetchMapGuide(mapController.signal);
+    routeOrigin.value ??= mapGuide.value.default_origin;
   } catch (reason) {
     if ((reason as Error).name !== "AbortError") {
       mapError.value = "园区地图暂时没有打开，请稍后重试。";
@@ -72,6 +82,22 @@ async function loadAnimals(site = selectedSite.value): Promise<void> {
 function changeSite(site: string): void {
   selectedSite.value = site;
   void loadAnimals(site);
+}
+
+function toggleRouteSite(site: string): void {
+  selectedRouteSites.value = selectedRouteSites.value.includes(site)
+    ? selectedRouteSites.value.filter((item) => item !== site)
+    : [...selectedRouteSites.value, site];
+  activeRoute.value = null;
+}
+
+function setRouteOrigin(origin: MapNamedLocation): void {
+  routeOrigin.value = origin;
+  activeRoute.value = null;
+}
+
+function selectRoute(route: RouteOption): void {
+  activeRoute.value = route;
 }
 
 function openAnimal(animal: AnimalDetail, event?: MouseEvent): void {
@@ -159,12 +185,22 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       <ZooMap
         :guide="mapGuide"
         :selected-site="selectedSite"
+        :route-sites="selectedRouteSites"
+        :origin="routeOrigin"
+        :active-route="activeRoute"
         :loading="mapLoading"
         :error="mapError"
         @select="changeSite"
+        @route-toggle="toggleRouteSite"
+        @origin-change="setRouteOrigin"
         @retry="loadMap"
       />
-      <GuideChatBox />
+      <GuideChatBox
+        :selected-sites="selectedRouteSites"
+        :origin="routeOrigin"
+        :active-route-id="activeRoute?.id ?? ''"
+        @route-select="selectRoute"
+      />
     </section>
 
     <section id="venues" class="venue-section" aria-labelledby="venues-title">

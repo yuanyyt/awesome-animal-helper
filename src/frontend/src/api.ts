@@ -1,4 +1,9 @@
-import type { AnimalListResponse, MapGuide } from "./types";
+import type {
+  AnimalListResponse,
+  GuideChatResponse,
+  MapGuide,
+  MapNamedLocation,
+} from "./types";
 
 export interface AnimalQuery {
   q?: string;
@@ -29,4 +34,41 @@ export async function fetchMapGuide(signal?: AbortSignal): Promise<MapGuide> {
     throw new Error(`地图配置请求失败（${response.status}）`);
   }
   return response.json() as Promise<MapGuide>;
+}
+
+export async function sendGuideMessage(
+  message: string,
+  sessionId: string | null,
+  selectedSites: string[],
+  origin: MapNamedLocation | null,
+): Promise<GuideChatResponse> {
+  return guideRequest("/api/guide/chat", {
+    session_id: sessionId,
+    message,
+    map_context: { selected_sites: selectedSites, origin },
+  });
+}
+
+export async function continueGuideRun(
+  runId: string,
+  sessionId: string,
+  values: Record<string, string | number | boolean>,
+): Promise<GuideChatResponse> {
+  return guideRequest(`/api/guide/chat/${encodeURIComponent(runId)}/continue`, {
+    session_id: sessionId,
+    values,
+  });
+}
+
+async function guideRequest(path: string, body: object): Promise<GuideChatResponse> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(payload.detail || `导览请求失败（${response.status}）`);
+  }
+  return response.json() as Promise<GuideChatResponse>;
 }

@@ -51,4 +51,58 @@ export interface MapGuide {
   points: MapPoint[];
   provider: string;
   js_api: MapJsConfig | null;
+  default_origin: MapNamedLocation | null;
+}
+
+export interface MapNamedLocation extends MapLocation {
+  name: string;
+}
+
+export interface RouteStep {
+  instruction: string;
+  distance_meters: number;
+  duration_seconds: number;
+  walk_type: string | null;
+}
+
+export interface RouteLeg {
+  from_name: string;
+  to_name: string;
+  distance_meters: number;
+  duration_seconds: number;
+  steps: RouteStep[];
+  polyline: MapLocation[];
+}
+
+export interface RouteOption {
+  id: string;
+  name: string;
+  description: string;
+  sites: string[];
+  distance_meters: number;
+  walking_minutes: number;
+  visiting_minutes: number;
+  total_minutes: number;
+  calories_kcal: number | null;
+  calories_range_kcal: [number, number] | null;
+  has_stairs: boolean;
+  warnings: string[];
+  legs: RouteLeg[];
+  polyline: MapLocation[];
+}
+
+export interface GuideInputField {
+  name: string;
+  field_type: string;
+  description: string;
+  value: string | number | boolean | string[] | null;
+}
+
+export interface GuideChatResponse {
+  session_id: string;
+  run_id: string;
+  status: "completed" | "input_required";
+  assistant_message: string;
+  required_inputs: GuideInputField[];
+  route_options: RouteOption[];
 }
