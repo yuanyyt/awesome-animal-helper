@@ -137,33 +137,51 @@ function calories(route: RouteOption): string {
       <strong>AGNO · HITL</strong>
     </div>
 
-    <div v-if="messages.length" class="guide-chat__messages" aria-live="polite">
-      <p v-for="(message, index) in messages" :key="index" :class="`is-${message.role}`">
-        <span>{{ message.role === "guide" ? "导览员" : "你" }}</span>{{ message.text }}
-      </p>
-    </div>
+    <div class="guide-chat__scroll">
+      <div v-if="messages.length" class="guide-chat__messages" aria-live="polite">
+        <p v-for="(message, index) in messages" :key="index" :class="`is-${message.role}`">
+          <span>{{ message.role === "guide" ? "导览员" : "你" }}</span>{{ message.text }}
+        </p>
+      </div>
 
-    <div v-if="requiredInputs.length" class="guide-chat__hitl">
-      <p class="guide-chat__hitl-title">补充这些信息，就可以继续规划</p>
-      <label v-for="field in requiredInputs" :key="field.name">
-        <span>{{ field.description }}</span>
-        <select v-if="isEnergyField(field)" v-model="inputValues[field.name]">
-          <option value="轻松">轻松</option><option value="一般">一般</option><option value="充沛">充沛</option>
-        </select>
-        <input
-          v-else-if="isNumberField(field)"
-          v-model.number="inputValues[field.name]"
-          type="number"
-          min="1"
-        />
-        <input v-else v-model="inputValues[field.name]" type="text" />
-      </label>
-    </div>
+      <div v-if="requiredInputs.length" class="guide-chat__hitl">
+        <p class="guide-chat__hitl-title">补充这些信息，就可以继续规划</p>
+        <label v-for="field in requiredInputs" :key="field.name">
+          <span>{{ field.description }}</span>
+          <select v-if="isEnergyField(field)" v-model="inputValues[field.name]">
+            <option value="轻松">轻松</option><option value="一般">一般</option><option value="充沛">充沛</option>
+          </select>
+          <input
+            v-else-if="isNumberField(field)"
+            v-model.number="inputValues[field.name]"
+            type="number"
+            min="1"
+          />
+          <input v-else v-model="inputValues[field.name]" type="text" />
+        </label>
+      </div>
 
-    <div v-else-if="!messages.length" class="guide-chat__prompts" aria-label="导览问题示例">
-      <button type="button" @click="choosePrompt('我有两个小时，体力一般，帮我规划路线')">两小时均衡路线</button>
-      <button type="button" @click="choosePrompt('带孩子轻松逛，想看大熊猫和考拉')">亲子轻松路线</button>
-      <button type="button" @click="choosePrompt('我想尽量多看动物，体力充沛')">尽兴探索路线</button>
+      <div v-else-if="!messages.length" class="guide-chat__prompts" aria-label="导览问题示例">
+        <button type="button" @click="choosePrompt('我有两个小时，体力一般，帮我规划路线')">两小时均衡路线</button>
+        <button type="button" @click="choosePrompt('带孩子轻松逛，想看大熊猫和考拉')">亲子轻松路线</button>
+        <button type="button" @click="choosePrompt('我想尽量多看动物，体力充沛')">尽兴探索路线</button>
+      </div>
+
+      <div v-if="routes.length" class="route-options" aria-label="可选导览路线">
+        <button
+          v-for="route in routes"
+          :key="route.id"
+          type="button"
+          :class="{ 'is-active': activeRouteId === route.id }"
+          @click="emit('routeSelect', route)"
+        >
+          <span class="route-options__eyebrow">{{ route.sites.length }} 站 · {{ Math.round(route.distance_meters / 10) * 10 }} 米</span>
+          <strong>{{ route.name }}</strong>
+          <p>{{ route.description }}</p>
+          <small>{{ route.total_minutes }} 分钟 · {{ calories(route) }}</small>
+          <em v-if="route.has_stairs">含阶梯路段</em>
+        </button>
+      </div>
     </div>
 
     <div class="guide-chat__composer">
@@ -184,20 +202,5 @@ function calories(route: RouteOption): string {
       {{ error || (loading ? "导览员正在查看地图和路况…" : "距离与时间来自高德地图；体力和卡路里为估算") }}
     </p>
 
-    <div v-if="routes.length" class="route-options" aria-label="可选导览路线">
-      <button
-        v-for="route in routes"
-        :key="route.id"
-        type="button"
-        :class="{ 'is-active': activeRouteId === route.id }"
-        @click="emit('routeSelect', route)"
-      >
-        <span class="route-options__eyebrow">{{ route.sites.length }} 站 · {{ Math.round(route.distance_meters / 10) * 10 }} 米</span>
-        <strong>{{ route.name }}</strong>
-        <p>{{ route.description }}</p>
-        <small>{{ route.total_minutes }} 分钟 · {{ calories(route) }}</small>
-        <em v-if="route.has_stairs">含阶梯路段</em>
-      </button>
-    </div>
   </aside>
 </template>

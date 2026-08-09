@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-08-10",
+    "macrostructure": "Map / Diagram",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / cool-green",
+    "vibe": "fixed forest guide workbench",
+    "enrichment": "AMap polygon mask",
+    "nav": "two-page field tabs",
+    "footer": "none",
+    "brief": "固定双页动物园地图导览与场馆动物侧栏"
+  },
+  {
+    "date": "2026-08-10",
     "macrostructure": "Split Studio",
     "theme": "custom",
     "theme_axes": "light / high-contrast-serif / cool-green",

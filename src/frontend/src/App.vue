@@ -2,13 +2,12 @@
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { fetchAnimals, fetchMapGuide } from "./api";
-import AnimalCard from "./components/AnimalCard.vue";
 import AnimalDetailDialog from "./components/AnimalDetailDialog.vue";
+import AnimalPhoto from "./components/AnimalPhoto.vue";
 import ForestPlaceholder from "./components/ForestPlaceholder.vue";
 import GuideChatBox from "./components/GuideChatBox.vue";
 import GuideIllustration from "./components/GuideIllustration.vue";
 import SearchDialog from "./components/SearchDialog.vue";
-import SiteFilter from "./components/SiteFilter.vue";
 import ZooMap from "./components/ZooMap.vue";
 import type {
   AnimalDetail,
@@ -30,6 +29,8 @@ const mapError = ref("");
 const selectedRouteSites = ref<string[]>([]);
 const routeOrigin = ref<MapNamedLocation | null>(null);
 const activeRoute = ref<RouteOption | null>(null);
+type AppPage = "intro" | "guide";
+const activePage = ref<AppPage>(pageFromLocation());
 let controller: AbortController | undefined;
 let mapController: AbortController | undefined;
 let lastTrigger: HTMLElement | null = null;
@@ -38,13 +39,31 @@ onMounted(() => {
   void loadAnimals();
   void loadMap();
   window.addEventListener("keydown", handleGlobalShortcut);
+  window.addEventListener("popstate", syncPageFromLocation);
 });
 
 onBeforeUnmount(() => {
   controller?.abort();
   mapController?.abort();
   window.removeEventListener("keydown", handleGlobalShortcut);
+  window.removeEventListener("popstate", syncPageFromLocation);
 });
+
+function pageFromLocation(): AppPage {
+  return ["#guide", "#map", "#venues", "#animals"].includes(window.location.hash)
+    ? "guide"
+    : "intro";
+}
+
+function syncPageFromLocation(): void {
+  activePage.value = pageFromLocation();
+}
+
+function showPage(page: AppPage): void {
+  if (activePage.value === page) return;
+  activePage.value = page;
+  window.history.pushState(null, "", page === "guide" ? "#guide" : "#home");
+}
 
 async function loadMap(): Promise<void> {
   mapController?.abort();
@@ -138,16 +157,17 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <header class="site-nav">
+  <header class="site-nav" :class="{ 'is-guide': activePage === 'guide' }">
     <p class="site-nav__edition">FOREST FIELD GUIDE · NANJING · HONGSHAN</p>
     <div class="site-nav__inner">
-      <a class="site-nav__brand" href="#top" aria-label="红山动物指南首页">
+      <button class="site-nav__brand" type="button" aria-label="返回红山动物指南首页" @click="showPage('intro')">
         <strong>红山动物志</strong>
-      </a>
+      </button>
       <nav class="site-nav__links" aria-label="主要导航">
-        <a href="#map">园区地图</a>
-        <a href="#venues">场馆漫游</a>
-        <a href="#animals">动物图鉴</a>
+        <div class="page-tabs" aria-label="页面切换">
+          <button type="button" :aria-current="activePage === 'intro' ? 'page' : undefined" @click="showPage('intro')">首页</button>
+          <button type="button" :aria-current="activePage === 'guide' ? 'page' : undefined" @click="showPage('guide')">园区导览</button>
+        </div>
         <button class="search-pill" type="button" aria-label="搜索动物，快捷键 Control 或 Command K" @click="openSearch">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
           <span>搜索动物</span><kbd>⌘ K</kbd>
@@ -156,8 +176,14 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     </div>
   </header>
 
-  <main id="top">
-    <section class="guide-hero" aria-labelledby="intro-title">
+  <main id="top" class="app-pages">
+    <section
+      class="page-panel guide-hero"
+      :class="{ 'is-active': activePage === 'intro' }"
+      :aria-hidden="activePage !== 'intro'"
+      :inert="activePage !== 'intro'"
+      aria-labelledby="intro-title"
+    >
       <div class="guide-hero__copy">
         <p class="guide-hero__kicker">
           {{ data?.total ?? "—" }} 位动物邻居 · {{ data?.sites.length ?? "—" }} 座场馆 · 一次慢慢认识
@@ -167,8 +193,8 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
           从一座场馆出发，听听动物们的故事。这里整理了它们的栖息地、食性、行为和保护状态，也留下一些值得带回家的有趣发现。
         </p>
         <div class="guide-hero__actions">
-          <a class="button-link is-primary" href="#animals">开始看动物</a>
-          <a class="button-link" href="#venues">按场馆逛</a>
+          <button class="button-link is-primary" type="button" @click="showPage('guide')">打开园区地图</button>
+          <button class="button-link" type="button" @click="openSearch">搜索动物邻居</button>
         </div>
         <p class="guide-hero__note">◆ 动物资料整理自 Wikipedia 与 Wikidata</p>
       </div>
@@ -177,88 +203,89 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       </div>
     </section>
 
-    <section id="map" class="map-section" aria-labelledby="map-title">
-      <div class="section-heading map-section__heading">
-        <h2 id="map-title">先在地图上，找到今天的第一站。</h2>
-        <p>点按高德地图中的场馆标记，名册会同步筛选住在那里的动物。</p>
-      </div>
-      <ZooMap
-        :guide="mapGuide"
-        :selected-site="selectedSite"
-        :route-sites="selectedRouteSites"
-        :origin="routeOrigin"
-        :active-route="activeRoute"
-        :loading="mapLoading"
-        :error="mapError"
-        @select="changeSite"
-        @route-toggle="toggleRouteSite"
-        @origin-change="setRouteOrigin"
-        @retry="loadMap"
-      />
-      <GuideChatBox
-        :selected-sites="selectedRouteSites"
-        :origin="routeOrigin"
-        :active-route-id="activeRoute?.id ?? ''"
-        @route-select="selectRoute"
-      />
-    </section>
+    <section
+      id="guide"
+      class="page-panel guide-workspace"
+      :class="{ 'is-active': activePage === 'guide' }"
+      :aria-hidden="activePage !== 'guide'"
+      :inert="activePage !== 'guide'"
+      aria-labelledby="guide-title"
+    >
+      <header class="guide-workspace__heading">
+        <div>
+          <h1 id="guide-title">今天，想先去见谁？</h1>
+          <p>点按园区里的场馆，右侧会展开住在那里的动物。</p>
+        </div>
+        <span>导览范围由场馆点位近似生成 · 非官方园界</span>
+      </header>
 
-    <section id="venues" class="venue-section" aria-labelledby="venues-title">
-      <div class="section-heading">
-        <h2 id="venues-title">从一座场馆，开始今天的漫游。</h2>
-        <p>选择场馆，看看住在那里的动物。它们也可能在园内拥有不止一个家。</p>
-      </div>
-      <SiteFilter
-        :sites="data?.sites ?? []"
-        :selected="selectedSite"
-        :loading="loading"
-        @change="changeSite"
-      />
-    </section>
+      <div class="guide-layout">
+        <div class="guide-layout__main">
+          <ZooMap
+            :guide="mapGuide"
+            :selected-site="selectedSite"
+            :route-sites="selectedRouteSites"
+            :origin="routeOrigin"
+            :active-route="activeRoute"
+            :loading="mapLoading"
+            :error="mapError"
+            @select="changeSite"
+            @route-toggle="toggleRouteSite"
+            @origin-change="setRouteOrigin"
+            @retry="loadMap"
+          />
+          <GuideChatBox
+            :selected-sites="selectedRouteSites"
+            :origin="routeOrigin"
+            :active-route-id="activeRoute?.id ?? ''"
+            @route-select="selectRoute"
+          />
+        </div>
 
-    <section id="animals" class="animals-section" aria-labelledby="animals-title">
-      <div class="section-heading">
-        <h2 id="animals-title">{{ selectedSite ? `${selectedSite}的动物` : "动物观察名册" }}</h2>
-        <p v-if="data">{{ data.filtered_count }} 位动物，点击卡片展开介绍。</p>
-      </div>
+        <aside class="animal-rail" aria-labelledby="animal-rail-title" aria-live="polite">
+          <header class="animal-rail__heading">
+            <div>
+              <p>场馆动物</p>
+              <h2 id="animal-rail-title">{{ selectedSite || "等待你选一站" }}</h2>
+            </div>
+            <strong v-if="selectedSite && data">{{ data.filtered_count }}</strong>
+          </header>
 
-      <div v-if="loading" class="animal-grid" aria-label="正在加载动物资料" aria-live="polite">
-        <div v-for="index in 6" :key="index" class="animal-skeleton"><span></span><i></i><i></i></div>
-      </div>
-
-      <div v-else-if="error" class="state-panel is-error" role="alert">
-        <ForestPlaceholder :variant="2" />
-        <h3>名册暂时合上了</h3>
-        <p>{{ error }}</p>
-        <button type="button" @click="loadAnimals()">重新打开</button>
-      </div>
-
-      <div v-else-if="!data?.items.length" class="state-panel">
-        <ForestPlaceholder :variant="1" />
-        <h3>这里还没有匹配的动物</h3>
-        <p>换一个场馆，或者使用顶部搜索。</p>
-        <button type="button" @click="changeSite('')">查看全部</button>
-      </div>
-
-      <div v-else class="animal-grid">
-        <AnimalCard
-          v-for="(animal, index) in data.items"
-          :key="animal.name"
-          :animal="animal"
-          :index="index"
-          @select="openAnimal(animal, $event)"
-        />
+          <div v-if="!selectedSite" class="animal-rail__empty">
+            <ForestPlaceholder :variant="0" />
+            <p>点击地图上的琥珀色点位，动物邻居会在这里排好队。</p>
+          </div>
+          <div v-else-if="loading" class="animal-rail__list" aria-label="正在加载场馆动物">
+            <div v-for="index in 5" :key="index" class="animal-rail__skeleton"></div>
+          </div>
+          <div v-else-if="error" class="animal-rail__empty is-error" role="alert">
+            <p>{{ error }}</p>
+            <button type="button" @click="loadAnimals()">重新打开名册</button>
+          </div>
+          <div v-else-if="!data?.items.length" class="animal-rail__empty">
+            <p>这座场馆暂时没有匹配的动物资料。</p>
+          </div>
+          <div v-else class="animal-rail__list">
+            <button
+              v-for="(animal, index) in data.items"
+              :key="animal.name"
+              class="animal-rail__animal"
+              type="button"
+              @click="openAnimal(animal, $event)"
+            >
+              <span class="animal-rail__visual"><AnimalPhoto :animal="animal" :variant="index" /></span>
+              <span class="animal-rail__copy">
+                <strong>{{ animal.name }}</strong>
+                <small>{{ animal.scientific_name || "学名待补充" }}</small>
+                <em v-if="animal.conservation_status">{{ animal.conservation_status }}</em>
+              </span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </aside>
       </div>
     </section>
   </main>
-
-  <footer class="site-footer" aria-label="页脚">
-    <p class="site-footer__statement">每一次驻足，都是认识另一种生命的开始。</p>
-    <div class="site-footer__meta">
-      <span>南京红山森林动物园导览 · 动物资料来自公开来源</span>
-      <a href="#top">回到页首 ↑</a>
-    </div>
-  </footer>
 
   <SearchDialog :open="searchOpen" @close="closeSearch" @select="chooseSearchResult" />
   <AnimalDetailDialog :animal="selectedAnimal" @close="closeAnimal" />

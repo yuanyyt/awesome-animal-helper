@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
+import { expandedConvexHull, polygonBounds } from "../mapGeometry";
 import type { MapGuide, MapNamedLocation, MapPoint, RouteOption } from "../types";
 
 const props = defineProps<{
@@ -29,10 +30,33 @@ let map: AmapMap | undefined;
 let amapMarkers: AmapMarker[] = [];
 let routeLine: AmapOverlay | undefined;
 let originMarker: AmapMarker | undefined;
+let boundaryLine: AmapOverlay | undefined;
+let mapBounds: AmapBounds | undefined;
 let readinessTimer: number | undefined;
 const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
 );
+const boundaryPath = computed(() => expandedConvexHull(props.guide?.points ?? [], 1.5));
+const boundaryCoordinates = computed(() =>
+  boundaryPath.value.map(
+    (point) => [point.longitude, point.latitude] as [number, number],
+  ),
+);
+const staticBoundaryStyle = computed<Record<string, string>>(() => {
+  if (!props.guide || boundaryPath.value.length < 3) return {} as Record<string, string>;
+  const center = project(
+    props.guide.center.longitude,
+    props.guide.center.latitude,
+    props.guide.zoom,
+  );
+  const points = boundaryPath.value.map((point) => {
+    const target = project(point.longitude, point.latitude, props.guide!.zoom);
+    const left = 50 + ((target.x - center.x) / 1024) * 100;
+    const top = 50 + ((target.y - center.y) / 640) * 100;
+    return `${left.toFixed(2)}% ${top.toFixed(2)}%`;
+  });
+  return { "--zoo-boundary-clip": `polygon(${points.join(", ")})` };
+});
 
 watch(
   () => props.guide,
@@ -81,12 +105,27 @@ async function initializeInteractiveMap(): Promise<void> {
   try {
     const AMap = await loadAmap(config.api_key, config.service_host);
     if (!mapContainer.value || !props.guide) return;
+    const path = boundaryCoordinates.value;
     map = new AMap.Map(mapContainer.value, {
       center: [props.guide.center.longitude, props.guide.center.latitude],
       zoom: props.guide.zoom,
       viewMode: "2D",
       resizeEnable: true,
     });
+    const bounds = createAmapBounds(AMap, path);
+    mapBounds = bounds;
+    if (path.length >= 3) {
+      boundaryLine = new AMap.Polygon({
+        path: outsideMaskPath(path),
+        fillColor: cssColor("--color-paper"),
+        fillOpacity: 0.78,
+        strokeColor: cssColor("--color-accent"),
+        strokeOpacity: 0.72,
+        strokeWeight: 3,
+        zIndex: 20,
+      });
+      map.add(boundaryLine);
+    }
     map.on("complete", markInteractiveMapReady);
     map.on("click", handleMapClick);
     readinessTimer = window.setTimeout(() => {
@@ -122,6 +161,10 @@ async function initializeInteractiveMap(): Promise<void> {
 function markInteractiveMapReady(): void {
   if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
   readinessTimer = undefined;
+  if (map && mapBounds) {
+    map.setBounds(mapBounds, true, [24, 24, 24, 24]);
+    map.setLimitBounds(mapBounds);
+  }
   interactiveReady.value = true;
 }
 
@@ -154,6 +197,8 @@ function destroyInteractiveMap(): void {
   amapMarkers = [];
   routeLine = undefined;
   originMarker = undefined;
+  boundaryLine = undefined;
+  mapBounds = undefined;
   map?.destroy();
   map = undefined;
   interactiveReady.value = false;
@@ -196,7 +241,7 @@ function updateRouteOverlay(): void {
   if (!path?.length) return;
   routeLine = new window.AMap.Polyline({
     path,
-    strokeColor: "#b84a12",
+    strokeColor: cssColor("--color-coral"),
     strokeWeight: 7,
     strokeOpacity: 0.9,
     lineJoin: "round",
@@ -205,6 +250,42 @@ function updateRouteOverlay(): void {
   });
   map.add(routeLine);
   map.setFitView([routeLine], false, [60, 60, 60, 60]);
+}
+
+function createAmapBounds(
+  AMap: AmapGlobal,
+  path: [number, number][],
+): AmapBounds | undefined {
+  const bounds = polygonBounds(
+    path.map(([longitude, latitude]) => ({ longitude, latitude })),
+  );
+  if (!bounds) return undefined;
+  return new AMap.Bounds(
+    [bounds.southWest.longitude, bounds.southWest.latitude],
+    [bounds.northEast.longitude, bounds.northEast.latitude],
+  );
+}
+
+function outsideMaskPath(path: [number, number][]): [number, number][][] {
+  const bounds = polygonBounds(
+    path.map(([longitude, latitude]) => ({ longitude, latitude })),
+  );
+  if (!bounds) return [path];
+  const longitudePadding =
+    (bounds.northEast.longitude - bounds.southWest.longitude) * 3;
+  const latitudePadding =
+    (bounds.northEast.latitude - bounds.southWest.latitude) * 3;
+  const outer: [number, number][] = [
+    [bounds.southWest.longitude - longitudePadding, bounds.southWest.latitude - latitudePadding],
+    [bounds.northEast.longitude + longitudePadding, bounds.southWest.latitude - latitudePadding],
+    [bounds.northEast.longitude + longitudePadding, bounds.northEast.latitude + latitudePadding],
+    [bounds.southWest.longitude - longitudePadding, bounds.northEast.latitude + latitudePadding],
+  ];
+  return [outer, [...path].reverse()];
+}
+
+function cssColor(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function markerStyle(point: MapPoint, pointIndex: number): Record<string, string> {
@@ -248,6 +329,7 @@ interface AmapMarker {
 }
 
 interface AmapOverlay {}
+interface AmapBounds {}
 
 interface AmapMapClickEvent {
   lnglat: { getLng(): number; getLat(): number };
@@ -260,13 +342,17 @@ interface AmapMap {
   on(event: "complete", handler: () => void): void;
   on(event: "click", handler: (event: AmapMapClickEvent) => void): void;
   panTo(position: [number, number]): void;
+  setBounds(bounds: AmapBounds, immediately: boolean, padding: number[]): void;
   setFitView(overlays: AmapOverlay[], immediately: boolean, padding: number[]): void;
+  setLimitBounds(bounds: AmapBounds): void;
 }
 
 interface AmapGlobal {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AmapMap;
   Marker: new (options: Record<string, unknown>) => AmapMarker;
   Polyline: new (options: Record<string, unknown>) => AmapOverlay;
+  Polygon: new (options: Record<string, unknown>) => AmapOverlay;
+  Bounds: new (southWest: [number, number], northEast: [number, number]) => AmapBounds;
   Pixel: new (x: number, y: number) => object;
 }
 
@@ -327,7 +413,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           {{ settingOrigin ? "请点击地图设置起点" : "在地图上设置起点" }}
         </button>
       </div>
-      <div class="zoo-map__canvas">
+      <div class="zoo-map__canvas" :style="staticBoundaryStyle">
         <template v-if="guide.js_api && !interactiveFailed">
           <div
             ref="mapContainer"
@@ -340,6 +426,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
         </template>
         <template v-else>
           <img
+            class="zoo-map__boundary-image"
             :src="guide.image_url"
             alt="南京红山森林动物园高德地图"
             width="1024"
@@ -371,28 +458,11 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           <span v-if="selectedPoint">
             {{ selectedPoint.address }} · {{ selectedPoint.animal_count }} 种动物
           </span>
-          <span v-else>高德已收录 {{ guide.points.length }} 个园内场馆点位</span>
+          <span v-else>高德已收录 {{ guide.points.length }} 个园内场馆点位 · 绿色轮廓为导览显示范围</span>
         </div>
-        <a v-if="selectedPoint" href="#animals">查看馆内动物 ↓</a>
+        <strong v-if="selectedPoint">右侧查看馆内动物 →</strong>
         <small v-else>地图数据来自 {{ guide.provider }}</small>
       </div>
-      <ol class="zoo-map__places" aria-label="高德地图场馆索引">
-        <li v-for="(point, index) in guide.points" :key="`place-${point.site}`">
-          <button
-            type="button"
-            :class="{
-              'is-active': selectedSite === point.site,
-              'is-route-stop': routeSites.includes(point.site),
-            }"
-            :aria-label="`选择${point.site}场馆`"
-            :aria-pressed="selectedSite === point.site"
-            @click="emit('select', point.site); emit('routeToggle', point.site)"
-          >
-            <span>{{ index + 1 }}</span>
-            {{ point.site }}
-          </button>
-        </li>
-      </ol>
     </template>
   </div>
 </template>

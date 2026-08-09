@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import ForestPlaceholder from "./ForestPlaceholder.vue";
 import type { AnimalDetail } from "../types";
+import AnimalPhoto from "./AnimalPhoto.vue";
 
 defineProps<{ animal: AnimalDetail; index: number }>();
 const emit = defineEmits<{ select: [event: MouseEvent] }>();
@@ -10,7 +10,7 @@ const emit = defineEmits<{ select: [event: MouseEvent] }>();
   <article class="animal-card">
     <button class="animal-card__button" type="button" @click="emit('select', $event)">
       <span class="animal-card__visual">
-        <ForestPlaceholder :variant="index" />
+        <AnimalPhoto :animal="animal" :variant="index" />
         <span v-if="animal.conservation_status" class="animal-card__status">
           {{ animal.conservation_status }}
         </span>
@@ -28,4 +28,3 @@ const emit = defineEmits<{ select: [event: MouseEvent] }>();
     </button>
   </article>
 </template>
-

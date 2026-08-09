@@ -3,7 +3,7 @@ import { watch } from "vue";
 import { ref } from "vue";
 
 import type { AnimalDetail } from "../types";
-import ForestPlaceholder from "./ForestPlaceholder.vue";
+import AnimalPhoto from "./AnimalPhoto.vue";
 
 const props = defineProps<{ animal: AnimalDetail | null }>();
 const emit = defineEmits<{ close: [] }>();
@@ -47,9 +47,10 @@ watch(
           <button class="detail-dialog__close" type="button" aria-label="关闭动物介绍" @click="emit('close')">×</button>
         </header>
 
-        <div class="detail-dialog__illustration">
-          <ForestPlaceholder :variant="animal.name.length" />
-        </div>
+        <figure class="detail-dialog__illustration">
+          <AnimalPhoto :animal="animal" :variant="animal.name.length" />
+          <figcaption>动物图册 · {{ animal.name }}</figcaption>
+        </figure>
 
         <div class="detail-dialog__body">
           <section v-for="field in fields" :key="field.key">
@@ -77,4 +78,3 @@ watch(
     </dialog>
   </Teleport>
 </template>
-
