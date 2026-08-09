@@ -368,20 +368,27 @@ let amapLoader: Promise<AmapGlobal> | undefined;
 function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
   if (window.AMap) return Promise.resolve(window.AMap);
   if (amapLoader) return amapLoader;
+
+  const proxyUrl = new URL(serviceHost, window.location.origin);
+  if (proxyUrl.pathname !== "/_AMapService") {
+    return Promise.reject(new Error("高德安全代理必须使用 /_AMapService 一级路由"));
+  }
   window._AMapSecurityConfig = {
-    serviceHost: new URL(serviceHost, window.location.origin).toString().replace(/\/$/, ""),
+    serviceHost: proxyUrl.toString().replace(/\/$/, ""),
   };
   amapLoader = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.id = "amap-js-api";
     script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(apiKey)}`;
-    script.async = true;
-    script.onload = () => (window.AMap ? resolve(window.AMap) : reject(new Error("AMap 未初始化")));
-    script.onerror = () => {
+    script.async = false;
+    const fail = (message: string) => {
       amapLoader = undefined;
       script.remove();
-      reject(new Error("AMap JS API 加载失败"));
+      reject(new Error(message));
     };
+    script.onload = () =>
+      window.AMap ? resolve(window.AMap) : fail("AMap 未初始化");
+    script.onerror = () => fail("AMap JS API 加载失败");
     document.head.append(script);
   });
   return amapLoader;

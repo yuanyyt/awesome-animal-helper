@@ -31,6 +31,7 @@ ZOO_REGION = "南京"
 MAP_ZOOM = 16
 MAP_WIDTH = 1024
 MAP_HEIGHT = 640
+AMAP_JS_PROXY_PATH = "/_AMapService"
 
 _SITE_ALIASES: dict[str, tuple[str, ...]] = {
     "大熊猫": ("南京熊猫馆", "金陵中华大熊猫苑"),
@@ -142,7 +143,7 @@ class AmapClient:
             js_api=(
                 MapJsConfig(
                     api_key=self.js_api_key,
-                    service_host="/api/amap-service",
+                    service_host=AMAP_JS_PROXY_PATH,
                 )
                 if self.js_api_enabled
                 else None

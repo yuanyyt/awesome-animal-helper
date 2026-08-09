@@ -132,7 +132,7 @@ def get_map_image() -> Response:
 
 
 @app.api_route(
-    "/api/amap-service/{path:path}",
+    "/_AMapService/{path:path}",
     methods=["GET", "POST"],
     response_class=Response,
 )
