@@ -50,4 +50,27 @@ class ParsedPage:
     language: str
     fields: dict[str, str] = field(default_factory=dict)
     missing_fields: list[str] = field(default_factory=list)
+    article_context: str = ""
 
+
+@dataclass
+class WikipediaPage:
+    """Wikipedia page data returned by MediaWiki APIs."""
+
+    title: str
+    url: str
+    language: str
+    page_id: int
+    revision_id: int | None
+    wikidata_id: str
+    extract: str
+    html: str
+
+
+@dataclass
+class StructuredFacts:
+    """Deterministic facts read from Wikidata."""
+
+    wikidata_id: str
+    fields: dict[str, str] = field(default_factory=dict)
+    sources: dict[str, list[str]] = field(default_factory=dict)
