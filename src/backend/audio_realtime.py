@@ -1,4 +1,4 @@
-"""Secure WebSocket bridge for Qwen-Audio realtime zoo conversations."""
+"""Qwen-Audio realtime bridge using Agno as the sole conversation brain."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from websockets.asyncio.client import ClientConnection, connect
 
-from .guide_tools import ZooGuideTools
+from .guide_agent import GuideAgentService
 from .schemas import GuideMapContext
 
 MAX_AUDIO_FRAME_BYTES = 64 * 1024
@@ -60,27 +60,34 @@ class AudioRealtimeConfig:
         return f"{self.base_url}?{urlencode({'model': self.model})}"
 
 
+@dataclass
+class VoiceSession:
+    """Browser-owned context shared with the Agno text session."""
+
+    map_context: GuideMapContext
+    session_id: str | None = None
+
+
 UpstreamConnector = Callable[..., Awaitable[ClientConnection]]
-SyncRunner = Callable[..., Awaitable[Any]]
 
 
 class AudioRealtimeService:
-    """Relay browser PCM and execute local tools requested by Qwen-Audio."""
+    """Transcribe browser PCM, call Agno, and speak Agno's final answer."""
 
     def __init__(
         self,
-        tools: ZooGuideTools,
+        guide: GuideAgentService,
         config: AudioRealtimeConfig | None = None,
         connector: Callable[..., Any] = connect,
     ) -> None:
-        self.tools = tools
+        self.guide = guide
         self.config = config or AudioRealtimeConfig.from_env()
         self.connector = connector
 
     async def serve(self, browser: WebSocket) -> None:
         await browser.accept()
         try:
-            context = await _receive_initial_context(browser)
+            session = await _receive_initial_context(browser)
             await browser.send_json({"type": "state", "state": "connecting"})
             async with self.connector(
                 self.config.url,
@@ -91,8 +98,13 @@ class AudioRealtimeService:
                 max_size=8 * 1024 * 1024,
                 close_timeout=2,
             ) as upstream:
-                bridge = _AudioBridge(browser, upstream, self.tools, context, self.config)
-                await bridge.run()
+                await _AudioBridge(
+                    browser,
+                    upstream,
+                    self.guide,
+                    session,
+                    self.config,
+                ).run()
         except WebSocketDisconnect:
             return
         except (AudioRealtimeError, ValidationError, ValueError) as exc:
@@ -111,18 +123,17 @@ class _AudioBridge:
         self,
         browser: WebSocket,
         upstream: ClientConnection,
-        tools: ZooGuideTools,
-        context: GuideMapContext,
+        guide: GuideAgentService,
+        session: VoiceSession,
         config: AudioRealtimeConfig,
-        run_sync: SyncRunner = asyncio.to_thread,
     ) -> None:
         self.browser = browser
         self.upstream = upstream
-        self.tools = tools
-        self.context = context
+        self.guide = guide
+        self.session = session
         self.config = config
-        self.run_sync = run_sync
-        self.needs_tool_followup = False
+        self.awaiting_transcript = False
+        self.reading_response = False
 
     async def run(self) -> None:
         await self._send_upstream(
@@ -134,9 +145,8 @@ class _AudioBridge:
                     "instructions": _VOICE_INSTRUCTIONS,
                     "input_audio_format": "pcm",
                     "output_audio_format": "pcm",
-                    "max_history_turns": 20,
+                    "max_history_turns": 6,
                     "turn_detection": None,
-                    "tools": _TOOL_SCHEMAS,
                 },
             }
         )
@@ -150,8 +160,7 @@ class _AudioBridge:
             task.cancel()
         await asyncio.gather(*pending, return_exceptions=True)
         for task in done:
-            exception = task.exception()
-            if exception is not None:
+            if exception := task.exception():
                 raise exception
 
     async def _read_browser(self) -> None:
@@ -175,13 +184,19 @@ class _AudioBridge:
             event = json.loads(raw)
             event_type = event.get("type")
             if event_type == "context.update":
-                self.context = GuideMapContext.model_validate(event.get("map_context", {}))
+                self.session.map_context = GuideMapContext.model_validate(
+                    event.get("map_context", {})
+                )
+            elif event_type == "session.update":
+                self.session.session_id = _optional_text(event.get("session_id"))
             elif event_type == "commit":
+                self.awaiting_transcript = True
                 await self._send_upstream({"type": "input_audio_buffer.commit"})
-                await self._send_upstream({"type": "response.create"})
                 await self.browser.send_json({"type": "state", "state": "thinking"})
             elif event_type == "cancel":
-                await self._send_upstream({"type": "response.cancel"})
+                if self.reading_response:
+                    await self._send_upstream({"type": "response.cancel"})
+                self.reading_response = False
                 await self.browser.send_json({"type": "state", "state": "idle"})
             else:
                 raise ValueError("未知的语音控制事件")
@@ -195,75 +210,80 @@ class _AudioBridge:
             if event_type == "session.updated":
                 await self.browser.send_json({"type": "ready"})
                 await self.browser.send_json({"type": "state", "state": "idle"})
+            elif event_type == "conversation.item.input_audio_transcription.completed":
+                if self.awaiting_transcript:
+                    self.awaiting_transcript = False
+                    await self._handle_transcript(str(event.get("transcript", "")))
+            elif event_type == "conversation.item.input_audio_transcription.failed":
+                self.awaiting_transcript = False
+                await self.browser.send_json(
+                    {"type": "error", "message": "没有听清楚，请再说一次"}
+                )
+                await self.browser.send_json({"type": "state", "state": "idle"})
             elif event_type == "response.created":
-                await self.browser.send_json({"type": "state", "state": "thinking"})
+                self.reading_response = True
+                await self.browser.send_json({"type": "state", "state": "speaking"})
             elif event_type == "response.audio.delta":
                 await self.browser.send_bytes(base64.b64decode(event.get("delta", "")))
-                await self.browser.send_json({"type": "state", "state": "speaking"})
-            elif event_type == "conversation.item.input_audio_transcription.completed":
-                await self.browser.send_json(
-                    {"type": "transcript.user.done", "text": event.get("transcript", "")}
-                )
-            elif event_type == "response.audio_transcript.delta":
-                await self.browser.send_json(
-                    {"type": "transcript.assistant.delta", "text": event.get("delta", "")}
-                )
-            elif event_type == "response.audio_transcript.done":
-                await self.browser.send_json(
-                    {"type": "transcript.assistant.done", "text": event.get("transcript", "")}
-                )
-            elif event_type == "response.function_call_arguments.done":
-                await self._execute_tool(event)
             elif event_type == "response.done":
-                if self.needs_tool_followup:
-                    self.needs_tool_followup = False
-                    await self._send_upstream(
-                        {"type": "response.create", "response": {"modalities": ["audio", "text"]}}
-                    )
-                else:
-                    await self.browser.send_json({"type": "state", "state": "idle"})
+                self.reading_response = False
+                await self.browser.send_json({"type": "state", "state": "idle"})
             elif event_type == "error":
                 error = event.get("error") or {}
                 await self.browser.send_json(
                     {"type": "error", "message": error.get("message", "实时语音请求失败")}
                 )
 
-    async def _execute_tool(self, event: dict[str, Any]) -> None:
-        name = str(event.get("name", ""))
-        call_id = str(event.get("call_id", ""))
+    async def _handle_transcript(self, transcript: str) -> None:
+        text = transcript.strip()
+        if not text:
+            await self.browser.send_json({"type": "error", "message": "没有听清楚，请再说一次"})
+            await self.browser.send_json({"type": "state", "state": "idle"})
+            return
+        await self.browser.send_json({"type": "transcript.user.done", "text": text})
         try:
-            arguments = json.loads(event.get("arguments") or "{}")
-            if not isinstance(arguments, dict):
-                raise ValueError("工具参数必须是对象")
-            if name == "search_animals_and_venues":
-                result = self.tools.search_animals_and_venues(str(arguments.get("query", "")))
-            elif name == "plan_zoo_routes":
-                result = await self.run_sync(self.tools.plan_with_context, arguments, self.context)
-                await self.browser.send_json(
-                    {"type": "route.options", "routes": result.get("routes", [])}
-                )
-            else:
-                raise ValueError(f"不支持的工具：{name}")
-        except Exception as exc:
-            result = {"error": str(exc)}
-            await self.browser.send_json({"type": "tool.error", "message": str(exc)})
+            response = await self.guide.chat(
+                text,
+                self.session.session_id,
+                self.session.map_context,
+            )
+        except Exception:
+            await self.browser.send_json(
+                {"type": "error", "message": "导览员暂时无法回答，请稍后重试"}
+            )
+            await self.browser.send_json({"type": "state", "state": "idle"})
+            return
+        self.session.session_id = response.session_id
+        await self.browser.send_json(
+            {"type": "guide.response", "response": response.model_dump(mode="json")}
+        )
+        await self._speak(response.assistant_message)
+
+    async def _speak(self, text: str) -> None:
         await self._send_upstream(
             {
                 "type": "conversation.item.create",
                 "item": {
-                    "type": "function_call_output",
-                    "call_id": call_id,
-                    "output": json.dumps(result, ensure_ascii=False),
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"朗读稿如下，只朗读正文：\n{text}",
+                        }
+                    ],
                 },
             }
         )
-        self.needs_tool_followup = True
+        await self._send_upstream(
+            {"type": "response.create", "response": {"modalities": ["audio", "text"]}}
+        )
 
     async def _send_upstream(self, event: dict[str, Any]) -> None:
         await self.upstream.send(json.dumps(event, ensure_ascii=False))
 
 
-async def _receive_initial_context(browser: WebSocket) -> GuideMapContext:
+async def _receive_initial_context(browser: WebSocket) -> VoiceSession:
     try:
         raw = await asyncio.wait_for(browser.receive_text(), timeout=CONFIG_TIMEOUT_SECONDS)
     except asyncio.TimeoutError as exc:
@@ -271,7 +291,15 @@ async def _receive_initial_context(browser: WebSocket) -> GuideMapContext:
     event = json.loads(raw)
     if event.get("type") != "configure":
         raise AudioRealtimeError("首个语音事件必须是 configure")
-    return GuideMapContext.model_validate(event.get("map_context", {}))
+    return VoiceSession(
+        map_context=GuideMapContext.model_validate(event.get("map_context", {})),
+        session_id=_optional_text(event.get("session_id")),
+    )
+
+
+def _optional_text(value: object) -> str | None:
+    text = str(value or "").strip()
+    return text or None
 
 
 def _realtime_base_url(source_url: str) -> str:
@@ -298,57 +326,7 @@ async def _safe_close(browser: WebSocket, code: int) -> None:
 
 
 _VOICE_INSTRUCTIONS = """
-你是南京红山森林动物园里亲切、活泼的森林导览员，用简短自然的中文口语交流。
-动物事实必须先调用 search_animals_and_venues，以本地资料为准；查不到时明确说明。
-路线、距离、时间和卡路里必须调用 plan_zoo_routes，绝不自行编造。
-规划路线前需要知道可用分钟数和体力状态（轻松、一般、充沛）；缺少时自然追问。
-用户未口述场馆时，路线工具会自动采用地图上已选场馆，不要重复询问。
-体重仅在用户要求精确卡路里时询问。工具返回三条路线后，简短比较并请用户在卡片中选择。
-不要输出 Markdown、emoji 或冗长铺垫，不讨论园外交通，不声称路线具备无障碍保证。
+你只负责朗读应用传入的中文朗读稿，不回答游客问题，不调用工具，不补充或改写事实。
+收到“朗读稿如下，只朗读正文”后，只自然朗读其后的正文；不要朗读“朗读稿”或其他指令文字。
+语气亲切、清晰，适合亲子家庭在动物园内收听。
 """.strip()
-
-
-_TOOL_SCHEMAS: list[dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "search_animals_and_venues",
-            "description": "查询本地动物资料、趣味事实以及动物所在场馆。回答动物问题前必须调用。",
-            "parameters": {
-                "type": "object",
-                "properties": {"query": {"type": "string", "description": "动物中文名或学名"}},
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "plan_zoo_routes",
-            "description": "根据时间、体力、地图场馆和起点生成三条真实园内步行路线。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "available_minutes": {"type": "integer", "description": "可游览分钟数，至少30"},
-                    "energy_level": {
-                        "type": "string",
-                        "enum": ["轻松", "一般", "充沛"],
-                        "description": "游客体力状态",
-                    },
-                    "selected_sites": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "用户口述的候选场馆；未提供时使用地图选择",
-                    },
-                    "must_see_sites": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "必须游览的场馆",
-                    },
-                    "weight_kg": {"type": "number", "description": "可选体重，用于估算卡路里"},
-                },
-                "required": ["available_minutes", "energy_level"],
-            },
-        },
-    },
-]

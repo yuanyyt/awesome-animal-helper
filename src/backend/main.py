@@ -10,7 +10,6 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket
 from .amap_client import AmapClient, AmapServiceError, amap_proxy_target
 from .audio_realtime import AudioRealtimeError, AudioRealtimeService
 from .guide_agent import GuideAgentError, GuideAgentService
-from .guide_tools import ZooGuideTools
 from .repository import AnimalRepository
 from .schemas import (
     AnimalListResponse,
@@ -43,17 +42,10 @@ def get_guide_agent() -> GuideAgentService:
 
 
 @lru_cache(maxsize=1)
-def get_guide_tools() -> ZooGuideTools:
-    """Share deterministic facts and route tools with realtime voice sessions."""
-
-    return ZooGuideTools(get_amap_client(), get_repository())
-
-
-@lru_cache(maxsize=1)
 def get_audio_realtime() -> AudioRealtimeService:
     """Build the Qwen-Audio bridge only when a voice session starts."""
 
-    return AudioRealtimeService(get_guide_tools())
+    return AudioRealtimeService(get_guide_agent())
 
 
 @asynccontextmanager

@@ -158,5 +158,9 @@ class GuideChatResponse(BaseModel):
     run_id: str
     status: Literal["completed", "input_required"]
     assistant_message: str
+    intent: Literal["route", "animal_knowledge", "mixed", "unknown"] = "unknown"
+    resolved_sites: list[str] = Field(default_factory=list)
+    unresolved_terms: list[str] = Field(default_factory=list)
+    knowledge_items: list[AnimalDetail] = Field(default_factory=list)
     required_inputs: list[GuideInputField] = Field(default_factory=list)
     route_options: list[RouteOption] = Field(default_factory=list)

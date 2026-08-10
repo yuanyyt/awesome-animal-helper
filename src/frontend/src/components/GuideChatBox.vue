@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import { continueGuideRun, sendGuideMessage } from "../api";
 import type {
+  AnimalDetail,
   GuideChatResponse,
   GuideInputField,
   MapNamedLocation,
   RouteOption,
 } from "../types";
 import { VoiceGuideClient, type VoiceState } from "../voiceGuide";
+import AnimalPhoto from "./AnimalPhoto.vue";
 
 const props = defineProps<{
   selectedSites: string[];
+  selectedSite: string;
+  animals: AnimalDetail[];
+  animalsLoading: boolean;
+  animalsError: string;
   origin: MapNamedLocation | null;
   activeRouteId: string;
 }>();
@@ -19,35 +25,39 @@ const props = defineProps<{
 const emit = defineEmits<{
   routes: [routes: RouteOption[]];
   routeSelect: [route: RouteOption];
+  animalSelect: [animal: AnimalDetail, event: MouseEvent];
+  animalsRetry: [];
 }>();
 
-interface ChatMessage {
-  role: "visitor" | "guide";
-  text: string;
-}
+type TimelineItem =
+  | { id: number; kind: "message"; role: "visitor" | "guide"; text: string; response?: GuideChatResponse }
+  | { id: number; kind: "map" }
+  | { id: number; kind: "animals" };
 
 const question = ref("");
-const messages = ref<ChatMessage[]>([]);
+const timeline = ref<TimelineItem[]>([]);
 const requiredInputs = ref<GuideInputField[]>([]);
-const routes = ref<RouteOption[]>([]);
 const runId = ref("");
 const loading = ref(false);
 const error = ref("");
 const voiceState = ref<VoiceState>("disconnected");
-const voiceMessageIndex = ref<number | null>(null);
+const scrollArea = ref<HTMLElement | null>(null);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
+let nextItemId = 1;
 
 const voiceClient = new VoiceGuideClient(
-  { selectedSites: props.selectedSites, origin: props.origin },
+  {
+    selectedSites: props.selectedSites,
+    origin: props.origin,
+    sessionId: sessionId.value,
+  },
   {
     onState: (state) => {
       voiceState.value = state;
     },
-    onUserTranscript: (text) => messages.value.push({ role: "visitor", text }),
-    onAssistantDelta: appendVoiceAnswer,
-    onAssistantDone: finishVoiceAnswer,
-    onRoutes: handleVoiceRoutes,
+    onUserTranscript: (text) => pushMessage("visitor", text),
+    onGuideResponse: handleResponse,
     onError: (message) => {
       error.value = message;
     },
@@ -55,10 +65,27 @@ const voiceClient = new VoiceGuideClient(
 );
 
 watch(
-  [() => props.selectedSites, () => props.origin],
-  () => voiceClient.updateContext({ selectedSites: props.selectedSites, origin: props.origin }),
+  [() => props.selectedSites, () => props.origin, sessionId],
+  () =>
+    voiceClient.updateContext({
+      selectedSites: props.selectedSites,
+      origin: props.origin,
+      sessionId: sessionId.value,
+    }),
   { deep: true },
 );
+
+watch(
+  () => props.selectedSite,
+  (site) => {
+    if (!site) return;
+    showMap();
+    timeline.value = timeline.value.filter((item) => item.kind !== "animals");
+    timeline.value.push({ id: nextItemId++, kind: "animals" });
+    scrollToLatest();
+  },
+);
+
 onBeforeUnmount(() => voiceClient.close());
 
 const voiceBusy = computed(() => !["disconnected", "idle"].includes(voiceState.value));
@@ -69,11 +96,10 @@ const voiceStatus = computed(() => {
     idle: "点击麦克风开始说话",
     recording: "正在听，再点一次就发送",
     thinking: "导览员正在查资料和地图…",
-    speaking: "导览员正在回答，再点麦克风可以打断",
+    speaking: "导览员正在朗读，再点麦克风可以打断",
   };
   return labels[voiceState.value];
 });
-
 const canSubmit = computed(
   () =>
     !loading.value &&
@@ -90,26 +116,21 @@ async function submit(): Promise<void> {
       const values = Object.fromEntries(
         requiredInputs.value.map((field) => [field.name, inputValues[field.name] ?? ""]),
       );
-      const response = await continueGuideRun(runId.value, sessionId.value, values);
-      messages.value.push({ role: "visitor", text: summarizeInputs() });
-      handleResponse(response);
+      pushMessage("visitor", summarizeInputs());
+      handleResponse(await continueGuideRun(runId.value, sessionId.value, values));
     } else {
       const message = question.value.trim();
-      messages.value.push({ role: "visitor", text: message });
+      pushMessage("visitor", message);
       question.value = "";
       handleResponse(
-        await sendGuideMessage(
-          message,
-          sessionId.value || null,
-          props.selectedSites,
-          props.origin,
-        ),
+        await sendGuideMessage(message, sessionId.value || null, props.selectedSites, props.origin),
       );
     }
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
   } finally {
     loading.value = false;
+    scrollToLatest();
   }
 }
 
@@ -119,15 +140,32 @@ function handleResponse(response: GuideChatResponse): void {
   window.localStorage.setItem("hongshan-guide-session", response.session_id);
   requiredInputs.value = response.required_inputs;
   for (const key of Object.keys(inputValues)) delete inputValues[key];
-  for (const field of requiredInputs.value) {
-    inputValues[field.name] = suggestedValue(field);
+  for (const field of requiredInputs.value) inputValues[field.name] = suggestedValue(field);
+
+  timeline.value.push({
+    id: nextItemId++,
+    kind: "message",
+    role: "guide",
+    text: response.assistant_message,
+    response,
+  });
+  if (response.route_options.length) {
+    emit("routes", response.route_options);
+    emit("routeSelect", response.route_options[1] ?? response.route_options[0]);
+    showMap();
   }
-  messages.value.push({ role: "guide", text: response.assistant_message });
-  routes.value = response.route_options;
-  if (routes.value.length) {
-    emit("routes", routes.value);
-    emit("routeSelect", routes.value[1] ?? routes.value[0]);
-  }
+  scrollToLatest();
+}
+
+function pushMessage(role: "visitor" | "guide", text: string): void {
+  timeline.value.push({ id: nextItemId++, kind: "message", role, text });
+  scrollToLatest();
+}
+
+function showMap(): void {
+  if (timeline.value.some((item) => item.kind === "map")) return;
+  timeline.value.push({ id: nextItemId++, kind: "map" });
+  scrollToLatest();
 }
 
 function suggestedValue(field: GuideInputField): string | number | boolean {
@@ -161,12 +199,8 @@ async function toggleVoice(): Promise<void> {
   if (loading.value) return;
   error.value = "";
   try {
-    if (voiceState.value === "recording") {
-      await voiceClient.stopRecording();
-    } else {
-      voiceMessageIndex.value = null;
-      await voiceClient.startRecording();
-    }
+    if (voiceState.value === "recording") await voiceClient.stopRecording();
+    else await voiceClient.startRecording();
   } catch (reason) {
     error.value =
       reason instanceof DOMException && reason.name === "NotAllowedError"
@@ -178,30 +212,6 @@ async function toggleVoice(): Promise<void> {
   }
 }
 
-function appendVoiceAnswer(delta: string): void {
-  if (voiceMessageIndex.value === null) {
-    messages.value.push({ role: "guide", text: "" });
-    voiceMessageIndex.value = messages.value.length - 1;
-  }
-  messages.value[voiceMessageIndex.value].text += delta;
-}
-
-function finishVoiceAnswer(text: string): void {
-  if (voiceMessageIndex.value === null && text) {
-    messages.value.push({ role: "guide", text });
-  } else if (voiceMessageIndex.value !== null && text) {
-    messages.value[voiceMessageIndex.value].text = text;
-  }
-  voiceMessageIndex.value = null;
-}
-
-function handleVoiceRoutes(options: RouteOption[]): void {
-  routes.value = options;
-  if (!options.length) return;
-  emit("routes", options);
-  emit("routeSelect", options[1] ?? options[0]);
-}
-
 function calories(route: RouteOption): string {
   if (route.calories_kcal !== null) return `约 ${route.calories_kcal} 千卡`;
   if (route.calories_range_kcal) {
@@ -209,100 +219,155 @@ function calories(route: RouteOption): string {
   }
   return "卡路里待估算";
 }
+
+function scrollToLatest(): void {
+  void nextTick(() => scrollArea.value?.scrollTo({ top: scrollArea.value.scrollHeight, behavior: "smooth" }));
+}
 </script>
 
 <template>
-  <aside class="guide-chat" aria-labelledby="guide-chat-title">
-    <div class="guide-chat__intro">
+  <section class="guide-chat" aria-labelledby="guide-chat-title">
+    <header class="guide-chat__intro">
       <span aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M5 18c1-7 5-11 14-12-1 9-5 13-12 13" /><path d="M7 19c3-4 6-7 11-10" /></svg>
       </span>
       <div>
-        <h3 id="guide-chat-title">问问森林导览员</h3>
-        <p>{{ selectedSites.length ? `地图已选 ${selectedSites.length} 个场馆` : "可以先点地图，也可以直接告诉我想看什么" }}</p>
+        <h2 id="guide-chat-title">问问森林导览员</h2>
+        <p>{{ selectedSites.length ? `已选 ${selectedSites.length} 个场馆` : "路线和动物知识，都可以从一句话开始" }}</p>
       </div>
       <strong>AGNO · VOICE</strong>
-    </div>
+    </header>
 
-    <div class="guide-chat__scroll">
-      <div v-if="messages.length" class="guide-chat__messages" aria-live="polite">
-        <p v-for="(message, index) in messages" :key="index" :class="`is-${message.role}`">
-          <span>{{ message.role === "guide" ? "导览员" : "你" }}</span>{{ message.text }}
-        </p>
-      </div>
+    <div ref="scrollArea" class="guide-chat__scroll" aria-live="polite">
+      <article class="chat-turn is-guide is-welcome">
+        <span class="chat-turn__speaker">导览员</span>
+        <div class="chat-turn__bubble">
+          <p>您好，我可以陪您规划园内路线，也可以讲讲动物邻居的故事。</p>
+          <div class="guide-chat__prompts" aria-label="导览快捷操作">
+            <button type="button" @click="showMap">打开园区地图</button>
+            <button type="button" @click="choosePrompt('带孩子轻松逛，想看大熊猫和考拉')">亲子轻松路线</button>
+            <button type="button" @click="choosePrompt('给我介绍一下大熊猫的生活习性')">认识大熊猫</button>
+          </div>
+        </div>
+      </article>
 
-      <div v-if="requiredInputs.length" class="guide-chat__hitl">
+      <template v-for="item in timeline" :key="item.id">
+        <article v-if="item.kind === 'message'" class="chat-turn" :class="`is-${item.role}`">
+          <span class="chat-turn__speaker">{{ item.role === "guide" ? "导览员" : "你" }}</span>
+          <div class="chat-turn__bubble">
+            <p>{{ item.text }}</p>
+            <p v-if="item.response?.unresolved_terms.length" class="chat-turn__warning">
+              暂无可靠地图点位：{{ item.response.unresolved_terms.join("、") }}
+            </p>
+
+            <div v-if="item.response?.knowledge_items.length" class="knowledge-cards">
+              <button
+                v-for="(animal, index) in item.response.knowledge_items"
+                :key="animal.name"
+                type="button"
+                @click="emit('animalSelect', animal, $event)"
+              >
+                <AnimalPhoto :animal="animal" :variant="index" />
+                <span><strong>{{ animal.name }}</strong><small>{{ animal.scientific_name || "学名待补充" }}</small></span>
+                <em>{{ animal.sites.join(" · ") || "场馆待确认" }}</em>
+              </button>
+            </div>
+
+            <div v-if="item.response?.route_options.length" class="route-options" aria-label="可选导览路线">
+              <button
+                v-for="route in item.response.route_options"
+                :key="route.id"
+                type="button"
+                :class="{ 'is-active': activeRouteId === route.id }"
+                @click="emit('routeSelect', route)"
+              >
+                <span class="route-options__eyebrow">{{ route.sites.length }} 站 · {{ Math.round(route.distance_meters / 10) * 10 }} 米</span>
+                <strong>{{ route.name }}</strong>
+                <p>{{ route.description }}</p>
+                <small>{{ route.total_minutes }} 分钟 · {{ calories(route) }}</small>
+                <em v-if="route.warnings.length">{{ route.warnings.join("；") }}</em>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article v-else-if="item.kind === 'map'" class="chat-artifact is-map">
+          <header><span>园区地图</span><p>点按场馆，加入今天的路线。</p></header>
+          <slot name="map"></slot>
+        </article>
+
+        <article v-else class="chat-artifact is-animals">
+          <header><span>{{ selectedSite }}</span><p>住在这座场馆的动物邻居</p></header>
+          <div v-if="animalsLoading" class="chat-animal-grid" aria-label="正在加载场馆动物">
+            <div v-for="index in 4" :key="index" class="chat-animal-skeleton"></div>
+          </div>
+          <div v-else-if="animalsError" class="chat-artifact__empty is-error">
+            <p>{{ animalsError }}</p><button type="button" @click="emit('animalsRetry')">重新打开名册</button>
+          </div>
+          <div v-else-if="!animals.length" class="chat-artifact__empty"><p>这座场馆暂时没有匹配的动物资料。</p></div>
+          <div v-else class="chat-animal-grid">
+            <button
+              v-for="(animal, index) in animals"
+              :key="animal.name"
+              type="button"
+              @click="emit('animalSelect', animal, $event)"
+            >
+              <AnimalPhoto :animal="animal" :variant="index" />
+              <span><strong>{{ animal.name }}</strong><small>{{ animal.scientific_name || "学名待补充" }}</small></span>
+            </button>
+          </div>
+        </article>
+      </template>
+
+      <form v-if="requiredInputs.length" class="guide-chat__hitl" @submit.prevent="submit">
         <p class="guide-chat__hitl-title">补充这些信息，就可以继续规划</p>
         <label v-for="field in requiredInputs" :key="field.name">
           <span>{{ field.description }}</span>
           <select v-if="isEnergyField(field)" v-model="inputValues[field.name]">
             <option value="轻松">轻松</option><option value="一般">一般</option><option value="充沛">充沛</option>
           </select>
-          <input
-            v-else-if="isNumberField(field)"
-            v-model.number="inputValues[field.name]"
-            type="number"
-            min="1"
-          />
+          <input v-else-if="isNumberField(field)" v-model.number="inputValues[field.name]" type="number" min="1" />
           <input v-else v-model="inputValues[field.name]" type="text" />
         </label>
-      </div>
+        <button type="submit" :disabled="!canSubmit">继续规划</button>
+      </form>
 
-      <div v-else-if="!messages.length" class="guide-chat__prompts" aria-label="导览问题示例">
-        <button type="button" @click="choosePrompt('我有两个小时，体力一般，帮我规划路线')">两小时均衡路线</button>
-        <button type="button" @click="choosePrompt('带孩子轻松逛，想看大熊猫和考拉')">亲子轻松路线</button>
-        <button type="button" @click="choosePrompt('我想尽量多看动物，体力充沛')">尽兴探索路线</button>
-      </div>
+      <p v-if="loading" class="chat-thinking"><span></span><span></span><span></span>导览员正在查看资料</p>
+    </div>
 
-      <div v-if="routes.length" class="route-options" aria-label="可选导览路线">
+    <footer class="guide-chat__dock">
+      <div class="guide-chat__composer">
+        <label class="visually-hidden" for="guide-question">导览问题</label>
         <button
-          v-for="route in routes"
-          :key="route.id"
+          class="guide-chat__voice"
+          :class="{ 'is-recording': voiceState === 'recording' }"
           type="button"
-          :class="{ 'is-active': activeRouteId === route.id }"
-          @click="emit('routeSelect', route)"
+          :disabled="loading || voiceState === 'connecting'"
+          :aria-label="voiceState === 'recording' ? '结束录音并发送' : '开始语音导览'"
+          :title="voiceStatus"
+          @click="toggleVoice"
         >
-          <span class="route-options__eyebrow">{{ route.sites.length }} 站 · {{ Math.round(route.distance_meters / 10) * 10 }} 米</span>
-          <strong>{{ route.name }}</strong>
-          <p>{{ route.description }}</p>
-          <small>{{ route.total_minutes }} 分钟 · {{ calories(route) }}</small>
-          <em v-if="route.has_stairs">含阶梯路段</em>
+          <svg v-if="voiceState !== 'recording'" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="8" y="3" width="8" height="12" rx="4" />
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+          </svg>
+          <span v-else aria-hidden="true"></span>
+        </button>
+        <textarea
+          id="guide-question"
+          v-model="question"
+          :readonly="requiredInputs.length > 0 || voiceBusy"
+          rows="2"
+          :placeholder="requiredInputs.length ? '请先填写上面的信息…' : '问路线，或深入了解一种动物…'"
+          @keydown.enter.exact.prevent="submit"
+        ></textarea>
+        <button class="guide-chat__send" type="button" :disabled="!canSubmit" aria-label="发送导览问题" @click="submit">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-5 14-2.5-5.5L5 12Z" /></svg>
         </button>
       </div>
-    </div>
-
-    <div class="guide-chat__composer">
-      <label class="visually-hidden" for="guide-question">导览问题</label>
-      <button
-        class="guide-chat__voice"
-        :class="{ 'is-recording': voiceState === 'recording' }"
-        type="button"
-        :disabled="loading || voiceState === 'connecting'"
-        :aria-label="voiceState === 'recording' ? '结束录音并发送' : '开始语音导览'"
-        :title="voiceStatus"
-        @click="toggleVoice"
-      >
-        <svg v-if="voiceState !== 'recording'" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="8" y="3" width="8" height="12" rx="4" />
-          <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
-        </svg>
-        <span v-else aria-hidden="true"></span>
-      </button>
-      <textarea
-        id="guide-question"
-        v-model="question"
-        :readonly="requiredInputs.length > 0 || voiceBusy"
-        rows="2"
-        :placeholder="requiredInputs.length ? '请先填写上面的信息…' : '例如：我有两小时，带着孩子，想先看大熊猫…'"
-        @keydown.enter.exact.prevent="submit"
-      ></textarea>
-      <button class="guide-chat__send" type="button" :disabled="!canSubmit" aria-label="发送导览问题" @click="submit">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-5 14-2.5-5.5L5 12Z" /></svg>
-      </button>
-    </div>
-    <p class="guide-chat__helper" :class="{ 'is-error': error }">
-      {{ error || (loading ? "导览员正在查看地图和路况…" : voiceBusy ? voiceStatus : "可打字或点击麦克风；距离与时间来自高德地图") }}
-    </p>
-
-  </aside>
+      <p class="guide-chat__helper" :class="{ 'is-error': error }">
+        {{ error || (voiceBusy ? voiceStatus : "语音和文字会记录在同一段导览对话中") }}
+      </p>
+    </footer>
+  </section>
 </template>

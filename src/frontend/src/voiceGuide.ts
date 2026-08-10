@@ -1,4 +1,4 @@
-import type { MapNamedLocation, RouteOption } from "./types";
+import type { GuideChatResponse, MapNamedLocation } from "./types";
 
 export type VoiceState =
   | "disconnected"
@@ -11,14 +11,13 @@ export type VoiceState =
 interface VoiceMapContext {
   selectedSites: string[];
   origin: MapNamedLocation | null;
+  sessionId: string;
 }
 
 interface VoiceHandlers {
   onState: (state: VoiceState) => void;
   onUserTranscript: (text: string) => void;
-  onAssistantDelta: (text: string) => void;
-  onAssistantDone: (text: string) => void;
-  onRoutes: (routes: RouteOption[]) => void;
+  onGuideResponse: (response: GuideChatResponse) => void;
   onError: (message: string) => void;
 }
 
@@ -27,7 +26,7 @@ interface ServerEvent {
   state?: VoiceState;
   text?: string;
   message?: string;
-  routes?: RouteOption[];
+  response?: GuideChatResponse;
 }
 
 const READY_TIMEOUT_MS = 15_000;
@@ -55,6 +54,7 @@ export class VoiceGuideClient {
     this.context = context;
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.sendJson({ type: "context.update", map_context: this.mapContextPayload() });
+      this.sendJson({ type: "session.update", session_id: this.context.sessionId });
     }
   }
 
@@ -157,7 +157,11 @@ export class VoiceGuideClient {
       this.rejectReady = reject;
     });
     socket.onopen = () => {
-      this.sendJson({ type: "configure", map_context: this.mapContextPayload() });
+      this.sendJson({
+        type: "configure",
+        session_id: this.context.sessionId || null,
+        map_context: this.mapContextPayload(),
+      });
     };
     socket.onmessage = (event) => this.handleMessage(event);
     socket.onerror = () => this.handlers.onError("语音连接遇到网络问题");
@@ -191,12 +195,9 @@ export class VoiceGuideClient {
       this.setState(payload.state);
     } else if (payload.type === "transcript.user.done") {
       if (payload.text?.trim()) this.handlers.onUserTranscript(payload.text.trim());
-    } else if (payload.type === "transcript.assistant.delta") {
-      if (payload.text) this.handlers.onAssistantDelta(payload.text);
-    } else if (payload.type === "transcript.assistant.done") {
-      this.handlers.onAssistantDone(payload.text?.trim() || "");
-    } else if (payload.type === "route.options") {
-      this.handlers.onRoutes(payload.routes || []);
+    } else if (payload.type === "guide.response" && payload.response) {
+      this.context.sessionId = payload.response.session_id;
+      this.handlers.onGuideResponse(payload.response);
     } else if (payload.type === "error" || payload.type === "tool.error") {
       this.handlers.onError(payload.message || "实时语音请求失败");
     }

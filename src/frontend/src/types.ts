@@ -103,6 +103,10 @@ export interface GuideChatResponse {
   run_id: string;
   status: "completed" | "input_required";
   assistant_message: string;
+  intent: "route" | "animal_knowledge" | "mixed" | "unknown";
+  resolved_sites: string[];
+  unresolved_terms: string[];
+  knowledge_items: AnimalDetail[];
   required_inputs: GuideInputField[];
   route_options: RouteOption[];
 }

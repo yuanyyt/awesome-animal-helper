@@ -3,8 +3,6 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { fetchAnimals, fetchMapGuide } from "./api";
 import AnimalDetailDialog from "./components/AnimalDetailDialog.vue";
-import AnimalPhoto from "./components/AnimalPhoto.vue";
-import ForestPlaceholder from "./components/ForestPlaceholder.vue";
 import GuideChatBox from "./components/GuideChatBox.vue";
 import GuideIllustration from "./components/GuideIllustration.vue";
 import SearchDialog from "./components/SearchDialog.vue";
@@ -213,14 +211,25 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     >
       <header class="guide-workspace__heading">
         <div>
-          <h1 id="guide-title">今天，想先去见谁？</h1>
-          <p>点按园区里的场馆，右侧会展开住在那里的动物。</p>
+          <h1 id="guide-title">今天，想问什么？</h1>
+          <p>问一句，导览员会带来路线、地图或动物故事。</p>
         </div>
-        <span>导览范围由场馆点位近似生成 · 非官方园界</span>
+        <span>AGNO 对话 · 高德路线 · 本地动物资料</span>
       </header>
 
-      <div class="guide-layout">
-        <div class="guide-layout__main">
+      <GuideChatBox
+        :selected-sites="selectedRouteSites"
+        :selected-site="selectedSite"
+        :animals="data?.items ?? []"
+        :animals-loading="loading"
+        :animals-error="error"
+        :origin="routeOrigin"
+        :active-route-id="activeRoute?.id ?? ''"
+        @route-select="selectRoute"
+        @animal-select="openAnimal"
+        @animals-retry="loadAnimals()"
+      >
+        <template #map>
           <ZooMap
             :guide="mapGuide"
             :selected-site="selectedSite"
@@ -234,56 +243,8 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
             @origin-change="setRouteOrigin"
             @retry="loadMap"
           />
-          <GuideChatBox
-            :selected-sites="selectedRouteSites"
-            :origin="routeOrigin"
-            :active-route-id="activeRoute?.id ?? ''"
-            @route-select="selectRoute"
-          />
-        </div>
-
-        <aside class="animal-rail" aria-labelledby="animal-rail-title" aria-live="polite">
-          <header class="animal-rail__heading">
-            <div>
-              <p>场馆动物</p>
-              <h2 id="animal-rail-title">{{ selectedSite || "等待你选一站" }}</h2>
-            </div>
-            <strong v-if="selectedSite && data">{{ data.filtered_count }}</strong>
-          </header>
-
-          <div v-if="!selectedSite" class="animal-rail__empty">
-            <ForestPlaceholder :variant="0" />
-            <p>点击地图上的琥珀色点位，动物邻居会在这里排好队。</p>
-          </div>
-          <div v-else-if="loading" class="animal-rail__list" aria-label="正在加载场馆动物">
-            <div v-for="index in 5" :key="index" class="animal-rail__skeleton"></div>
-          </div>
-          <div v-else-if="error" class="animal-rail__empty is-error" role="alert">
-            <p>{{ error }}</p>
-            <button type="button" @click="loadAnimals()">重新打开名册</button>
-          </div>
-          <div v-else-if="!data?.items.length" class="animal-rail__empty">
-            <p>这座场馆暂时没有匹配的动物资料。</p>
-          </div>
-          <div v-else class="animal-rail__list">
-            <button
-              v-for="(animal, index) in data.items"
-              :key="animal.name"
-              class="animal-rail__animal"
-              type="button"
-              @click="openAnimal(animal, $event)"
-            >
-              <span class="animal-rail__visual"><AnimalPhoto :animal="animal" :variant="index" /></span>
-              <span class="animal-rail__copy">
-                <strong>{{ animal.name }}</strong>
-                <small>{{ animal.scientific_name || "学名待补充" }}</small>
-                <em v-if="animal.conservation_status">{{ animal.conservation_status }}</em>
-              </span>
-              <span aria-hidden="true">↗</span>
-            </button>
-          </div>
-        </aside>
-      </div>
+        </template>
+      </GuideChatBox>
     </section>
   </main>
 

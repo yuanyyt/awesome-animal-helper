@@ -1,5 +1,5 @@
-/* Hallmark · macrostructure: Map / Diagram · genre: playful-editorial · theme: studied-DNA (source: attached field-almanac reference image) · tone: field-guide-playful · anchor hue: forest-green
- * enrichment: Tier-B binocular SVG · nav: two-page field tabs · footer: none (fixed app viewport) · critique: P5 H5 E5 S5 R5 V5
+/* Hallmark · macrostructure: Workbench · genre: playful-editorial · theme: field-guide dialogue · tone: child-friendly editorial · anchor hue: forest-green + warm-amber
+ * enrichment: real AMap + animal photography · nav: N13 field tabs · footer: conversation dock · critique: P5 H5 E5 S5 R5 V5
  * contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47)
  * tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50–57)
  */
@@ -2235,6 +2235,468 @@ body {
 
   .animal-rail__animal {
     grid-template-columns: 4rem minmax(0, 1fr) auto;
+  }
+}
+
+/* Conversation workbench */
+.guide-workspace {
+  overflow: hidden;
+}
+
+.guide-workspace > .guide-chat {
+  width: min(100%, 72rem);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-inline: auto;
+  overflow: hidden;
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-3);
+  box-shadow: 0 1rem 2.5rem var(--color-shadow);
+}
+
+.guide-workspace > .guide-chat .guide-chat__intro {
+  min-height: 4.75rem;
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  margin: 0;
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper-2);
+}
+
+.guide-chat__intro > span {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-sun);
+}
+
+.guide-chat__intro > span svg {
+  width: 1.35rem;
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-linecap: round;
+  stroke-width: 1.7;
+}
+
+.guide-chat__intro h2,
+.guide-chat__intro p {
+  margin: 0;
+}
+
+.guide-chat__intro h2 {
+  font-size: var(--text-lg);
+}
+
+.guide-chat__intro p {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+.guide-chat__intro > strong {
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.guide-workspace > .guide-chat .guide-chat__scroll {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-2xl));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-rule-strong) transparent;
+}
+
+.chat-turn {
+  width: min(100%, 54rem);
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.chat-turn.is-visitor {
+  width: min(86%, 42rem);
+  align-self: flex-end;
+}
+
+.chat-turn__speaker {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.chat-turn.is-visitor .chat-turn__speaker {
+  text-align: end;
+}
+
+.chat-turn__bubble {
+  min-width: 0;
+  padding: var(--space-md) var(--space-lg);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+}
+
+.chat-turn.is-guide .chat-turn__bubble {
+  border-inline-start: var(--rule-strong) solid var(--color-accent);
+}
+
+.chat-turn.is-visitor .chat-turn__bubble {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.chat-turn__bubble > p {
+  max-width: 68ch;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.chat-turn__warning {
+  margin-top: var(--space-sm) !important;
+  padding-top: var(--space-sm);
+  border-top: var(--rule-hair) solid var(--color-rule);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.guide-chat__prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.guide-chat__prompts button {
+  min-height: 2.75rem;
+  padding-inline: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-round);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.guide-chat__prompts button:active {
+  transform: translateY(1px);
+}
+
+.chat-artifact {
+  width: min(100%, 64rem);
+  align-self: center;
+  overflow: hidden;
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+}
+
+.chat-artifact > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper-2);
+}
+
+.chat-artifact > header span {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.chat-artifact > header p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+.chat-artifact .zoo-map {
+  min-height: 30rem;
+  border: 0;
+  border-radius: 0;
+}
+
+.chat-artifact .zoo-map__canvas {
+  min-height: 23rem;
+}
+
+.chat-animal-grid,
+.knowledge-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.knowledge-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: var(--space-md) 0 0;
+}
+
+.chat-animal-grid > button,
+.knowledge-cards > button {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  text-align: start;
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.chat-animal-grid .animal-photo,
+.knowledge-cards .animal-photo {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.chat-animal-grid > button span,
+.knowledge-cards > button span {
+  min-width: 0;
+  display: grid;
+}
+
+.chat-animal-grid strong,
+.chat-animal-grid small,
+.knowledge-cards strong,
+.knowledge-cards small,
+.knowledge-cards em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-animal-grid strong,
+.knowledge-cards strong {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.chat-animal-grid small,
+.knowledge-cards small,
+.knowledge-cards em {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+.knowledge-cards em {
+  font-style: normal;
+}
+
+.chat-animal-skeleton {
+  aspect-ratio: 0.8;
+  border-radius: var(--radius-sm);
+  background: var(--color-skeleton);
+  animation: skeleton-pulse 1.4s var(--ease-in-out) infinite alternate;
+}
+
+.chat-artifact__empty {
+  display: grid;
+  place-items: center;
+  gap: var(--space-sm);
+  min-height: 10rem;
+  padding: var(--space-xl);
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.chat-artifact__empty p {
+  margin: 0;
+}
+
+.chat-artifact__empty.is-error {
+  color: var(--color-danger);
+}
+
+.chat-artifact__empty button,
+.guide-chat__hitl > button {
+  min-height: 2.75rem;
+  padding-inline: var(--space-md);
+  border: var(--rule-hair) solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chat-turn .route-options {
+  margin: var(--space-md) 0 0;
+}
+
+.chat-turn .route-options > button {
+  min-width: 0;
+}
+
+.chat-thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.chat-thinking span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: skeleton-pulse 700ms var(--ease-in-out) infinite alternate;
+}
+
+.chat-thinking span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.chat-thinking span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.guide-workspace > .guide-chat .guide-chat__hitl {
+  width: min(100%, 54rem);
+  margin: 0;
+  align-self: flex-start;
+}
+
+.guide-chat__dock {
+  flex: 0 0 auto;
+  padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-2xl)) var(--space-xs);
+  border-top: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper-2);
+}
+
+.guide-chat__dock .guide-chat__composer {
+  margin: 0;
+  background: var(--color-paper);
+}
+
+.guide-chat__dock .guide-chat__helper {
+  margin: var(--space-xs) 0 0;
+  text-align: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .guide-chat__prompts button:hover,
+  .chat-animal-grid > button:hover,
+  .knowledge-cards > button:hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 59.99rem) {
+  .guide-workspace {
+    height: 100%;
+    display: grid;
+  }
+
+  .guide-workspace > .guide-chat {
+    min-height: 0;
+  }
+
+  .chat-animal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 40rem) {
+  .guide-workspace__heading {
+    display: none;
+  }
+
+  .guide-workspace {
+    padding-block: var(--space-xs);
+  }
+
+  .guide-workspace > .guide-chat .guide-chat__intro {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding-inline: var(--space-sm);
+  }
+
+  .guide-chat__intro > strong {
+    display: none;
+  }
+
+  .guide-workspace > .guide-chat .guide-chat__scroll {
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .chat-turn.is-visitor {
+    width: 92%;
+  }
+
+  .chat-turn__bubble {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .guide-chat__prompts {
+    display: grid;
+  }
+
+  .guide-chat__prompts button {
+    width: 100%;
+  }
+
+  .chat-artifact > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-2xs);
+  }
+
+  .chat-artifact .zoo-map {
+    min-height: 27rem;
+  }
+
+  .chat-animal-grid,
+  .knowledge-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chat-animal-grid > button,
+  .knowledge-cards > button {
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .chat-animal-grid .animal-photo,
+  .knowledge-cards .animal-photo {
+    grid-row: span 2;
+  }
+
+  .knowledge-cards em {
+    grid-column: 2;
+  }
+
+  .guide-chat__dock {
+    padding-inline: var(--space-sm);
+    padding-bottom: max(var(--space-xs), env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-animal-skeleton,
+  .chat-thinking span {
+    animation: none;
   }
 }
 

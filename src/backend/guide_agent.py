@@ -14,11 +14,13 @@ from agno.agent import Agent
 from agno.db.sqlite import SqliteDb
 from agno.models.openai.like import OpenAILike
 from agno.run.agent import RunOutput
+from agno.tools.function import Function
 from agno.tools.user_control_flow import UserControlFlowTools
 from dotenv import load_dotenv
 from pydantic import TypeAdapter, ValidationError
 
 from .amap_client import AmapClient
+from .guide_intent import GuideTurnResolver, TurnResolution
 from .guide_tools import ZooGuideTools, normalize_site_list
 from .repository import AnimalRepository
 from .schemas import (
@@ -51,6 +53,7 @@ class GuideAgentService:
         RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
         self.amap = amap
         self.repository = repository
+        self.resolver = GuideTurnResolver(repository)
         self.tools = ZooGuideTools(amap, repository)
         self.agent = Agent(
             id="hongshan-route-guide",
@@ -68,8 +71,14 @@ class GuideAgentService:
                 session_table="guide_agent_sessions",
             ),
             tools=[
-                self.tools.search_animals_and_venues,
-                self.tools.plan_zoo_routes,
+                Function.from_callable(
+                    self.tools.search_animals_for_agent,
+                    name="search_animals_and_venues",
+                ),
+                Function.from_callable(
+                    self.tools.plan_zoo_routes_for_agent,
+                    name="plan_zoo_routes",
+                ),
                 UserControlFlowTools(
                     instructions=(
                         "只询问完成本次路线规划真正缺少的信息；相关字段尽量一次询问，"
@@ -93,16 +102,25 @@ class GuideAgentService:
         map_context: GuideMapContext,
     ) -> GuideChatResponse:
         session = _session_id(session_id)
+        turn = self.resolver.resolve(message, map_context)
+        dependencies = turn.as_dependencies(map_context)
         context = {
             "visitor_message": message,
+            "intent": turn.intent,
+            "animal_names": list(turn.animal_names),
+            "resolved_sites": list(turn.resolved_sites),
+            "must_see_sites": list(turn.must_see_sites),
+            "unresolved_terms": list(turn.unresolved_terms),
             "map_context": map_context.model_dump(mode="json"),
             "available_venues": [site.name for site in self.repository.site_summaries()],
         }
         output = await self.agent.arun(
             json.dumps(context, ensure_ascii=False),
             session_id=session,
+            dependencies=dependencies,
+            metadata={"guide_turn": dependencies},
         )
-        return self._response(output, session)
+        return self._response(output, session, turn)
 
     async def continue_run(
         self,
@@ -131,15 +149,39 @@ class GuideAgentService:
         for requirement in output.active_requirements:
             if requirement.needs_user_input:
                 requirement.provide_user_input(coerced)
+        dependencies = _stored_turn(output)
         continued = await self.agent.acontinue_run(
             run_id=output.run_id,
             requirements=output.requirements,
             session_id=session,
+            dependencies=dependencies,
+            metadata=output.metadata,
         )
         return self._response(continued, session)
 
-    @staticmethod
-    def _response(output: RunOutput, session_id: str) -> GuideChatResponse:
+    def _response(
+        self,
+        output: RunOutput,
+        session_id: str,
+        turn: TurnResolution | None = None,
+    ) -> GuideChatResponse:
+        turn_data = turn.as_dependencies(GuideMapContext()) if turn else _stored_turn(output)
+        intent = str(turn_data.get("intent", "unknown"))
+        animal_names = [
+            item for item in turn_data.get("animal_names", []) if isinstance(item, str)
+        ]
+        knowledge_items = []
+        if intent in {"animal_knowledge", "mixed"}:
+            knowledge_items = [
+                animal
+                for name in animal_names[:8]
+                for animal in self.repository.query(name=name).items
+            ]
+        route_payload = _extract_route_payload(output)
+        unresolved = _unique_strings(
+            turn_data.get("unresolved_terms", []),
+            route_payload.get("unresolved_sites", []),
+        )
         fields: list[GuideInputField] = []
         if output.is_paused:
             for requirement in output.active_requirements:
@@ -159,6 +201,10 @@ class GuideAgentService:
                 run_id=output.run_id,
                 status="input_required",
                 assistant_message="为了把路线安排得更合适，还需要你补充一点信息。",
+                intent=intent,
+                resolved_sites=_string_items(turn_data.get("resolved_sites")),
+                unresolved_terms=unresolved,
+                knowledge_items=knowledge_items,
                 required_inputs=fields,
             )
 
@@ -167,11 +213,17 @@ class GuideAgentService:
             run_id=output.run_id,
             status="completed",
             assistant_message=_content_text(output.content),
-            route_options=_extract_routes(output),
+            intent=intent,
+            resolved_sites=_string_items(
+                route_payload.get("resolved_sites") or turn_data.get("resolved_sites")
+            ),
+            unresolved_terms=unresolved,
+            knowledge_items=knowledge_items,
+            route_options=_validate_routes(route_payload.get("routes")),
         )
 
 
-def _extract_routes(output: RunOutput) -> list[RouteOption]:
+def _extract_route_payload(output: RunOutput) -> dict[str, Any]:
     for tool in reversed(output.tools or []):
         if tool.tool_name != "plan_zoo_routes" or tool.tool_call_error:
             continue
@@ -185,11 +237,31 @@ def _extract_routes(output: RunOutput) -> list[RouteOption]:
                 except (ValueError, SyntaxError):
                     continue
         if isinstance(payload, dict) and "routes" in payload:
-            try:
-                return _ROUTE_LIST.validate_python(payload["routes"])
-            except ValidationError:
-                continue
-    return []
+            return payload
+    return {}
+
+
+def _validate_routes(value: Any) -> list[RouteOption]:
+    try:
+        return _ROUTE_LIST.validate_python(value or [])
+    except ValidationError:
+        return []
+
+
+def _stored_turn(output: RunOutput) -> dict[str, Any]:
+    metadata = output.metadata or {}
+    turn = metadata.get("guide_turn")
+    return turn if isinstance(turn, dict) else {}
+
+
+def _string_items(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _unique_strings(*values: object) -> list[str]:
+    return list(dict.fromkeys(item for value in values for item in _string_items(value)))
 
 
 def _content_text(content: Any) -> str:
@@ -221,15 +293,16 @@ _site_list = normalize_site_list
 
 
 _INSTRUCTIONS = """
-你是南京红山森林动物园的友好导览员。你的任务是理解游客需求并调用工具生成真实路线。
+你是南京红山森林动物园的友好导览员。后端已完成意图识别和动物到场馆的标准化，你必须遵守输入中的 intent 与 resolved_sites。
 
 规则：
 1. 路线、距离、时间和卡路里只能来自 plan_zoo_routes，绝不自行编造。
-2. 规划前必须知道 available_minutes 和 energy_level（轻松、一般、充沛）。缺少时调用 get_user_input。
-3. 优先使用 map_context 中 selected_sites 和 origin；不要重复询问已有值。
-4. 用户提到动物但没有场馆时，先调用 search_animals_and_venues。
-5. 体重是可选项；除非用户要求精确卡路里，否则不要强制询问。
-6. 用户没有选场馆或动物时，用 get_user_input 询问最想看的动物或场馆。
-7. 调用 plan_zoo_routes 后，用简短中文概括三个方案和任何阶梯、超时提示。
-8. 不讨论园外交通，不声称路线具备无障碍或坡度保证。
+2. intent 为 route 或 mixed 时才规划路线；规划前必须知道 available_minutes 和 energy_level（轻松、一般、充沛），缺少时调用 get_user_input。
+3. plan_zoo_routes 会强制使用后端解析的 resolved_sites 和 must_see_sites，不要声称其中的动物或场馆未匹配，除非工具明确返回 unresolved_sites。
+4. intent 为 animal_knowledge 或 mixed 时调用 search_animals_and_venues，只依据工具返回的本地资料回答。
+5. intent 为 mixed 时先概括路线，再附一段简短动物介绍。
+6. intent 为 unknown 时询问游客想规划路线还是了解动物，不调用路线工具。
+7. 体重是可选项；除非用户要求精确卡路里，否则不要强制询问。
+8. 工具返回路线后只做简短比较，不重复输出大段免责声明。
+9. 不讨论园外交通，不声称路线具备无障碍或坡度保证。
 """.strip()

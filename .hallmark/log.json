@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-08-10",
+    "macrostructure": "Workbench",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / warm-amber",
+    "vibe": "child-friendly field-guide dialogue",
+    "enrichment": "real AMap and animal photography",
+    "nav": "N13 field tabs",
+    "footer": "conversation dock",
+    "brief": "可滚动的动物园 AI 对话导览、地图消息与动物知识卡"
+  },
+  {
+    "date": "2026-08-10",
     "macrostructure": "Map / Diagram",
     "theme": "custom",
     "theme_axes": "light / high-contrast-serif / cool-green",
