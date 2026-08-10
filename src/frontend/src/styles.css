@@ -840,6 +840,64 @@ main {
   color: var(--color-accent-ink);
 }
 
+.guide-chat__composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.guide-chat__composer .guide-chat__voice {
+  position: relative;
+  border-color: var(--color-rule-strong);
+  background: var(--color-paper-3);
+  color: var(--color-accent);
+}
+
+.guide-chat__voice:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.guide-chat__voice.is-recording {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.guide-chat__voice.is-recording::before {
+  content: "";
+  position: absolute;
+  inset: -0.35rem;
+  border: var(--rule-hair) solid currentColor;
+  border-radius: 50%;
+  animation: voice-pulse 1.4s ease-out infinite;
+}
+
+.guide-chat__voice > span {
+  width: 0.85rem;
+  height: 0.85rem;
+  display: block;
+  margin: auto;
+  border-radius: 0.18rem;
+  background: currentColor;
+}
+
+@keyframes voice-pulse {
+  from {
+    opacity: 0.7;
+    transform: scale(0.84);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-chat__voice.is-recording::before {
+    animation: none;
+  }
+}
+
 .guide-chat__composer svg {
   display: block;
   width: 100%;

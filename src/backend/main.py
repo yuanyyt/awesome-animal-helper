@@ -5,10 +5,12 @@ from functools import lru_cache
 from typing import AsyncIterator
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket
 
 from .amap_client import AmapClient, AmapServiceError, amap_proxy_target
+from .audio_realtime import AudioRealtimeError, AudioRealtimeService
 from .guide_agent import GuideAgentError, GuideAgentService
+from .guide_tools import ZooGuideTools
 from .repository import AnimalRepository
 from .schemas import (
     AnimalListResponse,
@@ -38,6 +40,20 @@ def get_guide_agent() -> GuideAgentService:
     """Build the Agno guide lazily so animal and map endpoints remain independent."""
 
     return GuideAgentService(get_amap_client(), get_repository())
+
+
+@lru_cache(maxsize=1)
+def get_guide_tools() -> ZooGuideTools:
+    """Share deterministic facts and route tools with realtime voice sessions."""
+
+    return ZooGuideTools(get_amap_client(), get_repository())
+
+
+@lru_cache(maxsize=1)
+def get_audio_realtime() -> AudioRealtimeService:
+    """Build the Qwen-Audio bridge only when a voice session starts."""
+
+    return AudioRealtimeService(get_guide_tools())
 
 
 @asynccontextmanager
@@ -102,6 +118,20 @@ async def continue_guide_chat(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="导览会话暂时无法继续，请稍后重试") from exc
+
+
+@app.websocket("/api/guide/voice")
+async def realtime_voice_guide(websocket: WebSocket) -> None:
+    """Bridge browser PCM audio to Qwen-Audio without exposing credentials."""
+
+    try:
+        service = get_audio_realtime()
+    except (AudioRealtimeError, ValueError) as exc:
+        await websocket.accept()
+        await websocket.send_json({"type": "error", "message": str(exc)})
+        await websocket.close(code=1011)
+        return
+    await service.serve(websocket)
 
 
 @app.get("/api/map", response_model=MapGuideResponse)

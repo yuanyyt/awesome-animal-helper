@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import { continueGuideRun, sendGuideMessage } from "../api";
 import type {
@@ -8,6 +8,7 @@ import type {
   MapNamedLocation,
   RouteOption,
 } from "../types";
+import { VoiceGuideClient, type VoiceState } from "../voiceGuide";
 
 const props = defineProps<{
   selectedSites: string[];
@@ -32,11 +33,52 @@ const routes = ref<RouteOption[]>([]);
 const runId = ref("");
 const loading = ref(false);
 const error = ref("");
+const voiceState = ref<VoiceState>("disconnected");
+const voiceMessageIndex = ref<number | null>(null);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
 
+const voiceClient = new VoiceGuideClient(
+  { selectedSites: props.selectedSites, origin: props.origin },
+  {
+    onState: (state) => {
+      voiceState.value = state;
+    },
+    onUserTranscript: (text) => messages.value.push({ role: "visitor", text }),
+    onAssistantDelta: appendVoiceAnswer,
+    onAssistantDone: finishVoiceAnswer,
+    onRoutes: handleVoiceRoutes,
+    onError: (message) => {
+      error.value = message;
+    },
+  },
+);
+
+watch(
+  [() => props.selectedSites, () => props.origin],
+  () => voiceClient.updateContext({ selectedSites: props.selectedSites, origin: props.origin }),
+  { deep: true },
+);
+onBeforeUnmount(() => voiceClient.close());
+
+const voiceBusy = computed(() => !["disconnected", "idle"].includes(voiceState.value));
+const voiceStatus = computed(() => {
+  const labels: Record<VoiceState, string> = {
+    disconnected: "点击麦克风开始语音导览",
+    connecting: "正在连接森林导览员…",
+    idle: "点击麦克风开始说话",
+    recording: "正在听，再点一次就发送",
+    thinking: "导览员正在查资料和地图…",
+    speaking: "导览员正在回答，再点麦克风可以打断",
+  };
+  return labels[voiceState.value];
+});
+
 const canSubmit = computed(
-  () => !loading.value && (requiredInputs.value.length > 0 || question.value.trim().length > 0),
+  () =>
+    !loading.value &&
+    !voiceBusy.value &&
+    (requiredInputs.value.length > 0 || question.value.trim().length > 0),
 );
 
 async function submit(): Promise<void> {
@@ -115,6 +157,51 @@ function choosePrompt(prompt: string): void {
   question.value = prompt;
 }
 
+async function toggleVoice(): Promise<void> {
+  if (loading.value) return;
+  error.value = "";
+  try {
+    if (voiceState.value === "recording") {
+      await voiceClient.stopRecording();
+    } else {
+      voiceMessageIndex.value = null;
+      await voiceClient.startRecording();
+    }
+  } catch (reason) {
+    error.value =
+      reason instanceof DOMException && reason.name === "NotAllowedError"
+        ? "请允许浏览器使用麦克风后再试"
+        : reason instanceof Error
+          ? reason.message
+          : "无法开始语音导览";
+    voiceState.value = "disconnected";
+  }
+}
+
+function appendVoiceAnswer(delta: string): void {
+  if (voiceMessageIndex.value === null) {
+    messages.value.push({ role: "guide", text: "" });
+    voiceMessageIndex.value = messages.value.length - 1;
+  }
+  messages.value[voiceMessageIndex.value].text += delta;
+}
+
+function finishVoiceAnswer(text: string): void {
+  if (voiceMessageIndex.value === null && text) {
+    messages.value.push({ role: "guide", text });
+  } else if (voiceMessageIndex.value !== null && text) {
+    messages.value[voiceMessageIndex.value].text = text;
+  }
+  voiceMessageIndex.value = null;
+}
+
+function handleVoiceRoutes(options: RouteOption[]): void {
+  routes.value = options;
+  if (!options.length) return;
+  emit("routes", options);
+  emit("routeSelect", options[1] ?? options[0]);
+}
+
 function calories(route: RouteOption): string {
   if (route.calories_kcal !== null) return `约 ${route.calories_kcal} 千卡`;
   if (route.calories_range_kcal) {
@@ -134,7 +221,7 @@ function calories(route: RouteOption): string {
         <h3 id="guide-chat-title">问问森林导览员</h3>
         <p>{{ selectedSites.length ? `地图已选 ${selectedSites.length} 个场馆` : "可以先点地图，也可以直接告诉我想看什么" }}</p>
       </div>
-      <strong>AGNO · HITL</strong>
+      <strong>AGNO · VOICE</strong>
     </div>
 
     <div class="guide-chat__scroll">
@@ -186,20 +273,35 @@ function calories(route: RouteOption): string {
 
     <div class="guide-chat__composer">
       <label class="visually-hidden" for="guide-question">导览问题</label>
+      <button
+        class="guide-chat__voice"
+        :class="{ 'is-recording': voiceState === 'recording' }"
+        type="button"
+        :disabled="loading || voiceState === 'connecting'"
+        :aria-label="voiceState === 'recording' ? '结束录音并发送' : '开始语音导览'"
+        :title="voiceStatus"
+        @click="toggleVoice"
+      >
+        <svg v-if="voiceState !== 'recording'" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="8" y="3" width="8" height="12" rx="4" />
+          <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+        </svg>
+        <span v-else aria-hidden="true"></span>
+      </button>
       <textarea
         id="guide-question"
         v-model="question"
-        :readonly="requiredInputs.length > 0"
+        :readonly="requiredInputs.length > 0 || voiceBusy"
         rows="2"
         :placeholder="requiredInputs.length ? '请先填写上面的信息…' : '例如：我有两小时，带着孩子，想先看大熊猫…'"
         @keydown.enter.exact.prevent="submit"
       ></textarea>
-      <button type="button" :disabled="!canSubmit" aria-label="发送导览问题" @click="submit">
+      <button class="guide-chat__send" type="button" :disabled="!canSubmit" aria-label="发送导览问题" @click="submit">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-5 14-2.5-5.5L5 12Z" /></svg>
       </button>
     </div>
     <p class="guide-chat__helper" :class="{ 'is-error': error }">
-      {{ error || (loading ? "导览员正在查看地图和路况…" : "距离与时间来自高德地图；体力和卡路里为估算") }}
+      {{ error || (loading ? "导览员正在查看地图和路况…" : voiceBusy ? voiceStatus : "可打字或点击麦克风；距离与时间来自高德地图") }}
     </p>
 
   </aside>

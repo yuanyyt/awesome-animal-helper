@@ -19,13 +19,12 @@ from dotenv import load_dotenv
 from pydantic import TypeAdapter, ValidationError
 
 from .amap_client import AmapClient
+from .guide_tools import ZooGuideTools, normalize_site_list
 from .repository import AnimalRepository
-from .route_planner import RoutePlanner, RoutePlanningError
 from .schemas import (
     GuideChatResponse,
     GuideInputField,
     GuideMapContext,
-    MapNamedLocation,
     RouteOption,
 )
 
@@ -52,7 +51,7 @@ class GuideAgentService:
         RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
         self.amap = amap
         self.repository = repository
-        self.planner = RoutePlanner(amap)
+        self.tools = ZooGuideTools(amap, repository)
         self.agent = Agent(
             id="hongshan-route-guide",
             name="红山森林导览员",
@@ -69,8 +68,8 @@ class GuideAgentService:
                 session_table="guide_agent_sessions",
             ),
             tools=[
-                self.search_animals_and_venues,
-                self.plan_zoo_routes,
+                self.tools.search_animals_and_venues,
+                self.tools.plan_zoo_routes,
                 UserControlFlowTools(
                     instructions=(
                         "只询问完成本次路线规划真正缺少的信息；相关字段尽量一次询问，"
@@ -138,58 +137,6 @@ class GuideAgentService:
             session_id=session,
         )
         return self._response(continued, session)
-
-    def search_animals_and_venues(self, query: str) -> dict[str, Any]:
-        """Search local animal data and return matching animals and their zoo venues."""
-
-        result = self.repository.query(q=query)
-        return {
-            "animals": [item.name for item in result.items[:10]],
-            "sites": list(dict.fromkeys(site for item in result.items for site in item.sites)),
-        }
-
-    def plan_zoo_routes(
-        self,
-        available_minutes: int,
-        energy_level: str,
-        selected_sites: list[str] | str | None = None,
-        must_see_sites: list[str] | str | None = None,
-        origin_name: str | None = None,
-        origin_longitude: float | None = None,
-        origin_latitude: float | None = None,
-        weight_kg: float | None = None,
-    ) -> dict[str, Any]:
-        """Plan three AMap walking itineraries using validated visitor constraints.
-
-        Args:
-            available_minutes: Total available visit time in minutes.
-            energy_level: One of 轻松, 一般, 充沛.
-            selected_sites: Candidate venues selected on the map or in chat.
-            must_see_sites: Venues that must be included if constraints allow.
-            origin_name: Human-readable custom starting point.
-            origin_longitude: GCJ-02 longitude for a custom start.
-            origin_latitude: GCJ-02 latitude for a custom start.
-            weight_kg: Optional body weight for calorie estimation.
-        """
-
-        guide = self.amap.build_guide(self.repository.site_summaries())
-        origin = None
-        if origin_longitude is not None and origin_latitude is not None:
-            origin = MapNamedLocation(
-                name=origin_name or "地图选定起点",
-                longitude=origin_longitude,
-                latitude=origin_latitude,
-            )
-        routes = self.planner.plan(
-            guide=guide,
-            selected_sites=_site_list(selected_sites),
-            must_see_sites=_site_list(must_see_sites),
-            available_minutes=available_minutes,
-            energy_level=energy_level,
-            origin=origin,
-            weight_kg=weight_kg,
-        )
-        return {"routes": [route.model_dump(mode="json") for route in routes]}
 
     @staticmethod
     def _response(output: RunOutput, session_id: str) -> GuideChatResponse:
@@ -270,20 +217,7 @@ def _coerce_value(value: str | int | float | bool, field_type: Any) -> Any:
     return value
 
 
-def _site_list(value: list[str] | str | None) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return [item.strip() for item in value if item.strip()]
-    text = value.strip()
-    if text.startswith("["):
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            parsed = None
-        if isinstance(parsed, list):
-            return [str(item).strip() for item in parsed if str(item).strip()]
-    return [item.strip() for item in re.split(r"[,，、；;]", text) if item.strip()]
+_site_list = normalize_site_list
 
 
 _INSTRUCTIONS = """
