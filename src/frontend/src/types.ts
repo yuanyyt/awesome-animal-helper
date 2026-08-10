@@ -110,3 +110,8 @@ export interface GuideChatResponse {
   required_inputs: GuideInputField[];
   route_options: RouteOption[];
 }
+
+export interface GuideAutoRequest {
+  id: number;
+  message: string;
+}

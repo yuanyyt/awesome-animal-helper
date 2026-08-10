@@ -2,8 +2,11 @@
 import type { AnimalDetail } from "../types";
 import AnimalPhoto from "./AnimalPhoto.vue";
 
-defineProps<{ animal: AnimalDetail; index: number }>();
-const emit = defineEmits<{ select: [event: MouseEvent] }>();
+defineProps<{ animal: AnimalDetail; index: number; selected: boolean }>();
+const emit = defineEmits<{
+  select: [event: MouseEvent];
+  toggle: [];
+}>();
 </script>
 
 <template>
@@ -25,6 +28,17 @@ const emit = defineEmits<{ select: [event: MouseEvent] }>();
         </span>
         <span class="animal-card__sites">{{ animal.sites.join(" · ") }}</span>
       </span>
+    </button>
+    <button
+      class="animal-card__route"
+      :class="{ 'is-selected': selected }"
+      type="button"
+      :aria-pressed="selected"
+      :aria-label="selected ? `从路线中移除${animal.name}` : `想看${animal.name}`"
+      @click="emit('toggle')"
+    >
+      <span aria-hidden="true">{{ selected ? "✓" : "+" }}</span>
+      {{ selected ? "已想看" : "加入想看" }}
     </button>
   </article>
 </template>

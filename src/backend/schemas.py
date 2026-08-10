@@ -124,6 +124,7 @@ class GuideMapContext(BaseModel):
     """Map selections included with a chat request."""
 
     selected_sites: list[str] = Field(default_factory=list, max_length=30)
+    selected_animals: list[str] = Field(default_factory=list, max_length=30)
     origin: MapNamedLocation | None = None
 
 

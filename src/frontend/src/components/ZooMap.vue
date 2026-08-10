@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
+import { resolveAnimalImage } from "../animalImages";
 import { expandedConvexHull, polygonBounds } from "../mapGeometry";
-import type { MapGuide, MapNamedLocation, MapPoint, RouteOption } from "../types";
+import type {
+  AnimalDetail,
+  MapGuide,
+  MapNamedLocation,
+  MapPoint,
+  RouteOption,
+} from "../types";
+import AnimalPhoto from "./AnimalPhoto.vue";
 
 const props = defineProps<{
   guide?: MapGuide;
+  animals: AnimalDetail[];
+  selectedAnimals: AnimalDetail[];
   selectedSite: string;
   routeSites: string[];
   origin: MapNamedLocation | null;
@@ -29,6 +39,7 @@ const mapContainer = ref<HTMLElement>();
 let map: AmapMap | undefined;
 let amapMarkers: AmapMarker[] = [];
 let routeLine: AmapOverlay | undefined;
+let durationMarker: AmapMarker | undefined;
 let originMarker: AmapMarker | undefined;
 let boundaryLine: AmapOverlay | undefined;
 let mapBounds: AmapBounds | undefined;
@@ -37,6 +48,43 @@ const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
 );
 const displayedRouteSites = computed(() => props.activeRoute?.sites ?? props.routeSites);
+const durationLabel = computed(() =>
+  props.activeRoute ? `约 ${props.activeRoute.total_minutes} 分钟` : "",
+);
+const routeAnimalsBySite = computed(() => {
+  const animalsBySite = new Map<string, AnimalDetail[]>();
+  const routeSites = displayedRouteSites.value;
+  const candidates = props.selectedAnimals.length ? props.selectedAnimals : props.animals;
+
+  for (const animal of candidates) {
+    const site = routeSites.find((candidate) => animal.sites.includes(candidate));
+    if (!site) continue;
+    const animals = animalsBySite.get(site) ?? [];
+    if (animals.length < 2) animals.push(animal);
+    animalsBySite.set(site, animals);
+  }
+  return animalsBySite;
+});
+const staticRoutePoints = computed(() => {
+  if (!props.guide || !props.activeRoute) return "";
+  return props.activeRoute.polyline
+    .map((point) => {
+      const position = staticMapPosition(point.longitude, point.latitude);
+      return `${position.x.toFixed(1)},${position.y.toFixed(1)}`;
+    })
+    .join(" ");
+});
+const staticDurationStyle = computed<Record<string, string>>(() => {
+  const midpoint = routeMidpoint(props.activeRoute?.polyline ?? []);
+  if (!midpoint) return {} as Record<string, string>;
+  const position = staticMapPosition(midpoint.longitude, midpoint.latitude);
+  const left = Math.min(82, Math.max(18, position.x / 10.24));
+  const top = Math.min(88, Math.max(12, position.y / 6.4));
+  return {
+    "--duration-left": `${left.toFixed(2)}%`,
+    "--duration-top": `${top.toFixed(2)}%`,
+  };
+});
 const boundaryPath = computed(() => expandedConvexHull(props.guide?.points ?? [], 1.5));
 const boundaryCoordinates = computed(() =>
   boundaryPath.value.map(
@@ -144,6 +192,7 @@ async function initializeInteractiveMap(): Promise<void> {
         content,
         offset: new AMap.Pixel(-22, -22),
         title: point.poi_name,
+        zIndex: 50,
       });
       content.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -193,10 +242,53 @@ function updateInteractiveMarkers(site: string): void {
     const routeSite = routeIndex >= 0;
     button.classList.toggle("is-active", active);
     button.classList.toggle("is-route-stop", routeSite);
-    button.textContent = routeSite
-      ? String(routeIndex + 1)
-      : button.dataset.defaultIndex ?? "";
+    renderMarkerContent(
+      button,
+      routeSite ? routeIndex + 1 : Number(button.dataset.defaultIndex ?? 0),
+      routeSite ? routeAnimals(markerSite) : [],
+    );
     button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function routeAnimals(site: string): AnimalDetail[] {
+  return routeAnimalsBySite.value.get(site) ?? [];
+}
+
+function renderMarkerContent(
+  button: HTMLButtonElement,
+  markerNumber: number,
+  animals: AnimalDetail[],
+): void {
+  const renderToken = crypto.randomUUID();
+  button.dataset.renderToken = renderToken;
+  button.replaceChildren();
+
+  const number = document.createElement("span");
+  number.className = "zoo-map__marker-number";
+  number.textContent = String(markerNumber);
+  button.append(number);
+  if (!animals.length) return;
+
+  const stack = document.createElement("span");
+  stack.className = "zoo-map__animal-stack";
+  stack.setAttribute("aria-hidden", "true");
+  button.append(stack);
+  for (const animal of animals) {
+    const portrait = document.createElement("span");
+    portrait.className = "zoo-map__animal-circle is-fallback";
+    portrait.textContent = animal.name.slice(0, 1);
+    portrait.title = animal.name;
+    stack.append(portrait);
+    void resolveAnimalImage(animal).then((url) => {
+      if (!url || button.dataset.renderToken !== renderToken) return;
+      const image = document.createElement("img");
+      image.src = url;
+      image.alt = "";
+      image.addEventListener("load", () => portrait.classList.remove("is-fallback"));
+      image.addEventListener("error", () => image.remove());
+      portrait.replaceChildren(image);
+    });
   }
 }
 
@@ -210,6 +302,7 @@ function destroyInteractiveMap(): void {
   readinessTimer = undefined;
   amapMarkers = [];
   routeLine = undefined;
+  durationMarker = undefined;
   originMarker = undefined;
   boundaryLine = undefined;
   mapBounds = undefined;
@@ -248,7 +341,9 @@ function updateOriginMarker(): void {
 function updateRouteOverlay(): void {
   if (!map || !window.AMap) return;
   if (routeLine) map.remove(routeLine);
+  if (durationMarker) map.remove(durationMarker);
   routeLine = undefined;
+  durationMarker = undefined;
   const path = props.activeRoute?.polyline.map(
     (point) => [point.longitude, point.latitude] as [number, number],
   );
@@ -261,9 +356,43 @@ function updateRouteOverlay(): void {
     lineJoin: "round",
     lineCap: "round",
     showDir: true,
+    zIndex: 30,
   });
   map.add(routeLine);
+  const midpoint = routeMidpoint(props.activeRoute?.polyline ?? []);
+  if (midpoint) {
+    const content = document.createElement("span");
+    content.className = "zoo-map__duration-badge";
+    content.textContent = durationLabel.value;
+    durationMarker = new window.AMap.Marker({
+      position: [midpoint.longitude, midpoint.latitude],
+      content,
+      offset: new window.AMap.Pixel(-56, -48),
+      title: `路线总耗时${durationLabel.value}`,
+      zIndex: 40,
+    });
+    map.add(durationMarker);
+  }
   map.setFitView([routeLine], false, [60, 60, 60, 60]);
+}
+
+function routeMidpoint(points: { longitude: number; latitude: number }[]) {
+  if (!points.length) return null;
+  return points[Math.floor(points.length / 2)];
+}
+
+function staticMapPosition(longitude: number, latitude: number): { x: number; y: number } {
+  if (!props.guide) return { x: 512, y: 320 };
+  const center = project(
+    props.guide.center.longitude,
+    props.guide.center.latitude,
+    props.guide.zoom,
+  );
+  const target = project(longitude, latitude, props.guide.zoom);
+  return {
+    x: Math.min(1024, Math.max(0, 512 + target.x - center.x)),
+    y: Math.min(640, Math.max(0, 320 + target.y - center.y)),
+  };
 }
 
 function createAmapBounds(
@@ -315,7 +444,7 @@ function markerStyle(point: MapPoint, pointIndex: number): Record<string, string
         candidate.longitude === point.longitude && candidate.latitude === point.latitude,
     ).length;
   return {
-    "--marker-left": `${Math.min(96, Math.max(4, left))}%`,
+    "--marker-left": `${Math.min(92, Math.max(8, left))}%`,
     "--marker-top": `${Math.min(94, Math.max(6, top))}%`,
     "--marker-shift": `${duplicateIndex * 32}px`,
   };
@@ -424,7 +553,8 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
 
     <template v-else>
       <div class="zoo-map__planner-tools">
-        <p><strong>{{ routeSites.length }}</strong> 个场馆已加入路线</p>
+        <p v-if="activeRoute"><strong>{{ activeRoute.name }}</strong> · {{ durationLabel }} · {{ activeRoute.sites.length }} 站</p>
+        <p v-else><strong>{{ routeSites.length }}</strong> 个场馆已加入路线</p>
         <button
           type="button"
           :class="{ 'is-active': settingOrigin }"
@@ -454,6 +584,20 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             height="640"
             @error="imageFailed = true"
           />
+          <svg
+            v-if="staticRoutePoints"
+            class="zoo-map__static-route"
+            viewBox="0 0 1024 640"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <polyline :points="staticRoutePoints" />
+          </svg>
+          <span
+            v-if="durationLabel"
+            class="zoo-map__duration-badge is-static"
+            :style="staticDurationStyle"
+          >{{ durationLabel }}</span>
           <button
             v-for="(point, index) in guide.points"
             :key="point.site"
@@ -468,7 +612,20 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             :aria-pressed="selectedSite === point.site"
             @click="emit('select', point.site); emit('routeToggle', point.site)"
           >
-            <span>{{ markerNumber(point, index) }}</span>
+            <span class="zoo-map__marker-number">{{ markerNumber(point, index) }}</span>
+            <span
+              v-if="routeAnimals(point.site).length"
+              class="zoo-map__animal-stack"
+              aria-hidden="true"
+            >
+              <AnimalPhoto
+                v-for="(animal, animalIndex) in routeAnimals(point.site)"
+                :key="animal.name"
+                class="zoo-map__animal-circle"
+                :animal="animal"
+                :variant="animalIndex"
+              />
+            </span>
           </button>
         </template>
       </div>

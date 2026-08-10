@@ -57,6 +57,7 @@ class RoutePlanner:
         guide: MapGuideResponse,
         selected_sites: list[str],
         must_see_sites: list[str],
+        must_see_site_groups: list[list[str]] | None = None,
         available_minutes: int,
         energy_level: str,
         origin: MapNamedLocation | None = None,
@@ -69,6 +70,11 @@ class RoutePlanner:
         point_by_site = {point.site: point for point in guide.points}
         preferred = list(dict.fromkeys(site for site in selected_sites if site in point_by_site))
         mandatory = list(dict.fromkeys(site for site in must_see_sites if site in point_by_site))
+        groups = [
+            list(dict.fromkeys(site for site in group if site in point_by_site))
+            for group in (must_see_site_groups or [])
+        ]
+        groups = [group for group in groups if group]
         if not point_by_site:
             raise RoutePlanningError("地图上还没有可用于规划的场馆点位")
         start = origin or guide.default_origin or MapNamedLocation(
@@ -86,6 +92,7 @@ class RoutePlanner:
                 list(point_by_site.values()),
                 preferred,
                 mandatory,
+                groups,
                 profile,
                 target_minutes,
                 distance_limit,
@@ -103,7 +110,7 @@ class RoutePlanner:
                 profile,
                 start,
                 sites,
-                set(mandatory),
+                set(mandatory) | _group_cover_sites(sites, groups),
                 set(preferred),
                 target_minutes,
                 distance_limit,
@@ -121,6 +128,7 @@ class RoutePlanner:
         points: list[MapPoint],
         preferred_sites: list[str],
         mandatory_sites: list[str],
+        mandatory_groups: list[list[str]],
         profile: _Profile,
         target_minutes: int,
         distance_limit: int,
@@ -140,6 +148,7 @@ class RoutePlanner:
             if point.site not in mandatory_names | preferred_names
         ]
         chosen = _nearest_neighbor(origin, mandatory) if mandatory else []
+        chosen = _cover_required_groups(origin, chosen, mandatory_groups, point_by_site)
 
         preferred_limit = (
             max(1, math.ceil(len(preferred) * profile.preferred_fraction))
@@ -328,6 +337,46 @@ def _add_best_candidates(
         remaining.remove(selected)
         added += 1
     return route
+
+
+def _cover_required_groups(
+    origin: MapLocation,
+    chosen: list[MapPoint],
+    groups: list[list[str]],
+    point_by_site: dict[str, MapPoint],
+) -> list[MapPoint]:
+    """Choose one low-cost venue per animal, sharing venues where possible."""
+
+    route = list(chosen)
+    covered = {point.site for point in route}
+    remaining = [set(group) for group in groups if not covered.intersection(group)]
+    while remaining:
+        current_distance = _estimated_distance(origin, route)
+        candidates: list[tuple[float, int, str, list[MapPoint]]] = []
+        for site in sorted(set().union(*remaining)):
+            point = point_by_site[site]
+            proposal = route if site in covered else _best_insertion(origin, route, point)
+            added_distance = max(
+                1, _estimated_distance(origin, proposal) - current_distance
+            )
+            coverage = sum(site in group for group in remaining)
+            candidates.append((added_distance / coverage, -coverage, site, proposal))
+        _, _, selected_site, route = min(candidates)
+        covered.add(selected_site)
+        remaining = [group for group in remaining if selected_site not in group]
+    return _two_opt(origin, route)
+
+
+def _group_cover_sites(
+    route: list[MapPoint], groups: list[list[str]]
+) -> set[str]:
+    """Return route venues whose removal would lose an animal selection."""
+
+    protected: set[str] = set()
+    for group in groups:
+        if match := next((point.site for point in route if point.site in group), None):
+            protected.add(match)
+    return protected
 
 
 def _best_insertion(

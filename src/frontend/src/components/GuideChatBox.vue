@@ -5,27 +5,32 @@ import { continueGuideRun, sendGuideMessage } from "../api";
 import type {
   AnimalDetail,
   GuideChatResponse,
+  GuideAutoRequest,
   GuideInputField,
   MapNamedLocation,
   RouteOption,
 } from "../types";
 import { VoiceGuideClient, type VoiceState } from "../voiceGuide";
 import AnimalPhoto from "./AnimalPhoto.vue";
+import AnimalSelectionChips from "./AnimalSelectionChips.vue";
 
 const props = defineProps<{
   selectedSites: string[];
+  selectedAnimals: AnimalDetail[];
   selectedSite: string;
   animals: AnimalDetail[];
   animalsLoading: boolean;
   animalsError: string;
   origin: MapNamedLocation | null;
   activeRoute: RouteOption | null;
+  autoRequest: GuideAutoRequest | null;
 }>();
 
 const emit = defineEmits<{
   routes: [routes: RouteOption[]];
   routeSelect: [route: RouteOption];
   animalSelect: [animal: AnimalDetail, event: MouseEvent];
+  animalRemove: [name: string];
   animalsRetry: [];
 }>();
 
@@ -49,6 +54,7 @@ let nextItemId = 1;
 const voiceClient = new VoiceGuideClient(
   {
     selectedSites: props.selectedSites,
+    selectedAnimals: props.selectedAnimals.map((animal) => animal.name),
     origin: props.origin,
     sessionId: sessionId.value,
   },
@@ -65,13 +71,25 @@ const voiceClient = new VoiceGuideClient(
 );
 
 watch(
-  [() => props.selectedSites, () => props.origin, sessionId],
+  [() => props.selectedSites, () => props.selectedAnimals, () => props.origin, sessionId],
   () =>
     voiceClient.updateContext({
       selectedSites: props.selectedSites,
+      selectedAnimals: props.selectedAnimals.map((animal) => animal.name),
       origin: props.origin,
       sessionId: sessionId.value,
     }),
+  { deep: true },
+);
+
+let handledAutoRequest = 0;
+watch(
+  () => props.autoRequest,
+  (request) => {
+    if (!request || request.id === handledAutoRequest) return;
+    handledAutoRequest = request.id;
+    void submitMessage(request.message);
+  },
   { deep: true },
 );
 
@@ -122,9 +140,7 @@ async function submit(): Promise<void> {
       const message = question.value.trim();
       pushMessage("visitor", message);
       question.value = "";
-      handleResponse(
-        await sendGuideMessage(message, sessionId.value || null, props.selectedSites, props.origin),
-      );
+      await sendMessage(message);
     }
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
@@ -132,6 +148,33 @@ async function submit(): Promise<void> {
     loading.value = false;
     scrollToLatest();
   }
+}
+
+async function submitMessage(message: string): Promise<void> {
+  if (loading.value || !message.trim()) return;
+  error.value = "";
+  loading.value = true;
+  pushMessage("visitor", message.trim());
+  try {
+    await sendMessage(message.trim());
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
+  } finally {
+    loading.value = false;
+    scrollToLatest();
+  }
+}
+
+async function sendMessage(message: string): Promise<void> {
+  handleResponse(
+    await sendGuideMessage(
+      message,
+      sessionId.value || null,
+      props.selectedSites,
+      props.selectedAnimals.map((animal) => animal.name),
+      props.origin,
+    ),
+  );
 }
 
 function handleResponse(response: GuideChatResponse): void {
@@ -361,6 +404,10 @@ function scrollToLatest(): void {
     </div>
 
     <footer class="guide-chat__dock">
+      <AnimalSelectionChips
+        :animals="selectedAnimals"
+        @remove="emit('animalRemove', $event)"
+      />
       <div class="guide-chat__composer">
         <label class="visually-hidden" for="guide-question">导览问题</label>
         <button

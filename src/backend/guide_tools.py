@@ -103,6 +103,7 @@ class ZooGuideTools:
         energy_level: str,
         selected_sites: list[str] | str | None = None,
         must_see_sites: list[str] | str | None = None,
+        must_see_site_groups: list[dict[str, Any]] | None = None,
         origin_name: str | None = None,
         origin_longitude: float | str | None = None,
         origin_latitude: float | str | None = None,
@@ -130,18 +131,34 @@ class ZooGuideTools:
         must_see, unknown_must_see = self.resolver.resolve_site_terms(
             normalize_site_list(must_see_sites)
         )
+        groups: list[tuple[str, list[str]]] = []
+        unknown_groups: list[str] = []
+        for label, candidates in _site_groups(must_see_site_groups):
+            resolved, unknown = self.resolver.resolve_site_terms(candidates)
+            if resolved:
+                groups.append((label, resolved))
+            else:
+                unknown_groups.extend(unknown or [label])
         guide = self.amap.build_guide(self.repository.site_summaries())
         mapped_sites = {point.site for point in guide.points}
         requested = _unique([*selected, *must_see])
+        mapped_groups = [
+            (label, [site for site in candidates if site in mapped_sites])
+            for label, candidates in groups
+        ]
+        missing_group_labels = [label for label, candidates in mapped_groups if not candidates]
+        mapped_groups = [(label, candidates) for label, candidates in mapped_groups if candidates]
         unresolved = _unique(
             [
                 *unknown_selected,
                 *unknown_must_see,
+                *unknown_groups,
+                *missing_group_labels,
                 *(site for site in requested if site not in mapped_sites),
             ]
         )
         routable = [site for site in requested if site in mapped_sites]
-        if requested and not routable:
+        if (requested or groups) and not routable and not mapped_groups:
             raise RoutePlanningError(
                 f"这些场馆还没有可靠地图点位：{'、'.join(unresolved)}"
             )
@@ -156,6 +173,7 @@ class ZooGuideTools:
             guide=guide,
             selected_sites=routable,
             must_see_sites=[site for site in must_see if site in mapped_sites],
+            must_see_site_groups=[candidates for _, candidates in mapped_groups],
             available_minutes=available_minutes,
             energy_level=energy_level,
             origin=origin,
@@ -169,7 +187,9 @@ class ZooGuideTools:
             ]
         return {
             "routes": [route.model_dump(mode="json") for route in routes],
-            "resolved_sites": routable,
+            "resolved_sites": _unique(
+                [*routable, *(site for _, candidates in mapped_groups for site in candidates)]
+            ),
             "unresolved_sites": unresolved,
         }
 
@@ -198,6 +218,7 @@ class ZooGuideTools:
             if "must_see_sites" in dependencies
             else normalize_site_list(must_see_sites)
         )
+        groups = _site_groups(dependencies.get("must_see_site_groups"))
         map_context = GuideMapContext.model_validate(
             dependencies.get("map_context") or {}
         )
@@ -214,6 +235,9 @@ class ZooGuideTools:
             energy_level=energy_level,
             selected_sites=selected,
             must_see_sites=must_see,
+            must_see_site_groups=[
+                {"label": label, "sites": sites} for label, sites in groups
+            ],
             origin_name=origin_name,
             origin_longitude=origin_longitude,
             origin_latitude=origin_latitude,
@@ -230,6 +254,15 @@ class ZooGuideTools:
         values = dict(arguments)
         if not normalize_site_list(values.get("selected_sites")):
             values["selected_sites"] = context.selected_sites
+        if context.selected_animals:
+            animals, _ = self.resolver.resolve_animal_terms(context.selected_animals)
+            values["must_see_site_groups"] = [
+                {
+                    "label": name,
+                    "sites": self.repository.query(name=name).items[0].sites,
+                }
+                for name in animals
+            ]
         if context.origin is not None:
             values.setdefault("origin_name", context.origin.name)
             values.setdefault("origin_longitude", context.origin.longitude)
@@ -266,6 +299,20 @@ def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, str) and item]
+
+
+def _site_groups(value: object) -> list[tuple[str, list[str]]]:
+    if not isinstance(value, list):
+        return []
+    groups: list[tuple[str, list[str]]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or "已选动物").strip()
+        sites = _string_list(item.get("sites"))
+        if sites:
+            groups.append((label, sites))
+    return groups
 
 
 def _optional_float(value: float | str | None) -> float | None:

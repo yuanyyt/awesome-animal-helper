@@ -40,12 +40,17 @@ export async function sendGuideMessage(
   message: string,
   sessionId: string | null,
   selectedSites: string[],
+  selectedAnimals: string[],
   origin: MapNamedLocation | null,
 ): Promise<GuideChatResponse> {
   return guideRequest("/api/guide/chat", {
     session_id: sessionId,
     message,
-    map_context: { selected_sites: selectedSites, origin },
+    map_context: {
+      selected_sites: selectedSites,
+      selected_animals: selectedAnimals,
+      origin,
+    },
   });
 }
 

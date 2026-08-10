@@ -41,6 +41,7 @@ class TurnResolution:
     mentioned_sites: tuple[str, ...]
     resolved_sites: tuple[str, ...]
     must_see_sites: tuple[str, ...]
+    must_see_site_groups: tuple[tuple[str, tuple[str, ...]], ...]
     unresolved_terms: tuple[str, ...]
 
     def as_dependencies(self, map_context: GuideMapContext) -> dict[str, object]:
@@ -49,6 +50,10 @@ class TurnResolution:
             "animal_names": list(self.animal_names),
             "resolved_sites": list(self.resolved_sites),
             "must_see_sites": list(self.must_see_sites),
+            "must_see_site_groups": [
+                {"label": label, "sites": list(sites)}
+                for label, sites in self.must_see_site_groups
+            ],
             "unresolved_terms": list(self.unresolved_terms),
             "map_context": map_context.model_dump(mode="json"),
         }
@@ -84,16 +89,19 @@ class GuideTurnResolver:
                 self.animal_lookup[_normalize(animal.scientific_name)] = animal.name
 
     def resolve(self, message: str, map_context: GuideMapContext) -> TurnResolution:
-        animal_names = self._mentions(message, self.animal_lookup)
-        mentioned_sites = self._mentions(message, self.site_lookup)
-        animal_sites = _unique(
-            site
-            for name in animal_names
-            for site in self.animals_by_name[name].sites
+        mentioned_animals = self._mentions(message, self.animal_lookup)
+        selected_animals, unknown_animals = self.resolve_animal_terms(
+            map_context.selected_animals
         )
+        animal_names = _unique([*selected_animals, *mentioned_animals])
+        mentioned_sites = self._mentions(message, self.site_lookup)
         map_sites, unresolved = self.resolve_site_terms(map_context.selected_sites)
-        explicit_sites = _unique([*mentioned_sites, *animal_sites])
-        resolved_sites = _unique([*map_sites, *explicit_sites])
+        groups = tuple(
+            (name, tuple(self.animals_by_name[name].sites))
+            for name in animal_names
+            if self.animals_by_name[name].sites
+        )
+        resolved_sites = _unique([*map_sites, *mentioned_sites])
         missing_animals = [
             name for name in animal_names if not self.animals_by_name[name].sites
         ]
@@ -102,9 +110,27 @@ class GuideTurnResolver:
             animal_names=tuple(animal_names),
             mentioned_sites=tuple(mentioned_sites),
             resolved_sites=tuple(resolved_sites),
-            must_see_sites=tuple(explicit_sites),
-            unresolved_terms=tuple(_unique([*unresolved, *missing_animals])),
+            must_see_sites=tuple(mentioned_sites),
+            must_see_site_groups=groups,
+            unresolved_terms=tuple(
+                _unique([*unresolved, *unknown_animals, *missing_animals])
+            ),
         )
+
+    def resolve_animal_terms(self, terms: list[str]) -> tuple[list[str], list[str]]:
+        """Resolve exact animal names and aliases supplied by structured UI state."""
+
+        animals: list[str] = []
+        unresolved: list[str] = []
+        for term in terms:
+            cleaned = term.strip()
+            if not cleaned:
+                continue
+            if animal := self.animal_lookup.get(_normalize(cleaned)):
+                animals.append(animal)
+            else:
+                unresolved.append(cleaned)
+        return _unique(animals), _unique(unresolved)
 
     def resolve_site_terms(self, terms: list[str]) -> tuple[list[str], list[str]]:
         sites: list[str] = []

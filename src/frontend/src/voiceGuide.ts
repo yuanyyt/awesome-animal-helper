@@ -10,6 +10,7 @@ export type VoiceState =
 
 interface VoiceMapContext {
   selectedSites: string[];
+  selectedAnimals: string[];
   origin: MapNamedLocation | null;
   sessionId: string;
 }
@@ -240,7 +241,11 @@ export class VoiceGuideClient {
   }
 
   private mapContextPayload(): object {
-    return { selected_sites: this.context.selectedSites, origin: this.context.origin };
+    return {
+      selected_sites: this.context.selectedSites,
+      selected_animals: this.context.selectedAnimals,
+      origin: this.context.origin,
+    };
   }
 
   private sendJson(payload: object): void {
