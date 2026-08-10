@@ -207,16 +207,8 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       :class="{ 'is-active': activePage === 'guide' }"
       :aria-hidden="activePage !== 'guide'"
       :inert="activePage !== 'guide'"
-      aria-labelledby="guide-title"
+      aria-label="园区导览对话"
     >
-      <header class="guide-workspace__heading">
-        <div>
-          <h1 id="guide-title">今天，想问什么？</h1>
-          <p>问一句，导览员会带来路线、地图或动物故事。</p>
-        </div>
-        <span>AGNO 对话 · 高德路线 · 本地动物资料</span>
-      </header>
-
       <GuideChatBox
         :selected-sites="selectedRouteSites"
         :selected-site="selectedSite"

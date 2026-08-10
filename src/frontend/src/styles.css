@@ -1749,28 +1749,28 @@ main {
   }
 }
 
-/* Fixed two-page guide workspace */
+/* Hallmark · page flow: field-guide conversation · full-document scroll
+ * critique: P5 H5 E5 S5 R5 V4 · floating chrome removed
+ */
 html,
 body,
 #app {
-  height: 100%;
+  min-height: 100%;
 }
 
 #app {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  grid-template-rows: var(--size-nav) minmax(0, 1fr);
-  overflow: hidden;
+  min-height: 100svh;
 }
 
 body {
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: auto;
 }
 
 .site-nav {
-  position: relative;
-  height: var(--size-nav);
+  position: sticky;
+  top: 0;
+  min-height: var(--size-nav);
   flex: 0 0 auto;
 }
 
@@ -1816,75 +1816,32 @@ body {
 }
 
 .app-pages {
-  position: relative;
-  height: 100%;
-  overflow: hidden;
+  min-height: calc(100svh - var(--size-nav));
+  overflow: visible;
 }
 
 .page-panel {
-  position: absolute;
-  inset: 0;
-  min-height: 0;
-  opacity: 0;
-  overflow-y: auto;
+  display: none;
+  min-height: calc(100svh - var(--size-nav));
   pointer-events: none;
-  transform: translateY(var(--space-sm));
-  transition:
-    opacity var(--dur-medium) var(--ease-out),
-    transform var(--dur-medium) var(--ease-out),
-    visibility 0s linear var(--dur-medium);
   visibility: hidden;
 }
 
 .page-panel.is-active {
-  opacity: 1;
+  display: grid;
   pointer-events: auto;
-  transform: translateY(0);
-  transition-delay: 0s;
   visibility: visible;
 }
 
 .guide-hero {
-  height: 100%;
-  min-height: 0;
+  min-height: calc(100svh - var(--size-nav));
   padding-block: var(--space-xl) var(--space-2xl);
   border-bottom: 0;
 }
 
 .guide-workspace {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--space-sm);
-  padding-block: var(--space-sm);
-}
-
-.guide-workspace__heading {
-  display: flex;
-  min-width: 0;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--space-xl);
-  padding-bottom: var(--space-xs);
-  border-bottom: var(--rule-hair) solid var(--color-rule);
-}
-
-.guide-workspace__heading h1 {
-  margin-bottom: var(--space-2xs);
-  font-size: clamp(1.75rem, 3vw, 2.75rem);
-  letter-spacing: -0.04em;
-}
-
-.guide-workspace__heading p,
-.guide-workspace__heading span {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-}
-
-.guide-workspace__heading span {
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  white-space: nowrap;
+  display: block;
+  padding-block: var(--space-xl) var(--space-3xl);
 }
 
 .guide-layout {
@@ -2240,20 +2197,18 @@ body {
 
 /* Conversation workbench */
 .guide-workspace {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .guide-workspace > .guide-chat {
   width: min(100%, 72rem);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   margin-inline: auto;
-  overflow: hidden;
-  border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-paper-3);
-  box-shadow: 0 1rem 2.5rem var(--color-shadow);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .guide-workspace > .guide-chat .guide-chat__intro {
@@ -2264,9 +2219,9 @@ body {
   align-items: center;
   gap: var(--space-md);
   margin: 0;
-  padding: var(--space-sm) var(--space-lg);
+  padding: 0 0 var(--space-lg);
   border-bottom: var(--rule-hair) solid var(--color-rule);
-  background: var(--color-paper-2);
+  background: transparent;
 }
 
 .guide-chat__intro > span {
@@ -2309,15 +2264,11 @@ body {
 }
 
 .guide-workspace > .guide-chat .guide-chat__scroll {
-  min-height: 0;
   display: flex;
-  flex: 1;
   flex-direction: column;
   gap: var(--space-lg);
-  padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-2xl));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-color: var(--color-rule-strong) transparent;
+  padding: var(--space-xl) 0;
+  overflow: visible;
 }
 
 .chat-turn {
@@ -2580,10 +2531,9 @@ body {
 }
 
 .guide-chat__dock {
-  flex: 0 0 auto;
-  padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-2xl)) var(--space-xs);
+  padding: var(--space-lg) 0 var(--space-xs);
   border-top: var(--rule-hair) solid var(--color-rule);
-  background: var(--color-paper-2);
+  background: transparent;
 }
 
 .guide-chat__dock .guide-chat__composer {
@@ -2606,12 +2556,11 @@ body {
 
 @media (max-width: 59.99rem) {
   .guide-workspace {
-    height: 100%;
-    display: grid;
+    display: block;
   }
 
   .guide-workspace > .guide-chat {
-    min-height: 0;
+    min-height: auto;
   }
 
   .chat-animal-grid {
@@ -2620,12 +2569,8 @@ body {
 }
 
 @media (max-width: 40rem) {
-  .guide-workspace__heading {
-    display: none;
-  }
-
   .guide-workspace {
-    padding-block: var(--space-xs);
+    padding-block: var(--space-md) var(--space-xl);
   }
 
   .guide-workspace > .guide-chat .guide-chat__intro {
@@ -2638,7 +2583,7 @@ body {
   }
 
   .guide-workspace > .guide-chat .guide-chat__scroll {
-    padding: var(--space-md) var(--space-sm);
+    padding: var(--space-md) 0;
   }
 
   .chat-turn.is-visitor {

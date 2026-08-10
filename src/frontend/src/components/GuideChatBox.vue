@@ -221,7 +221,9 @@ function calories(route: RouteOption): string {
 }
 
 function scrollToLatest(): void {
-  void nextTick(() => scrollArea.value?.scrollTo({ top: scrollArea.value.scrollHeight, behavior: "smooth" }));
+  void nextTick(() => {
+    scrollArea.value?.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "end" });
+  });
 }
 </script>
 
