@@ -19,7 +19,7 @@ const props = defineProps<{
   animalsLoading: boolean;
   animalsError: string;
   origin: MapNamedLocation | null;
-  activeRouteId: string;
+  activeRoute: RouteOption | null;
 }>();
 
 const emit = defineEmits<{
@@ -152,7 +152,8 @@ function handleResponse(response: GuideChatResponse): void {
   if (response.route_options.length) {
     emit("routes", response.route_options);
     emit("routeSelect", response.route_options[1] ?? response.route_options[0]);
-    showMap();
+    showMap(true);
+    moveAnimalsToEnd();
   }
   scrollToLatest();
 }
@@ -162,10 +163,22 @@ function pushMessage(role: "visitor" | "guide", text: string): void {
   scrollToLatest();
 }
 
-function showMap(): void {
-  if (timeline.value.some((item) => item.kind === "map")) return;
-  timeline.value.push({ id: nextItemId++, kind: "map" });
+function showMap(moveToEnd = false): void {
+  const index = timeline.value.findIndex((item) => item.kind === "map");
+  if (index < 0) {
+    timeline.value.push({ id: nextItemId++, kind: "map" });
+  } else if (moveToEnd) {
+    const [mapItem] = timeline.value.splice(index, 1);
+    timeline.value.push(mapItem);
+  }
   scrollToLatest();
+}
+
+function moveAnimalsToEnd(): void {
+  const index = timeline.value.findIndex((item) => item.kind === "animals");
+  if (index < 0) return;
+  const [animalItem] = timeline.value.splice(index, 1);
+  timeline.value.push(animalItem);
 }
 
 function suggestedValue(field: GuideInputField): string | number | boolean {
@@ -222,7 +235,14 @@ function calories(route: RouteOption): string {
 
 function scrollToLatest(): void {
   void nextTick(() => {
-    scrollArea.value?.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const latest = scrollArea.value?.lastElementChild;
+    if (!(latest instanceof HTMLElement)) return;
+    const bottom = latest.getBoundingClientRect().bottom + window.scrollY;
+    window.scrollTo({
+      top: Math.max(0, bottom - window.innerHeight + 24),
+      left: 0,
+      behavior: "smooth",
+    });
   });
 }
 </script>
@@ -246,7 +266,7 @@ function scrollToLatest(): void {
         <div class="chat-turn__bubble">
           <p>您好，我可以陪您规划园内路线，也可以讲讲动物邻居的故事。</p>
           <div class="guide-chat__prompts" aria-label="导览快捷操作">
-            <button type="button" @click="showMap">打开园区地图</button>
+            <button type="button" @click="showMap()">打开园区地图</button>
             <button type="button" @click="choosePrompt('带孩子轻松逛，想看大熊猫和考拉')">亲子轻松路线</button>
             <button type="button" @click="choosePrompt('给我介绍一下大熊猫的生活习性')">认识大熊猫</button>
           </div>
@@ -280,7 +300,7 @@ function scrollToLatest(): void {
                 v-for="route in item.response.route_options"
                 :key="route.id"
                 type="button"
-                :class="{ 'is-active': activeRouteId === route.id }"
+                :class="{ 'is-active': activeRoute?.id === route.id }"
                 @click="emit('routeSelect', route)"
               >
                 <span class="route-options__eyebrow">{{ route.sites.length }} 站 · {{ Math.round(route.distance_meters / 10) * 10 }} 米</span>
@@ -294,7 +314,10 @@ function scrollToLatest(): void {
         </article>
 
         <article v-else-if="item.kind === 'map'" class="chat-artifact is-map">
-          <header><span>园区地图</span><p>点按场馆，加入今天的路线。</p></header>
+          <header>
+            <span>{{ activeRoute ? `${activeRoute.name}路线图` : "园区地图" }}</span>
+            <p>{{ activeRoute ? activeRoute.sites.join(" → ") : "点按场馆，加入今天的路线。" }}</p>
+          </header>
           <slot name="map"></slot>
         </article>
 

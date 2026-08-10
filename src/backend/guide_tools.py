@@ -185,21 +185,18 @@ class ZooGuideTools:
         origin_latitude: float | str | None = None,
         weight_kg: float | str | None = None,
     ) -> dict[str, Any]:
-        """Plan with deterministic per-turn targets injected by Agno."""
+        """Plan with canonical per-turn targets injected by Agno."""
 
         dependencies = run_context.dependencies or {}
-        selected = _unique(
-            [
-                *_string_list(dependencies.get("resolved_sites")),
-                *normalize_site_list(selected_sites),
-            ]
+        selected = (
+            _string_list(dependencies.get("resolved_sites"))
+            if "resolved_sites" in dependencies
+            else normalize_site_list(selected_sites)
         )
-        must_see = _unique(
-            [
-                *_string_list(dependencies.get("resolved_sites")),
-                *_string_list(dependencies.get("must_see_sites")),
-                *normalize_site_list(must_see_sites),
-            ]
+        must_see = (
+            _string_list(dependencies.get("must_see_sites"))
+            if "must_see_sites" in dependencies
+            else normalize_site_list(must_see_sites)
         )
         map_context = GuideMapContext.model_validate(
             dependencies.get("map_context") or {}

@@ -1844,6 +1844,10 @@ body {
   padding-block: var(--space-xl) var(--space-3xl);
 }
 
+.page-panel.guide-workspace.is-active {
+  display: block;
+}
+
 .guide-layout {
   display: grid;
   min-height: 0;
@@ -2202,6 +2206,7 @@ body {
 
 .guide-workspace > .guide-chat {
   width: min(100%, 72rem);
+  min-width: 0;
   margin-inline: auto;
   padding: 0;
   overflow: visible;
@@ -2347,8 +2352,8 @@ body {
 }
 
 .chat-artifact {
-  width: min(100%, 64rem);
-  align-self: center;
+  width: min(100%, 54rem);
+  align-self: flex-start;
   overflow: hidden;
   border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: var(--radius-md);
@@ -2372,9 +2377,12 @@ body {
 }
 
 .chat-artifact > header p {
+  max-width: 70%;
   margin: 0;
   color: var(--color-muted);
   font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  text-align: end;
 }
 
 .chat-artifact .zoo-map {
@@ -2531,6 +2539,7 @@ body {
 }
 
 .guide-chat__dock {
+  width: min(100%, 54rem);
   padding: var(--space-lg) 0 var(--space-xs);
   border-top: var(--rule-hair) solid var(--color-rule);
   background: transparent;
@@ -2606,6 +2615,11 @@ body {
     align-items: flex-start;
     flex-direction: column;
     gap: var(--space-2xs);
+  }
+
+  .chat-artifact > header p {
+    max-width: 100%;
+    text-align: start;
   }
 
   .chat-artifact .zoo-map {

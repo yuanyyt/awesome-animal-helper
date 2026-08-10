@@ -216,7 +216,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
         :animals-loading="loading"
         :animals-error="error"
         :origin="routeOrigin"
-        :active-route-id="activeRoute?.id ?? ''"
+        :active-route="activeRoute"
         @route-select="selectRoute"
         @animal-select="openAnimal"
         @animals-retry="loadAnimals()"

@@ -36,6 +36,7 @@ let readinessTimer: number | undefined;
 const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
 );
+const displayedRouteSites = computed(() => props.activeRoute?.sites ?? props.routeSites);
 const boundaryPath = computed(() => expandedConvexHull(props.guide?.points ?? [], 1.5));
 const boundaryCoordinates = computed(() =>
   boundaryPath.value.map(
@@ -74,7 +75,10 @@ watch(
 
 watch(
   () => props.activeRoute,
-  () => updateRouteOverlay(),
+  () => {
+    updateInteractiveMarkers(props.selectedSite);
+    updateRouteOverlay();
+  },
   { deep: true },
 );
 
@@ -173,6 +177,8 @@ function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
   button.type = "button";
   button.className = "zoo-map__amap-marker";
   button.textContent = String(index + 1);
+  button.dataset.site = point.site;
+  button.dataset.defaultIndex = String(index + 1);
   button.setAttribute("aria-label", `查看${point.site}，${point.animal_count}种动物`);
   button.setAttribute("aria-pressed", "false");
   return button;
@@ -181,14 +187,22 @@ function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
 function updateInteractiveMarkers(site: string): void {
   for (const marker of amapMarkers) {
     const button = marker.getContent();
-    const active = button.getAttribute("aria-label")?.startsWith(`查看${site}，`) ?? false;
-    const routeSite = props.routeSites.some((item) =>
-      button.getAttribute("aria-label")?.startsWith(`查看${item}，`),
-    );
+    const markerSite = button.dataset.site ?? "";
+    const routeIndex = displayedRouteSites.value.indexOf(markerSite);
+    const active = markerSite === site;
+    const routeSite = routeIndex >= 0;
     button.classList.toggle("is-active", active);
     button.classList.toggle("is-route-stop", routeSite);
+    button.textContent = routeSite
+      ? String(routeIndex + 1)
+      : button.dataset.defaultIndex ?? "";
     button.setAttribute("aria-pressed", String(active));
   }
+}
+
+function markerNumber(point: MapPoint, fallbackIndex: number): number {
+  const routeIndex = displayedRouteSites.value.indexOf(point.site);
+  return routeIndex >= 0 ? routeIndex + 1 : fallbackIndex + 1;
 }
 
 function destroyInteractiveMap(): void {
@@ -446,7 +460,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             class="zoo-map__marker"
             :class="{
               'is-active': selectedSite === point.site,
-              'is-route-stop': routeSites.includes(point.site),
+              'is-route-stop': displayedRouteSites.includes(point.site),
             }"
             :style="markerStyle(point, index)"
             type="button"
@@ -454,7 +468,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             :aria-pressed="selectedSite === point.site"
             @click="emit('select', point.site); emit('routeToggle', point.site)"
           >
-            <span>{{ index + 1 }}</span>
+            <span>{{ markerNumber(point, index) }}</span>
           </button>
         </template>
       </div>
@@ -467,7 +481,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           </span>
           <span v-else>高德已收录 {{ guide.points.length }} 个园内场馆点位 · 绿色轮廓为导览显示范围</span>
         </div>
-        <strong v-if="selectedPoint">右侧查看馆内动物 →</strong>
+        <strong v-if="selectedPoint">下方查看馆内动物 ↓</strong>
         <small v-else>地图数据来自 {{ guide.provider }}</small>
       </div>
     </template>
