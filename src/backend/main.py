@@ -45,7 +45,7 @@ def get_guide_agent() -> GuideAgentService:
 def get_audio_realtime() -> AudioRealtimeService:
     """Build the Qwen-Audio bridge only when a voice session starts."""
 
-    return AudioRealtimeService(get_guide_agent())
+    return AudioRealtimeService()
 
 
 @asynccontextmanager

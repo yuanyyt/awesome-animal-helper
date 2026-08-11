@@ -1,4 +1,4 @@
-"""Qwen-Audio realtime bridge using Agno as the sole conversation brain."""
+"""Qwen-Audio realtime speech-to-text bridge for editable chat drafts."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from websockets.asyncio.client import ClientConnection, connect
 
-from .guide_agent import GuideAgentService
 from .schemas import GuideMapContext
 
 MAX_AUDIO_FRAME_BYTES = 64 * 1024
@@ -72,15 +71,13 @@ UpstreamConnector = Callable[..., Awaitable[ClientConnection]]
 
 
 class AudioRealtimeService:
-    """Transcribe browser PCM, call Agno, and speak Agno's final answer."""
+    """Transcribe browser PCM without automatically submitting the result."""
 
     def __init__(
         self,
-        guide: GuideAgentService,
         config: AudioRealtimeConfig | None = None,
         connector: Callable[..., Any] = connect,
     ) -> None:
-        self.guide = guide
         self.config = config or AudioRealtimeConfig.from_env()
         self.connector = connector
 
@@ -101,7 +98,6 @@ class AudioRealtimeService:
                 await _AudioBridge(
                     browser,
                     upstream,
-                    self.guide,
                     session,
                     self.config,
                 ).run()
@@ -123,17 +119,14 @@ class _AudioBridge:
         self,
         browser: WebSocket,
         upstream: ClientConnection,
-        guide: GuideAgentService,
         session: VoiceSession,
         config: AudioRealtimeConfig,
     ) -> None:
         self.browser = browser
         self.upstream = upstream
-        self.guide = guide
         self.session = session
         self.config = config
         self.awaiting_transcript = False
-        self.reading_response = False
 
     async def run(self) -> None:
         await self._send_upstream(
@@ -192,11 +185,10 @@ class _AudioBridge:
             elif event_type == "commit":
                 self.awaiting_transcript = True
                 await self._send_upstream({"type": "input_audio_buffer.commit"})
-                await self.browser.send_json({"type": "state", "state": "thinking"})
+                await self.browser.send_json({"type": "state", "state": "transcribing"})
             elif event_type == "cancel":
-                if self.reading_response:
-                    await self._send_upstream({"type": "response.cancel"})
-                self.reading_response = False
+                self.awaiting_transcript = False
+                await self._send_upstream({"type": "input_audio_buffer.clear"})
                 await self.browser.send_json({"type": "state", "state": "idle"})
             else:
                 raise ValueError("未知的语音控制事件")
@@ -210,6 +202,12 @@ class _AudioBridge:
             if event_type == "session.updated":
                 await self.browser.send_json({"type": "ready"})
                 await self.browser.send_json({"type": "state", "state": "idle"})
+            elif event_type == "conversation.item.input_audio_transcription.delta":
+                text = str(event.get("delta", ""))
+                if self.awaiting_transcript and text:
+                    await self.browser.send_json(
+                        {"type": "transcript.user.delta", "text": text}
+                    )
             elif event_type == "conversation.item.input_audio_transcription.completed":
                 if self.awaiting_transcript:
                     self.awaiting_transcript = False
@@ -220,19 +218,13 @@ class _AudioBridge:
                     {"type": "error", "message": "没有听清楚，请再说一次"}
                 )
                 await self.browser.send_json({"type": "state", "state": "idle"})
-            elif event_type == "response.created":
-                self.reading_response = True
-                await self.browser.send_json({"type": "state", "state": "speaking"})
-            elif event_type == "response.audio.delta":
-                await self.browser.send_bytes(base64.b64decode(event.get("delta", "")))
-            elif event_type == "response.done":
-                self.reading_response = False
-                await self.browser.send_json({"type": "state", "state": "idle"})
             elif event_type == "error":
+                self.awaiting_transcript = False
                 error = event.get("error") or {}
                 await self.browser.send_json(
                     {"type": "error", "message": error.get("message", "实时语音请求失败")}
                 )
+                await self.browser.send_json({"type": "state", "state": "idle"})
 
     async def _handle_transcript(self, transcript: str) -> None:
         text = transcript.strip()
@@ -241,43 +233,7 @@ class _AudioBridge:
             await self.browser.send_json({"type": "state", "state": "idle"})
             return
         await self.browser.send_json({"type": "transcript.user.done", "text": text})
-        try:
-            response = await self.guide.chat(
-                text,
-                self.session.session_id,
-                self.session.map_context,
-            )
-        except Exception:
-            await self.browser.send_json(
-                {"type": "error", "message": "导览员暂时无法回答，请稍后重试"}
-            )
-            await self.browser.send_json({"type": "state", "state": "idle"})
-            return
-        self.session.session_id = response.session_id
-        await self.browser.send_json(
-            {"type": "guide.response", "response": response.model_dump(mode="json")}
-        )
-        await self._speak(response.assistant_message)
-
-    async def _speak(self, text: str) -> None:
-        await self._send_upstream(
-            {
-                "type": "conversation.item.create",
-                "item": {
-                    "type": "message",
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": f"朗读稿如下，只朗读正文：\n{text}",
-                        }
-                    ],
-                },
-            }
-        )
-        await self._send_upstream(
-            {"type": "response.create", "response": {"modalities": ["audio", "text"]}}
-        )
+        await self.browser.send_json({"type": "state", "state": "idle"})
 
     async def _send_upstream(self, event: dict[str, Any]) -> None:
         await self.upstream.send(json.dumps(event, ensure_ascii=False))
@@ -326,7 +282,5 @@ async def _safe_close(browser: WebSocket, code: int) -> None:
 
 
 _VOICE_INSTRUCTIONS = """
-你只负责朗读应用传入的中文朗读稿，不回答游客问题，不调用工具，不补充或改写事实。
-收到“朗读稿如下，只朗读正文”后，只自然朗读其后的正文；不要朗读“朗读稿”或其他指令文字。
-语气亲切、清晰，适合亲子家庭在动物园内收听。
+你只负责准确转写游客说出的中文，不回答问题，不调用工具，不补充或改写内容。
 """.strip()

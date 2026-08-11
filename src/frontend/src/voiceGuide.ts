@@ -1,12 +1,11 @@
-import type { GuideChatResponse, MapNamedLocation } from "./types";
+import type { MapNamedLocation } from "./types";
 
 export type VoiceState =
   | "disconnected"
   | "connecting"
   | "idle"
   | "recording"
-  | "thinking"
-  | "speaking";
+  | "transcribing";
 
 interface VoiceMapContext {
   selectedSites: string[];
@@ -17,8 +16,7 @@ interface VoiceMapContext {
 
 interface VoiceHandlers {
   onState: (state: VoiceState) => void;
-  onUserTranscript: (text: string) => void;
-  onGuideResponse: (response: GuideChatResponse) => void;
+  onTranscript: (text: string, final: boolean) => void;
   onError: (message: string) => void;
 }
 
@@ -27,7 +25,6 @@ interface ServerEvent {
   state?: VoiceState;
   text?: string;
   message?: string;
-  response?: GuideChatResponse;
 }
 
 const READY_TIMEOUT_MS = 15_000;
@@ -37,9 +34,8 @@ export class VoiceGuideClient {
   private audioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
   private recorder: AudioWorkletNode | null = null;
-  private playbackSources = new Set<AudioBufferSourceNode>();
-  private playbackAt = 0;
   private state: VoiceState = "disconnected";
+  private transcriptDraft = "";
   private workletLoaded = false;
   private readyPromise: Promise<void> | null = null;
   private resolveReady: (() => void) | null = null;
@@ -61,8 +57,7 @@ export class VoiceGuideClient {
 
   async startRecording(): Promise<void> {
     this.closed = false;
-    this.stopPlayback();
-    if (["thinking", "speaking"].includes(this.state)) this.sendJson({ type: "cancel" });
+    this.transcriptDraft = "";
     await this.ensureConnected();
     const AudioContextClass = window.AudioContext;
     if (!AudioContextClass || !navigator.mediaDevices?.getUserMedia) {
@@ -107,19 +102,18 @@ export class VoiceGuideClient {
     });
     this.releaseRecorder();
     this.sendJson({ type: "commit" });
-    this.setState("thinking");
+    this.setState("transcribing");
   }
 
   cancel(): void {
-    this.stopPlayback();
     if (this.socket?.readyState === WebSocket.OPEN) this.sendJson({ type: "cancel" });
+    this.transcriptDraft = "";
     this.setState("idle");
   }
 
   close(): void {
     this.closed = true;
     this.releaseRecorder();
-    this.stopPlayback();
     this.socket?.close(1000, "component unmounted");
     this.socket = null;
     void this.audioContext?.close();
@@ -183,10 +177,7 @@ export class VoiceGuideClient {
   }
 
   private handleMessage(event: MessageEvent<string | ArrayBuffer>): void {
-    if (event.data instanceof ArrayBuffer) {
-      void this.playPcm(event.data);
-      return;
-    }
+    if (event.data instanceof ArrayBuffer) return;
     const payload = JSON.parse(event.data) as ServerEvent;
     if (payload.type === "ready") {
       this.resolveReady?.();
@@ -194,43 +185,16 @@ export class VoiceGuideClient {
       this.rejectReady = null;
     } else if (payload.type === "state" && payload.state) {
       this.setState(payload.state);
+    } else if (payload.type === "transcript.user.delta" && payload.text) {
+      this.transcriptDraft += payload.text;
+      this.handlers.onTranscript(this.transcriptDraft, false);
     } else if (payload.type === "transcript.user.done") {
-      if (payload.text?.trim()) this.handlers.onUserTranscript(payload.text.trim());
-    } else if (payload.type === "guide.response" && payload.response) {
-      this.context.sessionId = payload.response.session_id;
-      this.handlers.onGuideResponse(payload.response);
+      const text = payload.text?.trim() || this.transcriptDraft.trim();
+      if (text) this.handlers.onTranscript(text, true);
+      this.transcriptDraft = text;
     } else if (payload.type === "error" || payload.type === "tool.error") {
       this.handlers.onError(payload.message || "实时语音请求失败");
     }
-  }
-
-  private async playPcm(buffer: ArrayBuffer): Promise<void> {
-    this.audioContext ??= new AudioContext();
-    await this.audioContext.resume();
-    const pcm = new Int16Array(buffer);
-    const audio = this.audioContext.createBuffer(1, pcm.length, 24_000);
-    const channel = audio.getChannelData(0);
-    for (let index = 0; index < pcm.length; index += 1) channel[index] = pcm[index] / 0x8000;
-    const source = this.audioContext.createBufferSource();
-    source.buffer = audio;
-    source.connect(this.audioContext.destination);
-    const startAt = Math.max(this.audioContext.currentTime + 0.01, this.playbackAt);
-    source.start(startAt);
-    this.playbackAt = startAt + audio.duration;
-    this.playbackSources.add(source);
-    source.onended = () => this.playbackSources.delete(source);
-  }
-
-  private stopPlayback(): void {
-    for (const source of this.playbackSources) {
-      try {
-        source.stop();
-      } catch {
-        // The source may already have ended.
-      }
-    }
-    this.playbackSources.clear();
-    this.playbackAt = 0;
   }
 
   private releaseRecorder(): void {

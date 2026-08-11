@@ -49,6 +49,8 @@ const voiceState = ref<VoiceState>("disconnected");
 const scrollArea = ref<HTMLElement | null>(null);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
+const voiceDraftReady = ref(false);
+let voiceQuestionPrefix = "";
 let nextItemId = 1;
 
 const voiceClient = new VoiceGuideClient(
@@ -62,8 +64,10 @@ const voiceClient = new VoiceGuideClient(
     onState: (state) => {
       voiceState.value = state;
     },
-    onUserTranscript: (text) => pushMessage("visitor", text),
-    onGuideResponse: handleResponse,
+    onTranscript: (text, final) => {
+      question.value = [voiceQuestionPrefix, text.trim()].filter(Boolean).join(" ");
+      voiceDraftReady.value = final;
+    },
     onError: (message) => {
       error.value = message;
     },
@@ -112,9 +116,8 @@ const voiceStatus = computed(() => {
     disconnected: "点击麦克风开始语音导览",
     connecting: "正在连接森林导览员…",
     idle: "点击麦克风开始说话",
-    recording: "正在听，再点一次就发送",
-    thinking: "导览员正在查资料和地图…",
-    speaking: "导览员正在朗读，再点麦克风可以打断",
+    recording: "正在听，再点一次停止并生成文字",
+    transcribing: "正在把语音整理成文字…",
   };
   return labels[voiceState.value];
 });
@@ -140,6 +143,7 @@ async function submit(): Promise<void> {
       const message = question.value.trim();
       pushMessage("visitor", message);
       question.value = "";
+      voiceDraftReady.value = false;
       await sendMessage(message);
     }
   } catch (reason) {
@@ -256,7 +260,11 @@ async function toggleVoice(): Promise<void> {
   error.value = "";
   try {
     if (voiceState.value === "recording") await voiceClient.stopRecording();
-    else await voiceClient.startRecording();
+    else {
+      voiceQuestionPrefix = question.value.trim();
+      voiceDraftReady.value = false;
+      await voiceClient.startRecording();
+    }
   } catch (reason) {
     error.value =
       reason instanceof DOMException && reason.name === "NotAllowedError"
@@ -414,8 +422,8 @@ function scrollToLatest(): void {
           class="guide-chat__voice"
           :class="{ 'is-recording': voiceState === 'recording' }"
           type="button"
-          :disabled="loading || voiceState === 'connecting'"
-          :aria-label="voiceState === 'recording' ? '结束录音并发送' : '开始语音导览'"
+          :disabled="loading || ['connecting', 'transcribing'].includes(voiceState)"
+          :aria-label="voiceState === 'recording' ? '结束录音并转成文字' : '开始语音输入'"
           :title="voiceStatus"
           @click="toggleVoice"
         >
@@ -438,7 +446,7 @@ function scrollToLatest(): void {
         </button>
       </div>
       <p class="guide-chat__helper" :class="{ 'is-error': error }">
-        {{ error || (voiceBusy ? voiceStatus : "语音和文字会记录在同一段导览对话中") }}
+        {{ error || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，可编辑后点击发送" : "语音会先转成文字，由您确认后发送") }}
       </p>
     </footer>
   </section>
