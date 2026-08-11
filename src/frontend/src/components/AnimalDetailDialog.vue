@@ -37,12 +37,14 @@ const fields: Array<{ key: ProfileFieldKey; label: string }> = [
   { key: "reproduction", label: "繁殖" },
   { key: "conservation_status", label: "保护状态" },
 ];
+const compactFieldLength = 32;
 
 const visibleFields = computed(() => {
   if (!props.animal) return [];
   return fields.flatMap((field) => {
     const text = props.animal?.[field.key]?.trim();
-    return text ? [{ ...field, text }] : [];
+    const textLength = text ? Array.from(text.replace(/\s/g, "")).length : 0;
+    return text ? [{ ...field, text, compact: textLength <= compactFieldLength }] : [];
   });
 });
 
@@ -122,7 +124,12 @@ function scrollToStories(): void {
             </ul>
           </section>
 
-          <section v-for="field in visibleFields" :key="field.key">
+          <section
+            v-for="field in visibleFields"
+            :key="field.key"
+            class="detail-dialog__profile-field"
+            :class="{ 'is-compact': field.compact }"
+          >
             <h3>{{ field.label }}</h3>
             <ExpandableText :text="field.text" />
           </section>

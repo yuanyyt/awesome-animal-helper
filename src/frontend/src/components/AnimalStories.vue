@@ -107,10 +107,6 @@ function exactMatches(items: WikiAnimalSummary[]): WikiAnimalSummary[] {
             <span aria-hidden="true">{{ String(index + 1).padStart(2, "0") }}</span>
             <div>
               <p>{{ fact.text }}</p>
-              <details v-if="fact.evidence">
-                <summary>查看正文依据</summary>
-                <blockquote>{{ fact.evidence }}</blockquote>
-              </details>
               <a
                 :href="fact.source.url"
                 :aria-label="`阅读原文：${fact.source.title}`"
