@@ -18,6 +18,12 @@ from websockets.asyncio.client import ClientConnection, connect
 from src.backend.domain.models import GuideMapContext
 
 MAX_AUDIO_FRAME_BYTES = 64 * 1024
+INPUT_SAMPLE_RATE = 16_000
+PCM_SAMPLE_BYTES = 2
+MAX_AUDIO_DURATION_SECONDS = 270
+MAX_BUFFERED_AUDIO_BYTES = (
+    INPUT_SAMPLE_RATE * PCM_SAMPLE_BYTES * MAX_AUDIO_DURATION_SECONDS
+)
 CONFIG_TIMEOUT_SECONDS = 15
 
 
@@ -128,6 +134,7 @@ class _AudioBridge:
         self.config = config
         self.awaiting_transcript = False
         self.awaiting_speech = False
+        self.buffered_audio_bytes = 0
 
     async def run(self) -> None:
         await self._send_upstream(
@@ -165,12 +172,20 @@ class _AudioBridge:
             if audio := message.get("bytes"):
                 if len(audio) > MAX_AUDIO_FRAME_BYTES or len(audio) % 2:
                     raise ValueError("音频帧格式无效")
-                await self._send_upstream(
-                    {
-                        "type": "input_audio_buffer.append",
-                        "audio": base64.b64encode(audio).decode("ascii"),
-                    }
-                )
+                if self.awaiting_transcript:
+                    continue
+                remaining = MAX_BUFFERED_AUDIO_BYTES - self.buffered_audio_bytes
+                accepted = audio[: remaining - (remaining % PCM_SAMPLE_BYTES)]
+                if accepted:
+                    await self._send_upstream(
+                        {
+                            "type": "input_audio_buffer.append",
+                            "audio": base64.b64encode(accepted).decode("ascii"),
+                        }
+                    )
+                    self.buffered_audio_bytes += len(accepted)
+                if self.buffered_audio_bytes >= MAX_BUFFERED_AUDIO_BYTES:
+                    await self._commit_audio(limit_reached=True)
                 continue
             raw = message.get("text")
             if raw is None:
@@ -184,11 +199,10 @@ class _AudioBridge:
             elif event_type == "session.update":
                 self.session.session_id = _optional_text(event.get("session_id"))
             elif event_type == "commit":
-                self.awaiting_transcript = True
-                await self._send_upstream({"type": "input_audio_buffer.commit"})
-                await self.browser.send_json({"type": "state", "state": "transcribing"})
+                await self._commit_audio()
             elif event_type == "cancel":
                 self.awaiting_transcript = False
+                self.buffered_audio_bytes = 0
                 await self._send_upstream({"type": "input_audio_buffer.clear"})
                 await self.browser.send_json({"type": "state", "state": "idle"})
             elif event_type == "speak":
@@ -225,8 +239,13 @@ class _AudioBridge:
                 self.awaiting_transcript = False
                 self.awaiting_speech = False
                 error = event.get("error") or {}
+                message = str(error.get("message") or "实时语音请求失败")
+                if _is_audio_buffer_overflow(message):
+                    self.buffered_audio_bytes = 0
+                    await self._send_upstream({"type": "input_audio_buffer.clear"})
+                    message = "本次录音时间过长，缓冲区已清空，请重新录音"
                 await self.browser.send_json(
-                    {"type": "error", "message": error.get("message", "实时语音请求失败")}
+                    {"type": "error", "message": message}
                 )
                 await self.browser.send_json({"type": "state", "state": "idle"})
             elif event_type == "response.audio.delta" and self.awaiting_speech:
@@ -245,6 +264,24 @@ class _AudioBridge:
             return
         await self.browser.send_json({"type": "transcript.user.done", "text": text})
         await self.browser.send_json({"type": "state", "state": "idle"})
+
+    async def _commit_audio(self, *, limit_reached: bool = False) -> None:
+        if self.awaiting_transcript:
+            return
+        if not self.buffered_audio_bytes:
+            await self.browser.send_json(
+                {"type": "notice", "message": "没有检测到可转写的语音"}
+            )
+            await self.browser.send_json({"type": "state", "state": "idle"})
+            return
+        self.awaiting_transcript = True
+        self.buffered_audio_bytes = 0
+        await self._send_upstream({"type": "input_audio_buffer.commit"})
+        if limit_reached:
+            await self.browser.send_json(
+                {"type": "notice", "message": "单次录音已达4分30秒，正在转成文字"}
+            )
+        await self.browser.send_json({"type": "state", "state": "transcribing"})
 
     async def _speak(self, text: str) -> None:
         text = text.strip()
@@ -296,6 +333,11 @@ async def _receive_initial_context(browser: WebSocket) -> VoiceSession:
 def _optional_text(value: object) -> str | None:
     text = str(value or "").strip()
     return text or None
+
+
+def _is_audio_buffer_overflow(message: str) -> bool:
+    normalized = message.casefold()
+    return "input audio buffer" in normalized and "maximum duration" in normalized
 
 
 def _realtime_base_url(source_url: str) -> str:

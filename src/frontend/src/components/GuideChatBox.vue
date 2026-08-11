@@ -46,6 +46,7 @@ const requiredInputs = ref<GuideInputField[]>([]);
 const runId = ref("");
 const loading = ref(false);
 const error = ref("");
+const voiceNotice = ref("");
 const voiceState = ref<VoiceState>("disconnected");
 const scrollArea = ref<HTMLElement | null>(null);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
@@ -68,8 +69,13 @@ const voiceClient = new VoiceGuideClient(
     onTranscript: (text, final) => {
       question.value = [voiceQuestionPrefix, text.trim()].filter(Boolean).join(" ");
       voiceDraftReady.value = final;
+      if (final) voiceNotice.value = "";
+    },
+    onNotice: (message) => {
+      voiceNotice.value = message;
     },
     onError: (message) => {
+      voiceNotice.value = "";
       error.value = message;
     },
   },
@@ -269,6 +275,7 @@ function choosePrompt(prompt: string): void {
 async function toggleVoice(): Promise<void> {
   if (loading.value) return;
   error.value = "";
+  voiceNotice.value = "";
   try {
     if (voiceState.value === "recording") await voiceClient.stopRecording();
     else {
@@ -463,12 +470,12 @@ function scrollToLatest(): void {
         </button>
       </div>
       <p
-        v-if="error || voiceBusy || voiceDraftReady"
+        v-if="error || voiceNotice || voiceBusy || voiceDraftReady"
         class="guide-chat__helper"
         :class="{ 'is-error': error }"
         aria-live="polite"
       >
-        {{ error || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，发送后将自动语音回复" : "") }}
+        {{ error || voiceNotice || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，发送后将自动语音回复" : "") }}
       </p>
     </footer>
   </section>

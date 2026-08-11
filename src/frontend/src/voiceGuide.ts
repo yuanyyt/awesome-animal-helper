@@ -19,6 +19,7 @@ interface VoiceHandlers {
   onState: (state: VoiceState) => void;
   onTranscript: (text: string, final: boolean) => void;
   onSpeechEnd?: () => void;
+  onNotice?: (message: string) => void;
   onError: (message: string) => void;
 }
 
@@ -30,6 +31,8 @@ interface ServerEvent {
 }
 
 const READY_TIMEOUT_MS = 15_000;
+const SILENCE_TIMEOUT_MS = 15_000;
+const MAX_RECORDING_MS = 270_000;
 const OUTPUT_SAMPLE_RATE = 24_000;
 
 export class VoiceGuideClient {
@@ -45,6 +48,10 @@ export class VoiceGuideClient {
   private readyPromise: Promise<void> | null = null;
   private resolveReady: (() => void) | null = null;
   private rejectReady: ((reason: Error) => void) | null = null;
+  private silenceTimer: number | null = null;
+  private recordingLimitTimer: number | null = null;
+  private detectedSpeech = false;
+  private finalizingRecording = false;
   private closed = false;
   private context: VoiceMapContext;
 
@@ -61,6 +68,7 @@ export class VoiceGuideClient {
   }
 
   async startRecording(): Promise<void> {
+    if (this.recorder) return;
     this.closed = false;
     this.transcriptDraft = "";
     await this.ensureConnected();
@@ -82,34 +90,73 @@ export class VoiceGuideClient {
     silence.gain.value = 0;
     source.connect(recorder).connect(silence).connect(audioContext.destination);
     recorder.port.onmessage = (event: MessageEvent<{ type: string; buffer?: ArrayBuffer }>) => {
-      if (event.data.type === "pcm" && event.data.buffer && this.socket?.readyState === WebSocket.OPEN) {
+      if (event.data.type === "voice-activity") {
+        this.detectedSpeech = true;
+        this.armSilenceTimer();
+      } else if (
+        event.data.type === "pcm" &&
+        event.data.buffer &&
+        this.socket?.readyState === WebSocket.OPEN
+      ) {
         this.socket.send(event.data.buffer);
       }
     };
     this.recorder = recorder;
+    this.detectedSpeech = false;
+    this.armRecordingTimers();
     this.setState("recording");
   }
 
   async stopRecording(): Promise<void> {
+    await this.finishRecording("manual");
+  }
+
+  private async finishRecording(reason: "manual" | "silence" | "limit"): Promise<void> {
     const recorder = this.recorder;
-    if (!recorder) return;
-    await new Promise<void>((resolve) => {
-      const listener = (event: MessageEvent<{ type: string }>) => {
-        if (event.data.type !== "flushed") return;
-        recorder.port.removeEventListener("message", listener);
-        resolve();
-      };
-      recorder.port.addEventListener("message", listener);
-      recorder.port.start();
-      recorder.port.postMessage({ type: "flush" });
-      window.setTimeout(resolve, 500);
-    });
-    this.releaseRecorder();
-    this.sendJson({ type: "commit" });
-    this.setState("transcribing");
+    if (!recorder || this.finalizingRecording) return;
+    this.finalizingRecording = true;
+    try {
+      const shouldCommit = reason !== "silence" || this.detectedSpeech;
+      if (!shouldCommit) {
+        this.releaseRecorder();
+        this.transcriptDraft = "";
+        this.sendJson({ type: "cancel" });
+        this.handlers.onNotice?.("连续15秒未检测到语音，录音已停止");
+        this.setState("idle");
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const listener = (event: MessageEvent<{ type: string }>) => {
+          if (event.data.type !== "flushed" || settled) return;
+          settled = true;
+          recorder.port.removeEventListener("message", listener);
+          resolve();
+        };
+        recorder.port.addEventListener("message", listener);
+        recorder.port.start();
+        recorder.port.postMessage({ type: "flush" });
+        window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          recorder.port.removeEventListener("message", listener);
+          resolve();
+        }, 500);
+      });
+      if (this.recorder !== recorder) return;
+      this.releaseRecorder();
+      this.sendJson({ type: "commit" });
+      if (reason === "limit") {
+        this.handlers.onNotice?.("单次录音已达4分30秒，正在转成文字");
+      }
+      this.setState("transcribing");
+    } finally {
+      this.finalizingRecording = false;
+    }
   }
 
   cancel(): void {
+    this.releaseRecorder();
     if (this.socket?.readyState === WebSocket.OPEN) this.sendJson({ type: "cancel" });
     this.transcriptDraft = "";
     this.setState("idle");
@@ -175,6 +222,7 @@ export class VoiceGuideClient {
     socket.onmessage = (event) => this.handleMessage(event);
     socket.onerror = () => this.handlers.onError("语音连接遇到网络问题");
     socket.onclose = () => {
+      this.releaseRecorder();
       this.rejectReady?.(new Error("语音连接已断开"));
       this.socket = null;
       this.readyPromise = null;
@@ -201,7 +249,10 @@ export class VoiceGuideClient {
       this.resolveReady = null;
       this.rejectReady = null;
     } else if (payload.type === "state" && payload.state) {
+      if (payload.state !== "recording" && this.recorder) this.releaseRecorder();
       this.setState(payload.state);
+    } else if (payload.type === "notice" && payload.message) {
+      this.handlers.onNotice?.(payload.message);
     } else if (payload.type === "transcript.user.delta" && payload.text) {
       this.transcriptDraft += payload.text;
       this.handlers.onTranscript(this.transcriptDraft, false);
@@ -217,10 +268,38 @@ export class VoiceGuideClient {
   }
 
   private releaseRecorder(): void {
+    this.clearRecordingTimers();
     this.recorder?.disconnect();
     this.recorder = null;
     for (const track of this.mediaStream?.getTracks() || []) track.stop();
     this.mediaStream = null;
+    this.detectedSpeech = false;
+  }
+
+  private armRecordingTimers(): void {
+    this.clearRecordingTimers();
+    this.armSilenceTimer();
+    this.recordingLimitTimer = window.setTimeout(() => {
+      void this.finishRecording("limit").catch((error: unknown) => {
+        this.handlers.onError(error instanceof Error ? error.message : "无法结束语音录音");
+      });
+    }, MAX_RECORDING_MS);
+  }
+
+  private armSilenceTimer(): void {
+    if (this.silenceTimer !== null) window.clearTimeout(this.silenceTimer);
+    this.silenceTimer = window.setTimeout(() => {
+      void this.finishRecording("silence").catch((error: unknown) => {
+        this.handlers.onError(error instanceof Error ? error.message : "无法结束语音录音");
+      });
+    }, SILENCE_TIMEOUT_MS);
+  }
+
+  private clearRecordingTimers(): void {
+    if (this.silenceTimer !== null) window.clearTimeout(this.silenceTimer);
+    if (this.recordingLimitTimer !== null) window.clearTimeout(this.recordingLimitTimer);
+    this.silenceTimer = null;
+    this.recordingLimitTimer = null;
   }
 
   private async ensureAudioContext(): Promise<AudioContext> {

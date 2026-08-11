@@ -1,3 +1,5 @@
+const VOICE_ACTIVITY_RMS = 0.015;
+
 class PcmRecorderProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -39,9 +41,14 @@ class PcmRecorderProcessor extends AudioWorkletProcessor {
       const count = flush ? Math.min(frameSamples, this.output.length) : frameSamples;
       const samples = this.output.splice(0, count);
       const pcm = new Int16Array(samples.length);
+      let energy = 0;
       for (let index = 0; index < samples.length; index += 1) {
         const value = samples[index];
+        energy += value * value;
         pcm[index] = value < 0 ? value * 0x8000 : value * 0x7fff;
+      }
+      if (Math.sqrt(energy / samples.length) >= VOICE_ACTIVITY_RMS) {
+        this.port.postMessage({ type: "voice-activity" });
       }
       this.port.postMessage({ type: "pcm", buffer: pcm.buffer }, [pcm.buffer]);
     }
