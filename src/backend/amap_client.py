@@ -238,9 +238,24 @@ class AmapClient:
     @staticmethod
     def _default_origin(center: _Poi, nearby: list[_Poi]) -> MapNamedLocation:
         entrances = [poi for poi in nearby if "门" in poi.name and "红山" in poi.name]
-        entrance = min(entrances, key=lambda poi: poi.distance or 999_999) if entrances else center
+        south_entrances = [
+            poi
+            for poi in nearby
+            if "南门" in _normalize(poi.name)
+            and ("红山" in _normalize(poi.name) or "新区" in _normalize(poi.name))
+        ]
+        candidates = south_entrances or entrances
+        entrance = (
+            min(candidates, key=lambda poi: poi.distance or 999_999)
+            if candidates
+            else center
+        )
         return MapNamedLocation(
-            name=entrance.name if entrance is not center else "红山森林动物园入口",
+            name=(
+                "南门新区"
+                if south_entrances
+                else entrance.name if entrance is not center else "红山森林动物园入口"
+            ),
             longitude=entrance.longitude,
             latitude=entrance.latitude,
         )

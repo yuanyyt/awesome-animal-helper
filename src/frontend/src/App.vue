@@ -154,6 +154,14 @@ function toggleRouteSite(site: string): void {
 }
 
 function setRouteOrigin(origin: MapNamedLocation): void {
+  const current = routeOrigin.value;
+  if (
+    current?.name === origin.name &&
+    Math.abs(current.longitude - origin.longitude) < 1e-8 &&
+    Math.abs(current.latitude - origin.latitude) < 1e-8
+  ) {
+    return;
+  }
   routeOrigin.value = origin;
   activeRoute.value = null;
 }

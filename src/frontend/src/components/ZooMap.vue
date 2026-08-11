@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 import { resolveAnimalImage } from "../animalImages";
-import { expandedConvexHull, polygonBounds } from "../mapGeometry";
+import { expandedConvexHull, isPointInPolygon, polygonBounds } from "../mapGeometry";
 import type {
   AnimalDetail,
   MapGuide,
@@ -35,6 +35,8 @@ const imageFailed = ref(false);
 const interactiveFailed = ref(false);
 const interactiveReady = ref(false);
 const settingOrigin = ref(false);
+type LocationState = "idle" | "locating" | "inside" | "outside" | "failed" | "manual";
+const locationState = ref<LocationState>("idle");
 const mapContainer = ref<HTMLElement>();
 let map: AmapMap | undefined;
 let amapMarkers: AmapMarker[] = [];
@@ -44,6 +46,8 @@ let originMarker: AmapMarker | undefined;
 let boundaryLine: AmapOverlay | undefined;
 let mapBounds: AmapBounds | undefined;
 let readinessTimer: number | undefined;
+let locationAttempt = 0;
+let automaticLocationAttempted = false;
 const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
 );
@@ -51,6 +55,18 @@ const displayedRouteSites = computed(() => props.activeRoute?.sites ?? props.rou
 const durationLabel = computed(() =>
   props.activeRoute ? `约 ${props.activeRoute.total_minutes} 分钟` : "",
 );
+const locationStatus = computed(() => {
+  if (settingOrigin.value) return "请在园区地图内点击新的起点";
+  const labels: Record<LocationState, string> = {
+    idle: props.origin ? `路线起点：${props.origin.name}` : "等待确认路线起点",
+    locating: "正在确认你在园里的位置…",
+    inside: "已定位到园内，将从当前位置出发",
+    outside: "你在园外，将从南门新区出发",
+    failed: "未取得定位，将从南门新区出发",
+    manual: "已使用地图选定起点",
+  };
+  return labels[locationState.value];
+});
 const routeLegs = computed(() => {
   const route = props.activeRoute;
   if (!route) return [];
@@ -209,9 +225,14 @@ async function initializeInteractiveMap(): Promise<void> {
     updateInteractiveMarkers(props.selectedSite);
     updateOriginMarker();
     updateRouteOverlay();
+    if (!automaticLocationAttempted) {
+      automaticLocationAttempted = true;
+      void locateVisitor();
+    }
   } catch {
     destroyInteractiveMap();
     interactiveFailed.value = true;
+    locationState.value = "failed";
   }
 }
 
@@ -315,6 +336,7 @@ function markerLabelLeft(point: MapPoint, fallbackIndex: number): boolean {
 }
 
 function destroyInteractiveMap(): void {
+  locationAttempt += 1;
   if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
   readinessTimer = undefined;
   amapMarkers = [];
@@ -330,12 +352,72 @@ function destroyInteractiveMap(): void {
 
 function handleMapClick(event: AmapMapClickEvent): void {
   if (!settingOrigin.value) return;
+  locationAttempt += 1;
+  locationState.value = "manual";
   emit("originChange", {
     name: "地图选定起点",
     longitude: event.lnglat.getLng(),
     latitude: event.lnglat.getLat(),
   });
   settingOrigin.value = false;
+}
+
+function toggleManualOrigin(): void {
+  settingOrigin.value = !settingOrigin.value;
+}
+
+async function locateVisitor(): Promise<void> {
+  const AMap = window.AMap;
+  if (!AMap || !map || !props.guide) {
+    useDefaultOrigin("failed");
+    return;
+  }
+
+  const attempt = ++locationAttempt;
+  settingOrigin.value = false;
+  locationState.value = "locating";
+  try {
+    await loadAmapPlugin(AMap, "AMap.Geolocation");
+    if (attempt !== locationAttempt) return;
+    const geolocation = new AMap.Geolocation({
+      enableHighAccuracy: true,
+      timeout: 10_000,
+      convert: true,
+      showButton: false,
+      showMarker: false,
+      panToLocation: false,
+      zoomToAccuracy: false,
+    });
+    geolocation.getCurrentPosition((status, result) => {
+      if (attempt !== locationAttempt) return;
+      if (status !== "complete" || !result.position) {
+        useDefaultOrigin("failed", attempt);
+        return;
+      }
+      const current = {
+        longitude: result.position.getLng(),
+        latitude: result.position.getLat(),
+      };
+      if (!isPointInPolygon(current, boundaryPath.value)) {
+        useDefaultOrigin("outside", attempt);
+        return;
+      }
+      locationState.value = "inside";
+      emit("originChange", { name: "当前位置", ...current });
+      map?.panTo([current.longitude, current.latitude]);
+    });
+  } catch {
+    useDefaultOrigin("failed", attempt);
+  }
+}
+
+function useDefaultOrigin(
+  state: Extract<LocationState, "outside" | "failed">,
+  attempt = locationAttempt,
+): void {
+  if (attempt !== locationAttempt) return;
+  locationState.value = state;
+  if (props.guide?.default_origin) emit("originChange", props.guide.default_origin);
 }
 
 function updateOriginMarker(): void {
@@ -345,7 +427,8 @@ function updateOriginMarker(): void {
   if (!props.origin) return;
   const content = document.createElement("span");
   content.className = "zoo-map__origin-marker";
-  content.textContent = "起";
+  content.classList.toggle("is-current", props.origin.name === "当前位置");
+  content.textContent = props.origin.name === "当前位置" ? "我" : "起";
   originMarker = new window.AMap.Marker({
     position: [props.origin.longitude, props.origin.latitude],
     content,
@@ -583,6 +666,16 @@ interface AmapMapClickEvent {
   lnglat: { getLng(): number; getLat(): number };
 }
 
+interface AmapGeolocationResult {
+  position?: { getLng(): number; getLat(): number };
+}
+
+interface AmapGeolocation {
+  getCurrentPosition(
+    callback: (status: "complete" | "error", result: AmapGeolocationResult) => void,
+  ): void;
+}
+
 interface AmapMap {
   add(markers: AmapMarker[] | AmapMarker | AmapOverlay): void;
   remove(overlay: AmapMarker | AmapOverlay): void;
@@ -602,6 +695,8 @@ interface AmapGlobal {
   Polygon: new (options: Record<string, unknown>) => AmapOverlay;
   Bounds: new (southWest: [number, number], northEast: [number, number]) => AmapBounds;
   Pixel: new (x: number, y: number) => object;
+  Geolocation: new (options: Record<string, unknown>) => AmapGeolocation;
+  plugin(name: string, callback: () => void): void;
 }
 
 declare global {
@@ -612,6 +707,16 @@ declare global {
 }
 
 let amapLoader: Promise<AmapGlobal> | undefined;
+
+function loadAmapPlugin(AMap: AmapGlobal, name: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      AMap.plugin(name, resolve);
+    } catch (reason) {
+      reject(reason);
+    }
+  });
+}
 
 function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
   if (window.AMap) return Promise.resolve(window.AMap);
@@ -658,16 +763,28 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
 
     <template v-else>
       <div class="zoo-map__planner-tools">
-        <p v-if="activeRoute"><strong>{{ activeRoute.name }}</strong> · {{ durationLabel }} · {{ activeRoute.sites.length }} 站</p>
-        <p v-else><strong>{{ routeSites.length }}</strong> 个场馆已加入路线</p>
-        <button
-          type="button"
-          :class="{ 'is-active': settingOrigin }"
-          :disabled="!guide.js_api || interactiveFailed"
-          @click="settingOrigin = !settingOrigin"
-        >
-          {{ settingOrigin ? "请点击地图设置起点" : "在地图上设置起点" }}
-        </button>
+        <div class="zoo-map__planner-copy">
+          <p v-if="activeRoute"><strong>{{ activeRoute.name }}</strong> · {{ durationLabel }} · {{ activeRoute.sites.length }} 站</p>
+          <p v-else><strong>{{ routeSites.length }}</strong> 个场馆已加入路线</p>
+          <small aria-live="polite">{{ locationStatus }}</small>
+        </div>
+        <div class="zoo-map__origin-actions">
+          <button
+            type="button"
+            :disabled="!guide.js_api || interactiveFailed || locationState === 'locating'"
+            @click="locateVisitor"
+          >
+            {{ locationState === "locating" ? "定位中…" : "重新定位" }}
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': settingOrigin }"
+            :disabled="!guide.js_api || interactiveFailed"
+            @click="toggleManualOrigin"
+          >
+            {{ settingOrigin ? "取消设置起点" : "在地图上设置起点" }}
+          </button>
+        </div>
       </div>
       <div
         class="zoo-map__canvas"
