@@ -128,7 +128,7 @@ class WikiRepository:
             )
             if _normalize(site) in preferred_sites:
                 identity_score += 20
-            if site and _normalize(site) in query_text:
+            if site and len(_normalize(site)) > 1 and _normalize(site) in query_text:
                 identity_score += 20
 
             for fact_index, fact in enumerate(item.get("facts", [])):
@@ -138,7 +138,11 @@ class WikiRepository:
                 evidence = str(fact.get("evidence", ""))
                 searchable = _normalize(f"{fact_text} {evidence}")
                 content_score = sum(token in searchable for token in query_tokens)
-                score = identity_score + content_score
+                source = fact.get("source", {})
+                source = source if isinstance(source, dict) else {}
+                source_title = _normalize(str(source.get("title", "")))
+                title_score = 8 * sum(token in source_title for token in query_tokens)
+                score = identity_score + content_score + title_score
                 if score <= 0:
                     continue
                 ranked.append(
@@ -152,7 +156,7 @@ class WikiRepository:
                             "site": site,
                             "text": fact_text,
                             "evidence": evidence,
-                            "source": fact.get("source", {}),
+                            "source": source,
                         },
                     )
                 )

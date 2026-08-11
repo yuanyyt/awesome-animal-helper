@@ -19,7 +19,7 @@ _KNOWLEDGE_PATTERN = re.compile(
     r"介绍|了解|讲讲|科普|知识|学名|分类|栖息地|分布|吃什么|食性|"
     r"习性|行为|繁殖|保护状态|趣味|为什么|寿命|特点|哪些动物|哪种动物|"
     r"什么动物|谁会|如何适应|怎么适应|工具|天敌|聪明|睡眠|"
-    r"科普讲解|讲解时间|行为训练|训练展示"
+    r"科普讲解|讲解时间|行为训练|训练展示|还有谁|谁的|故事|发生了什么"
 )
 _FACILITY_PATTERN = re.compile(
     r"卫生间|厕所|洗手间|家庭卫生间|母婴室|餐厅|餐饮|吃饭|咖啡|饮水|"
@@ -34,6 +34,10 @@ _SITE_ALIASES = {
     "袋鼠角": "澳洲袋鼠角",
     "新狼馆": "狼",
     "热带鸟馆": "犀鸟雨林",
+    "虎馆": "虎",
+    "熊馆": "熊",
+    "狼馆": "狼",
+    "象馆": "象",
 }
 _ANIMAL_ALIASES = {"熊猫": "大熊猫"}
 
@@ -100,7 +104,11 @@ class GuideTurnResolver:
             map_context.selected_animals
         )
         animal_names = _unique([*selected_animals, *mentioned_animals])
-        mentioned_sites = self._mentions(message, self.site_lookup)
+        mentioned_sites = self._mentions(
+            message,
+            self.site_lookup,
+            allow_embedded_single=False,
+        )
         map_sites, unresolved = self.resolve_site_terms(map_context.selected_sites)
         groups = tuple(
             (name, tuple(self.animals_by_name[name].sites))
@@ -158,12 +166,19 @@ class GuideTurnResolver:
         return _unique(sites), _unique(unresolved)
 
     @staticmethod
-    def _mentions(message: str, lookup: dict[str, str]) -> list[str]:
+    def _mentions(
+        message: str,
+        lookup: dict[str, str],
+        *,
+        allow_embedded_single: bool = True,
+    ) -> list[str]:
         normalized_message = _normalize(message)
         matches = [
             (key, value)
             for key, value in lookup.items()
-            if key and key in normalized_message
+            if key
+            and key in normalized_message
+            and (allow_embedded_single or len(key) > 1 or key == normalized_message)
         ]
         matches.sort(key=lambda item: len(item[0]), reverse=True)
         return _unique(value for _, value in matches)
