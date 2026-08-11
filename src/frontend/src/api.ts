@@ -1,6 +1,7 @@
 import type {
   AnimalListResponse,
   GuideChatResponse,
+  GuideCapability,
   MapGuide,
   MapNamedLocation,
   WikiIndexResponse,
@@ -69,10 +70,12 @@ export async function sendGuideMessage(
   selectedSites: string[],
   selectedAnimals: string[],
   origin: MapNamedLocation | null,
+  enabledCapabilities: GuideCapability[],
 ): Promise<GuideChatResponse> {
   return guideRequest("/api/guide/chat", {
     session_id: sessionId,
     message,
+    enabled_capabilities: enabledCapabilities,
     map_context: {
       selected_sites: selectedSites,
       selected_animals: selectedAnimals,

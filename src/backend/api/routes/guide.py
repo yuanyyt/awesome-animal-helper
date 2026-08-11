@@ -22,6 +22,7 @@ async def chat_with_guide(request: GuideChatRequest) -> GuideChatResponse:
             request.message,
             request.session_id,
             request.map_context,
+            request.enabled_capabilities,
         )
     except GuideAgentError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

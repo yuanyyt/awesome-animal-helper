@@ -2753,6 +2753,50 @@ body {
   font-size: var(--text-sm);
 }
 
+.guide-chat__capabilities {
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.guide-chat__capabilities > span {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.guide-chat__capabilities > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.guide-chat__capabilities button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: 2.5rem;
+  padding-inline: var(--space-sm);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-round);
+  background: transparent;
+  font-weight: 700;
+}
+
+.guide-chat__capabilities button span {
+  color: var(--color-accent);
+}
+
+.guide-chat__capabilities button.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
 .guide-chat__prompts {
   display: flex;
   flex-wrap: wrap;
@@ -3049,6 +3093,18 @@ body {
 
   .guide-chat__prompts {
     display: grid;
+  }
+
+  .guide-chat__capabilities > div {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .guide-chat__capabilities button {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: var(--space-xs);
+    font-size: var(--text-sm);
   }
 
   .guide-chat__prompts button {

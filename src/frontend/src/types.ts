@@ -221,6 +221,8 @@ export interface GuideInputField {
   value: string | number | boolean | string[] | null;
 }
 
+export type GuideCapability = "route" | "animal" | "service";
+
 export interface GuideChatResponse {
   session_id: string;
   run_id: string;

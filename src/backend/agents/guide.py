@@ -13,6 +13,7 @@ from uuid import uuid4
 from agno.agent import Agent
 from agno.db.sqlite import SqliteDb
 from agno.models.openai.like import OpenAILike
+from agno.run import RunContext
 from agno.run.agent import RunOutput
 from agno.tools.function import Function
 from agno.tools.user_control_flow import UserControlFlowTools
@@ -22,6 +23,7 @@ from pydantic import TypeAdapter, ValidationError
 from src.backend.agents.tools import ZooGuideTools, normalize_site_list
 from src.backend.domain.models import (
     GuideChatResponse,
+    GuideCapability,
     GuideInputField,
     GuideMapContext,
     RouteOption,
@@ -73,11 +75,17 @@ class GuideAgentService:
         self.repository = repository
         self.resolver = GuideTurnResolver(repository)
         self.tools = ZooGuideTools(amap, repository, knowledge=knowledge, wiki=wiki)
-        self.agent = self._build_agent(api_key, base_url, model_id)
+        self.agent = self._build_agent(
+            api_key,
+            base_url,
+            model_id,
+            tools=self._tools_for_run,
+        )
         self.hitl_agent = self._build_agent(
             api_key,
             base_url,
             model_id,
+            tools=[self._user_input_tools()],
             tool_choice=_FORCE_USER_INPUT,
         )
 
@@ -87,6 +95,7 @@ class GuideAgentService:
         base_url: str,
         model_id: str,
         *,
+        tools: Any,
         tool_choice: dict[str, Any] | None = None,
     ) -> Agent:
         return Agent(
@@ -104,43 +113,7 @@ class GuideAgentService:
                 db_file=str(RUNTIME_DIR / "guide_agent.db"),
                 session_table="guide_agent_sessions",
             ),
-            tools=[
-                Function.from_callable(
-                    self.tools.search_animal_knowledge_for_agent,
-                    name="search_animal_knowledge",
-                ),
-                Function.from_callable(
-                    self.tools.get_neighboring_knowledge_chunks,
-                    name="get_neighboring_knowledge_chunks",
-                ),
-                Function.from_callable(
-                    self.tools.search_animal_wiki_stories,
-                    name="search_animal_wiki_stories",
-                ),
-                Function.from_callable(
-                    self.tools.search_zoo_facilities_for_agent,
-                    name="search_zoo_facilities",
-                ),
-                Function.from_callable(
-                    self.tools.get_current_zoo_time,
-                    name="get_current_zoo_time",
-                ),
-                Function.from_callable(
-                    self.tools.get_zoo_education_schedule,
-                    name="get_zoo_education_schedule",
-                ),
-                Function.from_callable(
-                    self.tools.plan_zoo_routes_for_agent,
-                    name="plan_zoo_routes",
-                ),
-                UserControlFlowTools(
-                    instructions=(
-                        "只要完成当前任务所需的数据无法从本轮消息、地图上下文或工具结果中可靠获得，"
-                        "必须调用 get_user_input 暂停运行，不能在普通回复中直接提问，也不能猜测或填默认值。"
-                        "一次提交所有缺失字段，使用中文描述；已有信息不得重复询问。"
-                    )
-                ),
-            ],
+            tools=tools,
             instructions=_INSTRUCTIONS,
             add_history_to_context=True,
             num_history_runs=5,
@@ -149,6 +122,68 @@ class GuideAgentService:
             reasoning=False,
             telemetry=False,
             tool_choice=tool_choice,
+            cache_callables=False,
+        )
+
+    def _tools_for_run(self, run_context: RunContext) -> list[Any]:
+        """Expose only the capabilities explicitly enabled by the visitor."""
+
+        dependencies = run_context.dependencies or {}
+        enabled = set(_enabled_capabilities(dependencies.get("enabled_capabilities")))
+        tools: list[Any] = [
+            Function.from_callable(
+                self.tools.get_current_zoo_time,
+                name="get_current_zoo_time",
+            ),
+            self._user_input_tools(),
+        ]
+        if "route" in enabled:
+            tools.append(
+                Function.from_callable(
+                    self.tools.plan_zoo_routes_for_agent,
+                    name="plan_zoo_routes",
+                )
+            )
+        if "animal" in enabled:
+            tools.extend(
+                [
+                    Function.from_callable(
+                        self.tools.search_animal_knowledge_for_agent,
+                        name="search_animal_knowledge",
+                    ),
+                    Function.from_callable(
+                        self.tools.get_neighboring_knowledge_chunks,
+                        name="get_neighboring_knowledge_chunks",
+                    ),
+                    Function.from_callable(
+                        self.tools.search_animal_wiki_stories,
+                        name="search_animal_wiki_stories",
+                    ),
+                ]
+            )
+        if "service" in enabled:
+            tools.extend(
+                [
+                    Function.from_callable(
+                        self.tools.search_zoo_facilities_for_agent,
+                        name="search_zoo_facilities",
+                    ),
+                    Function.from_callable(
+                        self.tools.get_zoo_education_schedule,
+                        name="get_zoo_education_schedule",
+                    ),
+                ]
+            )
+        return tools
+
+    @staticmethod
+    def _user_input_tools() -> UserControlFlowTools:
+        return UserControlFlowTools(
+            instructions=(
+                "只要完成当前任务所需的数据无法从本轮消息、地图上下文或工具结果中可靠获得，"
+                "必须调用 get_user_input 暂停运行，不能在普通回复中直接提问，也不能猜测或填默认值。"
+                "一次提交所有缺失字段，使用中文描述；已有信息不得重复询问。"
+            )
         )
 
     async def chat(
@@ -156,10 +191,13 @@ class GuideAgentService:
         message: str,
         session_id: str | None,
         map_context: GuideMapContext,
+        enabled_capabilities: list[GuideCapability],
     ) -> GuideChatResponse:
         session = _session_id(session_id)
+        capabilities = _enabled_capabilities(enabled_capabilities)
         turn = self.resolver.resolve(message, map_context)
         dependencies = turn.as_dependencies(map_context)
+        dependencies["enabled_capabilities"] = capabilities
         route_preferences = (
             _extract_route_preferences(message)
             if turn.intent in {"route", "mixed"}
@@ -179,12 +217,17 @@ class GuideAgentService:
             "unresolved_terms": list(turn.unresolved_terms),
             "map_context": map_context.model_dump(mode="json"),
             "route_preferences": route_preferences,
+            "enabled_capabilities": capabilities,
             "available_venues": [site.name for site in self.repository.site_summaries()],
         }
         missing_route_fields = [
             name for name in _ROUTE_FIELDS if name not in route_preferences
         ]
-        if turn.intent in {"route", "mixed"} and missing_route_fields:
+        if (
+            turn.intent in {"route", "mixed"}
+            and "route" in capabilities
+            and missing_route_fields
+        ):
             output = await self._force_user_input(
                 session,
                 dependencies,
@@ -296,13 +339,16 @@ class GuideAgentService:
         session_id: str,
         turn: TurnResolution | None = None,
     ) -> GuideChatResponse:
-        turn_data = turn.as_dependencies(GuideMapContext()) if turn else _stored_turn(output)
+        turn_data = _stored_turn(output)
+        if not turn_data and turn:
+            turn_data = turn.as_dependencies(GuideMapContext())
         intent = str(turn_data.get("intent", "unknown"))
+        enabled = _enabled_capabilities(turn_data.get("enabled_capabilities"))
         animal_names = [
             item for item in turn_data.get("animal_names", []) if isinstance(item, str)
         ]
         knowledge_items = []
-        if intent in {"animal_knowledge", "mixed"}:
+        if "animal" in enabled and intent in {"animal_knowledge", "mixed"}:
             knowledge_items = [
                 animal
                 for name in animal_names[:8]
@@ -412,6 +458,14 @@ def _string_items(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, str)]
+
+
+def _enabled_capabilities(value: object) -> list[GuideCapability]:
+    allowed: tuple[GuideCapability, ...] = ("route", "animal", "service")
+    if not isinstance(value, list):
+        return ["route"]
+    enabled = [item for item in allowed if item in value]
+    return enabled or ["route"]
 
 
 def _unique_strings(*values: object) -> list[str]:
@@ -532,17 +586,18 @@ _INSTRUCTIONS = """
 你是南京红山森林动物园的友好导览员。后端已完成动物到场馆的标准化，你必须遵守 resolved_sites。intent_hint 是辅助判断：路线、设施和时间类意图必须遵守，unknown 不得阻止动物知识检索。
 
 规则：
+0. enabled_capabilities 是游客在界面明确启用的能力。route、animal、service 分别对应路线规划、动物讲解、园区服务；只能使用本轮实际提供的工具。若用户请求的能力未启用，简短提示其在对话框启用对应能力，不得用常识代替工具结果。get_current_zoo_time 和 get_user_input 是始终可用的基础工具。
 1. 路线、距离、时间和卡路里只能来自 plan_zoo_routes，绝不自行编造。
-2. intent_hint 为 route 或 mixed 时才规划路线。route_preferences 是后端从用户原话中提取的可靠路线偏好；其中信息完整时直接据此调用 plan_zoo_routes，缺少信息时必须调用 get_user_input 一次性收集缺失项。不得猜测或填默认值，也不得在正文中展示工具字段名或把工具参数清单发给用户。
+2. intent_hint 为 route 或 mixed 且 route 已启用时才规划路线。route_preferences 是后端从用户原话中提取的可靠路线偏好；其中信息完整时直接据此调用 plan_zoo_routes，缺少信息时必须调用 get_user_input 一次性收集缺失项。不得猜测或填默认值，也不得在正文中展示工具字段名或把工具参数清单发给用户。
 3. 当任务所需的其他关键数据无法从本轮消息、map_context、上下文或工具结果中可靠确定时，也必须调用 get_user_input 进入 HITL；不要只在正文中提问，不要自行补默认值。字段描述应具体说明用户要提供什么。
 4. plan_zoo_routes 会把 resolved_sites 作为高优先级候选，把 must_see_sites 作为必到场馆，并为每个已选动物从 must_see_site_groups 中择一最顺路场馆；不要擅自提升、删除或重复动物场馆，也不要声称已解析目标未匹配，除非工具明确返回 unresolved_sites。
-5. intent_hint 为 animal_knowledge 或 mixed，或用户问的显然是动物事实、园区故事时，必须调用至少一个匹配的动物知识工具，只依据工具返回的本地资料回答；通用物种知识使用 search_animal_knowledge。
+5. animal 已启用，且 intent_hint 为 animal_knowledge 或 mixed，或用户问的显然是动物事实、园区故事时，必须调用至少一个匹配的动物知识工具，只依据工具返回的本地资料回答；通用物种知识使用 search_animal_knowledge。
 6. intent_hint 为 mixed 时先概括路线，再附一段简短动物介绍。
 7. intent_hint 为 unknown 时，若问题像动物事实、园区趣事、文章标题或谜面，先尝试知识工具；只有真正无法判断用户目的时才询问想规划路线还是了解动物，不得调用路线工具。
 8. 体重是可选项；除非用户要求精确卡路里，否则不要强制询问。
 9. plan_zoo_routes 只返回一条最符合用户明确时间、体力和出行方式的路线。直接介绍这条路线，不得声称还有三个方案，也不要要求用户在多个方案中选择。
 10. 不讨论园外交通，不声称路线具备无障碍或坡度保证。
-11. intent_hint 为 facility 时调用 search_zoo_facilities；卫生间、家庭卫生间、母婴室、餐饮、咖啡、饮水、寄存、停车、游客中心、售票、警务、吸烟区和观光车站信息只能来自该工具。工具提供的所有点位均可正常使用，不讨论其采集来源或精度。
+11. service 已启用且 intent_hint 为 facility 时调用 search_zoo_facilities；卫生间、家庭卫生间、母婴室、餐饮、咖啡、饮水、寄存、停车、游客中心、售票、警务、吸烟区和观光车站信息只能来自该工具。工具提供的所有点位均可正常使用，不讨论其采集来源或精度。
 12. 观光车为单向环线：北门站→猩猩馆站→中心广场站→东门站→猴山站→北门站。平日15元/人、8:30-16:00售票、8:30-16:30乘车；法定节假日20元/人、8:30-16:30售票、8:30-17:00乘车。身高1米以下儿童免票，车票当日有效、隔日作废，一经乘坐不予退换。
 13. 回答观光车状态或使用可乘观光车规划前必须调用 get_current_zoo_time。观光车车程按12km/h、每次上车候车5分钟估算；必须说明时间是估算，但不要把设施点位描述为估算。
 14. 只有首轮知识片段指代不清、缺少前后文或用户明确要求完整故事时，才调用 get_neighboring_knowledge_chunks；只能传入本轮 search_animal_knowledge 返回的 chunk ID，不得猜测 ID。
@@ -550,6 +605,6 @@ _INSTRUCTIONS = """
 16. 用户要求“介绍一下”或同时询问物种知识与园区趣事时，先调用 search_animal_knowledge，再调用 search_animal_wiki_stories。
 17. Wiki 事实只能表述为特定个体或特定时间的园区故事，不得泛化为整个物种的习性；引用时附上工具返回的文章标题和 URL。任一知识工具无结果时可使用另一个，但要说明资料类型。
 18. 资料没有说明的内容要明确说不知道，不得补造。
-19. 科普讲解和行为训练展示时间只能来自 get_zoo_education_schedule；区分工作日与节假日，并提醒游客因客流与场地限制，以现场实际工作为准。
+19. service 已启用时，科普讲解和行为训练展示时间只能来自 get_zoo_education_schedule；区分工作日与节假日，并提醒游客因客流与场地限制，以现场实际工作为准。
 20. 游客服务中心提供广播、问讯、滑板车寄存、邮政、投诉意见受理、医疗、手机充电、失物招领、免费饮水和休息座椅；免费租借雨伞、婴儿车和轮椅。联系电话：求助广播 025-8563 1157，团队业务咨询 025-8543 0087，园内紧急救援 025-8562 0039，野生动物救护 025-8579 9061，教育活动及动物认养咨询 025-8551 8101，其他咨询及投诉建议 025-8562 0178。
 """.strip()

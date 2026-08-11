@@ -7,6 +7,7 @@ import type {
   AnimalDetail,
   GuideChatResponse,
   GuideAutoRequest,
+  GuideCapability,
   GuideInputField,
   MapNamedLocation,
   RouteOption,
@@ -40,6 +41,12 @@ type TimelineItem =
   | { id: number; kind: "map" }
   | { id: number; kind: "animals" };
 
+const capabilityOptions: { id: GuideCapability; label: string; hint: string }[] = [
+  { id: "route", label: "路线规划", hint: "规划场馆顺序与园内路线" },
+  { id: "animal", label: "动物讲解", hint: "查询动物档案与园区故事" },
+  { id: "service", label: "园区服务", hint: "查询设施与科普讲解安排" },
+];
+
 const question = ref("");
 const timeline = ref<TimelineItem[]>([]);
 const requiredInputs = ref<GuideInputField[]>([]);
@@ -52,6 +59,7 @@ const scrollArea = ref<HTMLElement | null>(null);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
 const voiceDraftReady = ref(false);
+const selectedCapabilities = ref<GuideCapability[]>(["route"]);
 let voiceQuestionPrefix = "";
 let nextItemId = 1;
 
@@ -99,6 +107,7 @@ watch(
   (request) => {
     if (!request || request.id === handledAutoRequest) return;
     handledAutoRequest = request.id;
+    ensureCapability("route");
     void submitMessage(request.message);
   },
   { deep: true },
@@ -190,6 +199,7 @@ async function sendMessage(message: string, replyWithVoice = false): Promise<voi
     props.selectedSites,
     props.selectedAnimals.map((animal) => animal.name),
     props.origin,
+    selectedCapabilities.value,
   );
   handleResponse(response);
   if (replyWithVoice && response.assistant_message) {
@@ -277,6 +287,35 @@ function choosePrompt(prompt: string): void {
   question.value = prompt;
 }
 
+function toggleCapability(capability: GuideCapability): void {
+  if (selectedCapabilities.value.includes(capability)) {
+    if (selectedCapabilities.value.length === 1) return;
+    selectedCapabilities.value = selectedCapabilities.value.filter(
+      (item) => item !== capability,
+    );
+    return;
+  }
+  selectedCapabilities.value = [...selectedCapabilities.value, capability];
+}
+
+function ensureCapability(capability: GuideCapability): void {
+  if (!selectedCapabilities.value.includes(capability)) {
+    selectedCapabilities.value = [...selectedCapabilities.value, capability];
+  }
+}
+
+function chooseToolPrompt(prompt: string, capability?: GuideCapability): void {
+  if (capability) ensureCapability(capability);
+  choosePrompt(prompt);
+}
+
+function animalPrompt(): string {
+  const names = props.selectedAnimals.map((animal) => animal.name).slice(0, 3);
+  return names.length
+    ? `给我讲讲${names.join("、")}的特点和园区故事`
+    : "给我介绍一下大熊猫的生活习性和园区故事";
+}
+
 async function toggleVoice(): Promise<void> {
   if (loading.value) return;
   error.value = "";
@@ -338,10 +377,30 @@ function scrollToLatest(): void {
         <span class="chat-turn__speaker">导览员</span>
         <div class="chat-turn__bubble">
           <p>您好，我可以陪您规划园内路线，也可以讲讲动物邻居的故事。</p>
+          <div class="guide-chat__capabilities">
+            <span>本轮可用能力</span>
+            <div role="group" aria-label="选择导览员能力">
+              <button
+                v-for="capability in capabilityOptions"
+                :key="capability.id"
+                type="button"
+                :class="{ 'is-active': selectedCapabilities.includes(capability.id) }"
+                :aria-pressed="selectedCapabilities.includes(capability.id)"
+                :title="capability.hint"
+                @click="toggleCapability(capability.id)"
+              >
+                <span aria-hidden="true">{{ selectedCapabilities.includes(capability.id) ? "✓" : "+" }}</span>
+                {{ capability.label }}
+              </button>
+            </div>
+          </div>
           <div class="guide-chat__prompts" aria-label="导览快捷操作">
             <button type="button" @click="showMap()">打开园区地图</button>
-            <button type="button" @click="choosePrompt('带孩子轻松逛，想看大熊猫和考拉')">亲子轻松路线</button>
-            <button type="button" @click="choosePrompt('给我介绍一下大熊猫的生活习性')">认识大熊猫</button>
+            <button type="button" @click="chooseToolPrompt('今天观光车几点运行，现在还能乘坐吗？')">观光车时间</button>
+            <button type="button" @click="chooseToolPrompt('今天有哪些科普讲解和行为训练？', 'service')">讲解时间</button>
+            <button type="button" @click="chooseToolPrompt('帮我找当前位置附近的卫生间和饮水点', 'service')">附近设施</button>
+            <button type="button" @click="chooseToolPrompt('带孩子轻松逛，想看大熊猫和考拉', 'route')">亲子路线</button>
+            <button type="button" @click="chooseToolPrompt(animalPrompt(), 'animal')">动物故事</button>
           </div>
         </div>
       </article>

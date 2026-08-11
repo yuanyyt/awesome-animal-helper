@@ -275,11 +275,19 @@ class GuideMapContext(BaseModel):
     origin: MapNamedLocation | None = None
 
 
+GuideCapability = Literal["route", "animal", "service"]
+
+
 class GuideChatRequest(BaseModel):
     """A new visitor message and its current map context."""
 
     session_id: str | None = Field(default=None, max_length=100)
     message: str = Field(min_length=1, max_length=1000)
+    enabled_capabilities: list[GuideCapability] = Field(
+        default_factory=lambda: ["route"],
+        min_length=1,
+        max_length=3,
+    )
     map_context: GuideMapContext = Field(default_factory=GuideMapContext)
 
 
