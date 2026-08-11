@@ -101,6 +101,84 @@ FACILITY_SEEDS: tuple[FacilitySeed, ...] = (
 )
 
 
+# Fixed GCJ-02 route rendered by AMap. The north/gorilla/central and
+# monkey/north legs come from AMap walking geometry. AMap routes the two east
+# legs outside the zoo, so those short sections are corrected to follow the
+# curated internal road instead.
+SHUTTLE_ROUTE_SEGMENTS: tuple[tuple[tuple[float, float], ...], ...] = (
+    (
+        (118.799844, 32.093933),
+        (118.800104, 32.093520),
+        (118.800265, 32.093364),
+        (118.800460, 32.093329),
+        (118.800694, 32.092943),
+        (118.800790, 32.092326),
+        (118.800951, 32.091832),
+        (118.801493, 32.091102),
+        (118.801992, 32.090725),
+        (118.802426, 32.090473),
+        (118.802652, 32.090412),
+        (118.802917, 32.090412),
+        (118.803338, 32.090109),
+        (118.803416, 32.090165),
+        (118.803694, 32.089970),
+        (118.804067, 32.089939),
+        (118.804162, 32.089900),
+        (118.804562, 32.089132),
+        (118.804857, 32.088941),
+        (118.804486, 32.088680),
+    ),
+    (
+        (118.804486, 32.088680),
+        (118.804857, 32.088937),
+        (118.804562, 32.089128),
+        (118.804167, 32.089896),
+        (118.804071, 32.089935),
+        (118.803698, 32.089965),
+        (118.803416, 32.090161),
+        (118.803902, 32.090577),
+        (118.804167, 32.090469),
+        (118.804355, 32.090318),
+    ),
+    (
+        (118.804355, 32.090318),
+        (118.804952, 32.090914),
+        (118.805664, 32.091269),
+        (118.806200, 32.091700),
+        (118.806880, 32.092110),
+    ),
+    (
+        (118.806880, 32.092110),
+        (118.806148, 32.092342),
+        (118.805388, 32.092793),
+        (118.804632, 32.092655),
+        (118.803900, 32.092250),
+        (118.803403, 32.091482),
+    ),
+    (
+        (118.803403, 32.091482),
+        (118.803602, 32.091393),
+        (118.803607, 32.091324),
+        (118.803407, 32.091345),
+        (118.803312, 32.091306),
+        (118.803168, 32.091202),
+        (118.802882, 32.091068),
+        (118.802509, 32.090951),
+        (118.802365, 32.090977),
+        (118.802222, 32.091085),
+        (118.801793, 32.090859),
+        (118.801649, 32.090959),
+        (118.800955, 32.091827),
+        (118.800794, 32.092322),
+        (118.800699, 32.092938),
+        (118.800126, 32.093928),
+        (118.800082, 32.094201),
+        (118.799805, 32.094089),
+        (118.799844, 32.093933),
+    ),
+)
+
+
 _CATEGORY_KEYWORDS: tuple[tuple[FacilityCategory, tuple[str, ...]], ...] = (
     ("family_toilet", ("家庭卫生间", "第三卫生间")),
     ("nursing_room", ("母婴", "哺乳")),
@@ -183,39 +261,13 @@ def shuttle_service() -> ShuttleService:
         )
         for index, identifier in enumerate(station_ids, start=1)
     ]
-    route_points = [
-        # 北门站 → 猩猩馆站
-        MapLocation(longitude=118.799844, latitude=32.093933),
-        MapLocation(longitude=118.800460, latitude=32.093329),
-        MapLocation(longitude=118.800790, latitude=32.092326),
-        MapLocation(longitude=118.801493, latitude=32.091102),
-        MapLocation(longitude=118.802652, latitude=32.090412),
-        MapLocation(longitude=118.803416, latitude=32.090161),
-        MapLocation(longitude=118.804149, latitude=32.089900),
-        MapLocation(longitude=118.804562, latitude=32.089132),
-        MapLocation(longitude=118.804486, latitude=32.088680),
-        # 猩猩馆站 → 中心广场站 → 东门站
-        MapLocation(longitude=118.804293, latitude=32.089631),
-        MapLocation(longitude=118.803902, latitude=32.090577),
-        MapLocation(longitude=118.804355, latitude=32.090318),
-        MapLocation(longitude=118.804952, latitude=32.090914),
-        MapLocation(longitude=118.805664, latitude=32.091269),
-        MapLocation(longitude=118.806200, latitude=32.091700),
-        MapLocation(longitude=118.806880, latitude=32.092110),
-        # 东门站 → 猴山站 → 北门站
-        MapLocation(longitude=118.806148, latitude=32.092342),
-        MapLocation(longitude=118.805388, latitude=32.092793),
-        MapLocation(longitude=118.804632, latitude=32.092655),
-        MapLocation(longitude=118.803900, latitude=32.092250),
-        MapLocation(longitude=118.803403, latitude=32.091482),
-        MapLocation(longitude=118.802882, latitude=32.091068),
-        MapLocation(longitude=118.802218, latitude=32.091085),
-        MapLocation(longitude=118.801497, latitude=32.091098),
-        MapLocation(longitude=118.800955, latitude=32.091827),
-        MapLocation(longitude=118.800794, latitude=32.092322),
-        MapLocation(longitude=118.800547, latitude=32.093199),
-        MapLocation(longitude=118.799844, latitude=32.093933),
-    ]
+    route_points: list[MapLocation] = []
+    for segment in SHUTTLE_ROUTE_SEGMENTS:
+        points = [
+            MapLocation(longitude=longitude, latitude=latitude)
+            for longitude, latitude in segment
+        ]
+        route_points.extend(points[1:] if route_points else points)
     return ShuttleService(
         name="红山动物园观光游览车",
         stations=stations,

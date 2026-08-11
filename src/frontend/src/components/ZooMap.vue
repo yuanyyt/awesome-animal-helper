@@ -28,6 +28,17 @@ const props = defineProps<{
 
 type MapPointLike = { longitude: number; latitude: number };
 
+// AMap requires hexadecimal overlay colors. These match the design tokens but
+// avoid passing unsupported oklch() values to different browser renderers.
+const AMAP_COLORS = {
+  paper: "#f8f2df",
+  ink: "#0b2f0e",
+  accent: "#2b641d",
+  danger: "#9b1e20",
+  shuttle: "#157f86",
+  activeShuttle: "#00aeb8",
+} as const;
+
 const emit = defineEmits<{
   select: [site: string];
   routeToggle: [site: string];
@@ -210,9 +221,9 @@ async function initializeInteractiveMap(): Promise<void> {
     if (path.length >= 3) {
       boundaryLine = new AMap.Polygon({
         path: outsideMaskPath(path),
-        fillColor: cssColor("--color-paper"),
+        fillColor: AMAP_COLORS.paper,
         fillOpacity: 0.78,
-        strokeColor: cssColor("--color-accent"),
+        strokeColor: AMAP_COLORS.accent,
         strokeOpacity: 0.72,
         strokeWeight: 3,
         zIndex: 20,
@@ -317,7 +328,7 @@ function createShuttleOverlay(): void {
     path: pathInsideBoundary(props.guide.shuttle.polyline).map(
       (point) => [point.longitude, point.latitude] as [number, number],
     ),
-    strokeColor: "#157f86",
+    strokeColor: AMAP_COLORS.shuttle,
     strokeWeight: 5,
     strokeOpacity: 0.7,
     strokeStyle: "dashed",
@@ -604,7 +615,7 @@ function updateRouteOverlay(): void {
     const shuttle = leg.mode === "shuttle";
     const halo = new window.AMap.Polyline({
       path,
-      strokeColor: cssColor("--color-ink"),
+      strokeColor: AMAP_COLORS.ink,
       strokeWeight: shuttle ? 15 : 17,
       strokeOpacity: 0.82,
       lineJoin: "round",
@@ -613,7 +624,7 @@ function updateRouteOverlay(): void {
     });
     const line = new window.AMap.Polyline({
       path,
-      strokeColor: shuttle ? "#00aeb8" : cssColor("--color-danger"),
+      strokeColor: shuttle ? AMAP_COLORS.activeShuttle : AMAP_COLORS.danger,
       strokeWeight: shuttle ? 8 : 10,
       strokeOpacity: 1,
       strokeStyle: "solid",
@@ -770,10 +781,6 @@ function outsideMaskPath(path: [number, number][]): [number, number][][] {
     [bounds.southWest.longitude - longitudePadding, bounds.northEast.latitude + latitudePadding],
   ];
   return [outer, [...path].reverse()];
-}
-
-function cssColor(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function markerStyle(point: MapPoint, pointIndex: number): Record<string, string> {
