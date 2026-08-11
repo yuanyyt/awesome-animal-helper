@@ -207,6 +207,8 @@ class _AudioBridge:
                 await self.browser.send_json({"type": "state", "state": "idle"})
             elif event_type == "speak":
                 await self._speak(str(event.get("text", "")))
+            elif event_type == "speech.cancel":
+                await self._stop_speaking()
             else:
                 raise ValueError("未知的语音控制事件")
 
@@ -311,6 +313,12 @@ class _AudioBridge:
             {"type": "response.create", "response": {"modalities": ["audio", "text"]}}
         )
         await self.browser.send_json({"type": "state", "state": "speaking"})
+
+    async def _stop_speaking(self) -> None:
+        if self.awaiting_speech:
+            self.awaiting_speech = False
+            await self._send_upstream({"type": "response.cancel"})
+        await self.browser.send_json({"type": "state", "state": "idle"})
 
     async def _send_upstream(self, event: dict[str, Any]) -> None:
         await self.upstream.send(json.dumps(event, ensure_ascii=False))

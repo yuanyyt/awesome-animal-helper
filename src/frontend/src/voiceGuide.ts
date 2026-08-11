@@ -171,6 +171,12 @@ export class VoiceGuideClient {
     this.setState("speaking");
   }
 
+  stopSpeaking(): void {
+    this.stopPlayback();
+    this.sendJson({ type: "speech.cancel" });
+    this.setState("idle");
+  }
+
   close(): void {
     this.closed = true;
     this.releaseRecorder();

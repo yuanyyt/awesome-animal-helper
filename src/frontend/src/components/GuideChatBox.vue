@@ -129,6 +129,11 @@ const voiceStatus = computed(() => {
   };
   return labels[voiceState.value];
 });
+const voiceActionLabel = computed(() => {
+  if (voiceState.value === "recording") return "结束录音并转成文字";
+  if (voiceState.value === "speaking") return "停止语音播报";
+  return "开始语音输入";
+});
 const canSubmit = computed(
   () =>
     !loading.value &&
@@ -278,6 +283,7 @@ async function toggleVoice(): Promise<void> {
   voiceNotice.value = "";
   try {
     if (voiceState.value === "recording") await voiceClient.stopRecording();
+    else if (voiceState.value === "speaking") voiceClient.stopSpeaking();
     else {
       voiceQuestionPrefix = question.value.trim();
       voiceDraftReady.value = false;
@@ -444,14 +450,17 @@ function scrollToLatest(): void {
         <label class="visually-hidden" for="guide-question">导览问题</label>
         <button
           class="guide-chat__voice"
-          :class="{ 'is-recording': voiceState === 'recording' }"
+          :class="{
+            'is-recording': voiceState === 'recording',
+            'is-speaking': voiceState === 'speaking',
+          }"
           type="button"
           :disabled="loading || ['connecting', 'transcribing'].includes(voiceState)"
-          :aria-label="voiceState === 'recording' ? '结束录音并转成文字' : '开始语音输入'"
-          :title="voiceStatus"
+          :aria-label="voiceActionLabel"
+          :title="voiceState === 'speaking' ? voiceActionLabel : voiceStatus"
           @click="toggleVoice"
         >
-          <svg v-if="voiceState !== 'recording'" viewBox="0 0 24 24" aria-hidden="true">
+          <svg v-if="!['recording', 'speaking'].includes(voiceState)" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="8" y="3" width="8" height="12" rx="4" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
           </svg>
