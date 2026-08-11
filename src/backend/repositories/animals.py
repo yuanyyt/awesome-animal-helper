@@ -9,9 +9,9 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from .schemas import AnimalDetail, AnimalListResponse, SiteSummary
+from src.backend.domain.models import AnimalDetail, AnimalListResponse, SiteSummary
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 ANIMALS_PATH = DATA_DIR / "animals.csv"
 SITES_PATH = DATA_DIR / "animal_sites.xlsx"
 

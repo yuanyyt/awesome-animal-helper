@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from .schemas import ShuttleService
+from src.backend.domain.models import ShuttleService
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 

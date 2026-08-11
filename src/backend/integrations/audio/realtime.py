@@ -15,7 +15,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from websockets.asyncio.client import ClientConnection, connect
 
-from .schemas import GuideMapContext
+from src.backend.domain.models import GuideMapContext
 
 MAX_AUDIO_FRAME_BYTES = 64 * 1024
 CONFIG_TIMEOUT_SECONDS = 15

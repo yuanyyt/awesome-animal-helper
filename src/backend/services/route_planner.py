@@ -5,8 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from .amap_client import AmapClient, AmapServiceError
-from .schemas import (
+from src.backend.domain.models import (
     MapGuideResponse,
     MapLocation,
     MapNamedLocation,
@@ -16,6 +15,7 @@ from .schemas import (
     ShuttleService,
     ShuttleStation,
 )
+from src.backend.integrations.amap.client import AmapClient, AmapServiceError
 
 ENERGY_LIMITS = {"轻松": 1_500, "一般": 3_000, "充沛": 5_000}
 

@@ -11,8 +11,7 @@ from dataclasses import dataclass
 import httpx
 from dotenv import load_dotenv
 
-from .osm_boundary import load_osm_boundary
-from .schemas import (
+from src.backend.domain.models import (
     MapBoundary,
     MapGuideResponse,
     MapJsConfig,
@@ -22,7 +21,12 @@ from .schemas import (
     RouteStep,
     SiteSummary,
 )
-from .zoo_services import facility_category, public_facilities, shuttle_service
+from src.backend.integrations.amap.boundary import load_osm_boundary
+from src.backend.services.zoo_services import (
+    facility_category,
+    public_facilities,
+    shuttle_service,
+)
 
 POI_TEXT_URL = "https://restapi.amap.com/v5/place/text"
 POI_AROUND_URL = "https://restapi.amap.com/v5/place/around"

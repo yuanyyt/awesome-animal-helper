@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Protocol
 
-from .schemas import (
+from src.backend.domain.models import (
     FacilityCategory,
     FacilityPoint,
     MapLocation,

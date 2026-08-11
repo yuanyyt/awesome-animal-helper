@@ -11,13 +11,13 @@ from typing import Any, Protocol
 
 from agno.run import RunContext
 
-from .amap_client import AmapClient
-from .guide_intent import GuideTurnResolver
-from .repository import AnimalRepository
-from .route_planner import RoutePlanner, RoutePlanningError
-from .schemas import AnimalDetail, GuideMapContext, MapNamedLocation
-from .zoo_time import zoo_operating_status
-from .zoo_services import shuttle_service
+from src.backend.domain.models import AnimalDetail, GuideMapContext, MapNamedLocation
+from src.backend.integrations.amap.client import AmapClient
+from src.backend.repositories.animals import AnimalRepository
+from src.backend.services.guide_intent import GuideTurnResolver
+from src.backend.services.route_planner import RoutePlanner, RoutePlanningError
+from src.backend.services.zoo_services import shuttle_service
+from src.backend.services.zoo_time import zoo_operating_status
 
 
 class AnimalKnowledgeProvider(Protocol):

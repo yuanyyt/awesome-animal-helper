@@ -7,10 +7,10 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
-from .schemas import MapLocation
+from src.backend.domain.models import MapLocation
 
 BOUNDARY_PATH = (
-    Path(__file__).resolve().parents[1] / "data" / "hongshan_zoo_boundary.geojson"
+    Path(__file__).resolve().parents[3] / "data" / "hongshan_zoo_boundary.geojson"
 )
 OSM_WAY_ID = 62344632
 

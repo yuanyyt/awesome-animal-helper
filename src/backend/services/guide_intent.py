@@ -6,8 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from .repository import AnimalRepository
-from .schemas import GuideMapContext
+from src.backend.domain.models import GuideMapContext
+from src.backend.repositories.animals import AnimalRepository
 
 GuideIntent = Literal["route", "animal_knowledge", "mixed", "facility", "unknown"]
 

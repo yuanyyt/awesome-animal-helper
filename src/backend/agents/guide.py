@@ -19,18 +19,18 @@ from agno.tools.user_control_flow import UserControlFlowTools
 from dotenv import load_dotenv
 from pydantic import TypeAdapter, ValidationError
 
-from .amap_client import AmapClient
-from .guide_intent import GuideTurnResolver, TurnResolution
-from .guide_tools import ZooGuideTools, normalize_site_list
-from .repository import AnimalRepository
-from .schemas import (
+from src.backend.agents.tools import ZooGuideTools, normalize_site_list
+from src.backend.domain.models import (
     GuideChatResponse,
     GuideInputField,
     GuideMapContext,
     RouteOption,
 )
+from src.backend.integrations.amap.client import AmapClient
+from src.backend.repositories.animals import AnimalRepository
+from src.backend.services.guide_intent import GuideTurnResolver, TurnResolution
 
-RUNTIME_DIR = Path(__file__).resolve().parents[1] / "data" / "runtime"
+RUNTIME_DIR = Path(__file__).resolve().parents[2] / "data" / "runtime"
 _SESSION_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,100}")
 _ROUTE_LIST = TypeAdapter(list[RouteOption])
 
