@@ -364,7 +364,7 @@ def write_manifest(entries: Iterable[ManifestEntry], path: Path) -> None:
     fieldnames = list(ManifestEntry.__dataclass_fields__)
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(asdict(entry) for entry in entries)
     temporary.replace(path)
