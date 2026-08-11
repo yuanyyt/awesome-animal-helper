@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import { continueGuideRun, sendGuideMessage } from "../api";
+import { markdownToText, renderMarkdown } from "../markdown";
 import type {
   AnimalDetail,
   GuideChatResponse,
@@ -118,6 +119,7 @@ const voiceStatus = computed(() => {
     idle: "点击麦克风开始说话",
     recording: "正在听，再点一次停止并生成文字",
     transcribing: "正在把语音整理成文字…",
+    speaking: "导览员正在语音讲解…",
   };
   return labels[voiceState.value];
 });
@@ -141,10 +143,11 @@ async function submit(): Promise<void> {
       handleResponse(await continueGuideRun(runId.value, sessionId.value, values));
     } else {
       const message = question.value.trim();
+      const replyWithVoice = voiceDraftReady.value;
       pushMessage("visitor", message);
       question.value = "";
       voiceDraftReady.value = false;
-      await sendMessage(message);
+      await sendMessage(message, replyWithVoice);
     }
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
@@ -169,16 +172,18 @@ async function submitMessage(message: string): Promise<void> {
   }
 }
 
-async function sendMessage(message: string): Promise<void> {
-  handleResponse(
-    await sendGuideMessage(
-      message,
-      sessionId.value || null,
-      props.selectedSites,
-      props.selectedAnimals.map((animal) => animal.name),
-      props.origin,
-    ),
+async function sendMessage(message: string, replyWithVoice = false): Promise<void> {
+  const response = await sendGuideMessage(
+    message,
+    sessionId.value || null,
+    props.selectedSites,
+    props.selectedAnimals.map((animal) => animal.name),
+    props.origin,
   );
+  handleResponse(response);
+  if (replyWithVoice && response.assistant_message) {
+    await voiceClient.speak(markdownToText(response.assistant_message));
+  }
 }
 
 function handleResponse(response: GuideChatResponse): void {
@@ -328,7 +333,12 @@ function scrollToLatest(): void {
         <article v-if="item.kind === 'message'" class="chat-turn" :class="`is-${item.role}`">
           <span class="chat-turn__speaker">{{ item.role === "guide" ? "导览员" : "你" }}</span>
           <div class="chat-turn__bubble">
-            <p>{{ item.text }}</p>
+            <div
+              v-if="item.role === 'guide'"
+              class="chat-turn__markdown"
+              v-html="renderMarkdown(item.text)"
+            ></div>
+            <p v-else>{{ item.text }}</p>
             <p v-if="item.response?.unresolved_terms.length" class="chat-turn__warning">
               暂无可靠地图点位：{{ item.response.unresolved_terms.join("、") }}
             </p>
@@ -446,7 +456,7 @@ function scrollToLatest(): void {
         </button>
       </div>
       <p class="guide-chat__helper" :class="{ 'is-error': error }">
-        {{ error || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，可编辑后点击发送" : "语音会先转成文字，由您确认后发送") }}
+        {{ error || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，发送后将自动语音回复" : "语音会先转成文字，由您确认后发送") }}
       </p>
     </footer>
   </section>

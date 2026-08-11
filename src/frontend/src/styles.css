@@ -2586,6 +2586,70 @@ body {
   white-space: pre-wrap;
 }
 
+.chat-turn__markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-turn__markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-turn__markdown p,
+.chat-turn__markdown ul,
+.chat-turn__markdown ol,
+.chat-turn__markdown pre,
+.chat-turn__markdown blockquote {
+  margin: 0 0 var(--space-sm);
+}
+
+.chat-turn__markdown ul,
+.chat-turn__markdown ol {
+  padding-left: 1.4rem;
+}
+
+.chat-turn__markdown li + li {
+  margin-top: var(--space-2xs);
+}
+
+.chat-turn__markdown h1,
+.chat-turn__markdown h2,
+.chat-turn__markdown h3 {
+  margin: var(--space-md) 0 var(--space-xs);
+  font-family: var(--font-display);
+  line-height: 1.2;
+}
+
+.chat-turn__markdown h1 { font-size: var(--text-xl); }
+.chat-turn__markdown h2 { font-size: var(--text-lg); }
+.chat-turn__markdown h3 { font-size: var(--text-md); }
+
+.chat-turn__markdown a {
+  color: var(--color-accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.chat-turn__markdown code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-2);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.chat-turn__markdown pre {
+  overflow-x: auto;
+  padding: var(--space-sm);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-2);
+}
+
+.chat-turn__markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+
 .chat-turn__warning {
   margin-top: var(--space-sm) !important;
   padding-top: var(--space-sm);

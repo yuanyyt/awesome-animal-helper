@@ -5,7 +5,8 @@ export type VoiceState =
   | "connecting"
   | "idle"
   | "recording"
-  | "transcribing";
+  | "transcribing"
+  | "speaking";
 
 interface VoiceMapContext {
   selectedSites: string[];
@@ -17,6 +18,7 @@ interface VoiceMapContext {
 interface VoiceHandlers {
   onState: (state: VoiceState) => void;
   onTranscript: (text: string, final: boolean) => void;
+  onSpeechEnd?: () => void;
   onError: (message: string) => void;
 }
 
@@ -28,6 +30,7 @@ interface ServerEvent {
 }
 
 const READY_TIMEOUT_MS = 15_000;
+const OUTPUT_SAMPLE_RATE = 24_000;
 
 export class VoiceGuideClient {
   private socket: WebSocket | null = null;
@@ -36,6 +39,8 @@ export class VoiceGuideClient {
   private recorder: AudioWorkletNode | null = null;
   private state: VoiceState = "disconnected";
   private transcriptDraft = "";
+  private playbackTime = 0;
+  private playbackSources = new Set<AudioBufferSourceNode>();
   private workletLoaded = false;
   private readyPromise: Promise<void> | null = null;
   private resolveReady: (() => void) | null = null;
@@ -59,24 +64,23 @@ export class VoiceGuideClient {
     this.closed = false;
     this.transcriptDraft = "";
     await this.ensureConnected();
-    const AudioContextClass = window.AudioContext;
-    if (!AudioContextClass || !navigator.mediaDevices?.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error("当前浏览器不支持实时语音，请使用最新版浏览器");
     }
-    this.audioContext ??= new AudioContextClass();
-    await this.audioContext.resume();
+    this.stopPlayback();
+    const audioContext = await this.ensureAudioContext();
     if (!this.workletLoaded) {
-      await this.audioContext.audioWorklet.addModule("/audio/pcm-recorder-worklet.js");
+      await audioContext.audioWorklet.addModule("/audio/pcm-recorder-worklet.js");
       this.workletLoaded = true;
     }
     this.mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
-    const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-    const recorder = new AudioWorkletNode(this.audioContext, "pcm-recorder");
-    const silence = this.audioContext.createGain();
+    const source = audioContext.createMediaStreamSource(this.mediaStream);
+    const recorder = new AudioWorkletNode(audioContext, "pcm-recorder");
+    const silence = audioContext.createGain();
     silence.gain.value = 0;
-    source.connect(recorder).connect(silence).connect(this.audioContext.destination);
+    source.connect(recorder).connect(silence).connect(audioContext.destination);
     recorder.port.onmessage = (event: MessageEvent<{ type: string; buffer?: ArrayBuffer }>) => {
       if (event.data.type === "pcm" && event.data.buffer && this.socket?.readyState === WebSocket.OPEN) {
         this.socket.send(event.data.buffer);
@@ -111,9 +115,19 @@ export class VoiceGuideClient {
     this.setState("idle");
   }
 
+  async speak(text: string): Promise<void> {
+    if (!text.trim()) return;
+    await this.ensureConnected();
+    await this.ensureAudioContext();
+    this.stopPlayback();
+    this.sendJson({ type: "speak", text: text.trim() });
+    this.setState("speaking");
+  }
+
   close(): void {
     this.closed = true;
     this.releaseRecorder();
+    this.stopPlayback();
     this.socket?.close(1000, "component unmounted");
     this.socket = null;
     void this.audioContext?.close();
@@ -177,7 +191,10 @@ export class VoiceGuideClient {
   }
 
   private handleMessage(event: MessageEvent<string | ArrayBuffer>): void {
-    if (event.data instanceof ArrayBuffer) return;
+    if (event.data instanceof ArrayBuffer) {
+      this.enqueuePlayback(event.data);
+      return;
+    }
     const payload = JSON.parse(event.data) as ServerEvent;
     if (payload.type === "ready") {
       this.resolveReady?.();
@@ -192,6 +209,8 @@ export class VoiceGuideClient {
       const text = payload.text?.trim() || this.transcriptDraft.trim();
       if (text) this.handlers.onTranscript(text, true);
       this.transcriptDraft = text;
+    } else if (payload.type === "speech.done") {
+      this.handlers.onSpeechEnd?.();
     } else if (payload.type === "error" || payload.type === "tool.error") {
       this.handlers.onError(payload.message || "实时语音请求失败");
     }
@@ -202,6 +221,39 @@ export class VoiceGuideClient {
     this.recorder = null;
     for (const track of this.mediaStream?.getTracks() || []) track.stop();
     this.mediaStream = null;
+  }
+
+  private async ensureAudioContext(): Promise<AudioContext> {
+    if (!window.AudioContext) throw new Error("当前浏览器不支持语音播放");
+    this.audioContext ??= new AudioContext();
+    await this.audioContext.resume();
+    return this.audioContext;
+  }
+
+  private enqueuePlayback(pcm: ArrayBuffer): void {
+    const context = this.audioContext;
+    if (!context || !pcm.byteLength) return;
+    const samples = new Float32Array(pcm.byteLength / 2);
+    const view = new DataView(pcm);
+    for (let index = 0; index < samples.length; index += 1) {
+      samples[index] = view.getInt16(index * 2, true) / 32768;
+    }
+    const buffer = context.createBuffer(1, samples.length, OUTPUT_SAMPLE_RATE);
+    buffer.copyToChannel(samples, 0);
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    source.onended = () => this.playbackSources.delete(source);
+    this.playbackSources.add(source);
+    this.playbackTime = Math.max(context.currentTime + 0.03, this.playbackTime);
+    source.start(this.playbackTime);
+    this.playbackTime += buffer.duration;
+  }
+
+  private stopPlayback(): void {
+    for (const source of this.playbackSources) source.stop();
+    this.playbackSources.clear();
+    this.playbackTime = 0;
   }
 
   private mapContextPayload(): object {
