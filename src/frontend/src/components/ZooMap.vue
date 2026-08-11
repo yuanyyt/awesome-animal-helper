@@ -38,8 +38,8 @@ const settingOrigin = ref(false);
 const mapContainer = ref<HTMLElement>();
 let map: AmapMap | undefined;
 let amapMarkers: AmapMarker[] = [];
-let routeLine: AmapOverlay | undefined;
-let durationMarker: AmapMarker | undefined;
+let routeOverlays: AmapOverlay[] = [];
+let routeLabelMarkers: AmapMarker[] = [];
 let originMarker: AmapMarker | undefined;
 let boundaryLine: AmapOverlay | undefined;
 let mapBounds: AmapBounds | undefined;
@@ -51,6 +51,30 @@ const displayedRouteSites = computed(() => props.activeRoute?.sites ?? props.rou
 const durationLabel = computed(() =>
   props.activeRoute ? `约 ${props.activeRoute.total_minutes} 分钟` : "",
 );
+const routeLegs = computed(() => {
+  const route = props.activeRoute;
+  if (!route) return [];
+  const legs = route.legs
+    .map((leg, index) => ({
+      ...leg,
+      id: `${index}-${leg.from_name}-${leg.to_name}`,
+      minutes: Math.max(1, Math.ceil(leg.duration_seconds / 60)),
+      path: leg.polyline,
+    }))
+    .filter((leg) => leg.path.length >= 2);
+  if (legs.length || route.polyline.length < 2) return legs;
+  return [{
+    id: `fallback-${route.id}`,
+    from_name: props.origin?.name ?? "园区入口",
+    to_name: route.sites.at(-1) ?? "路线终点",
+    distance_meters: route.distance_meters,
+    duration_seconds: route.walking_minutes * 60,
+    steps: [],
+    polyline: route.polyline,
+    minutes: route.walking_minutes,
+    path: route.polyline,
+  }];
+});
 const routeAnimalsBySite = computed(() => {
   const animalsBySite = new Map<string, AnimalDetail[]>();
   const routeSites = displayedRouteSites.value;
@@ -64,26 +88,6 @@ const routeAnimalsBySite = computed(() => {
     animalsBySite.set(site, animals);
   }
   return animalsBySite;
-});
-const staticRoutePoints = computed(() => {
-  if (!props.guide || !props.activeRoute) return "";
-  return props.activeRoute.polyline
-    .map((point) => {
-      const position = staticMapPosition(point.longitude, point.latitude);
-      return `${position.x.toFixed(1)},${position.y.toFixed(1)}`;
-    })
-    .join(" ");
-});
-const staticDurationStyle = computed<Record<string, string>>(() => {
-  const midpoint = routeMidpoint(props.activeRoute?.polyline ?? []);
-  if (!midpoint) return {} as Record<string, string>;
-  const position = staticMapPosition(midpoint.longitude, midpoint.latitude);
-  const left = Math.min(82, Math.max(18, position.x / 10.24));
-  const top = Math.min(88, Math.max(12, position.y / 6.4));
-  return {
-    "--duration-left": `${left.toFixed(2)}%`,
-    "--duration-top": `${top.toFixed(2)}%`,
-  };
 });
 const boundaryPath = computed(() => expandedConvexHull(props.guide?.points ?? [], 1.5));
 const boundaryCoordinates = computed(() =>
@@ -192,7 +196,7 @@ async function initializeInteractiveMap(): Promise<void> {
         content,
         offset: new AMap.Pixel(-22, -22),
         title: point.poi_name,
-        zIndex: 50,
+        zIndex: 220,
       });
       content.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -219,13 +223,14 @@ function markInteractiveMapReady(): void {
     map.setLimitBounds(mapBounds);
   }
   interactiveReady.value = true;
+  updateRouteOverlay();
 }
 
 function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "zoo-map__amap-marker";
-  button.textContent = String(index + 1);
+  button.classList.toggle("is-label-left", index % 2 === 1);
   button.dataset.site = point.site;
   button.dataset.defaultIndex = String(index + 1);
   button.setAttribute("aria-label", `查看${point.site}，${point.animal_count}种动物`);
@@ -242,6 +247,10 @@ function updateInteractiveMarkers(site: string): void {
     const routeSite = routeIndex >= 0;
     button.classList.toggle("is-active", active);
     button.classList.toggle("is-route-stop", routeSite);
+    button.classList.toggle(
+      "is-label-left",
+      (routeSite ? routeIndex : Number(button.dataset.defaultIndex ?? 1) - 1) % 2 === 1,
+    );
     renderMarkerContent(
       button,
       routeSite ? routeIndex + 1 : Number(button.dataset.defaultIndex ?? 0),
@@ -267,7 +276,10 @@ function renderMarkerContent(
   const number = document.createElement("span");
   number.className = "zoo-map__marker-number";
   number.textContent = String(markerNumber);
-  button.append(number);
+  const siteName = document.createElement("span");
+  siteName.className = "zoo-map__marker-site-name";
+  siteName.textContent = button.dataset.site ?? "";
+  button.append(number, siteName);
   if (!animals.length) return;
 
   const stack = document.createElement("span");
@@ -297,12 +309,17 @@ function markerNumber(point: MapPoint, fallbackIndex: number): number {
   return routeIndex >= 0 ? routeIndex + 1 : fallbackIndex + 1;
 }
 
+function markerLabelLeft(point: MapPoint, fallbackIndex: number): boolean {
+  const routeIndex = displayedRouteSites.value.indexOf(point.site);
+  return (routeIndex >= 0 ? routeIndex : fallbackIndex) % 2 === 1;
+}
+
 function destroyInteractiveMap(): void {
   if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
   readinessTimer = undefined;
   amapMarkers = [];
-  routeLine = undefined;
-  durationMarker = undefined;
+  routeOverlays = [];
+  routeLabelMarkers = [];
   originMarker = undefined;
   boundaryLine = undefined;
   mapBounds = undefined;
@@ -340,45 +357,133 @@ function updateOriginMarker(): void {
 
 function updateRouteOverlay(): void {
   if (!map || !window.AMap) return;
-  if (routeLine) map.remove(routeLine);
-  if (durationMarker) map.remove(durationMarker);
-  routeLine = undefined;
-  durationMarker = undefined;
-  const path = props.activeRoute?.polyline.map(
-    (point) => [point.longitude, point.latitude] as [number, number],
-  );
-  if (!path?.length) return;
-  routeLine = new window.AMap.Polyline({
-    path,
-    strokeColor: cssColor("--color-coral"),
-    strokeWeight: 7,
-    strokeOpacity: 0.9,
-    lineJoin: "round",
-    lineCap: "round",
-    showDir: true,
-    zIndex: 30,
-  });
-  map.add(routeLine);
-  const midpoint = routeMidpoint(props.activeRoute?.polyline ?? []);
-  if (midpoint) {
-    const content = document.createElement("span");
-    content.className = "zoo-map__duration-badge";
-    content.textContent = durationLabel.value;
-    durationMarker = new window.AMap.Marker({
+  removeRouteOverlays();
+
+  for (const leg of routeLegs.value) {
+    const path = leg.path.map(
+      (point) => [point.longitude, point.latitude] as [number, number],
+    );
+    const halo = new window.AMap.Polyline({
+      path,
+      strokeColor: cssColor("--color-ink"),
+      strokeWeight: 17,
+      strokeOpacity: 0.82,
+      lineJoin: "round",
+      lineCap: "round",
+      zIndex: 148,
+    });
+    const line = new window.AMap.Polyline({
+      path,
+      strokeColor: cssColor("--color-danger"),
+      strokeWeight: 10,
+      strokeOpacity: 1,
+      strokeStyle: "solid",
+      lineJoin: "round",
+      lineCap: "round",
+      showDir: true,
+      zIndex: 150,
+    });
+    routeOverlays.push(halo, line);
+    map.add(halo);
+    map.add(line);
+
+    const midpoint = routeMidpoint(leg.path);
+    if (!midpoint) continue;
+    const content = createRouteLegLabel(leg.minutes);
+    const marker = new window.AMap.Marker({
       position: [midpoint.longitude, midpoint.latitude],
       content,
-      offset: new window.AMap.Pixel(-56, -48),
-      title: `路线总耗时${durationLabel.value}`,
-      zIndex: 40,
+      offset: new window.AMap.Pixel(-42, -20),
+      title: `${leg.from_name}到${leg.to_name}步行约${leg.minutes}分钟`,
+      zIndex: 260,
     });
-    map.add(durationMarker);
+    routeLabelMarkers.push(marker);
+    map.add(marker);
   }
-  map.setFitView([routeLine], false, [60, 60, 60, 60]);
+
+  const visibleLines = routeOverlays.filter((_, index) => index % 2 === 1);
+  if (visibleLines.length) map.setFitView(visibleLines, false, [84, 84, 84, 84]);
+}
+
+function removeRouteOverlays(): void {
+  if (!map) return;
+  for (const overlay of routeOverlays) map.remove(overlay);
+  for (const marker of routeLabelMarkers) map.remove(marker);
+  routeOverlays = [];
+  routeLabelMarkers = [];
+}
+
+function createRouteLegLabel(minutes: number): HTMLElement {
+  const label = document.createElement("span");
+  label.className = "zoo-map__leg-label";
+  const time = document.createElement("strong");
+  time.textContent = `${minutes} 分钟`;
+  const mode = document.createElement("small");
+  mode.textContent = "步行";
+  label.append(time, mode);
+  return label;
 }
 
 function routeMidpoint(points: { longitude: number; latitude: number }[]) {
   if (!points.length) return null;
-  return points[Math.floor(points.length / 2)];
+  if (points.length === 1) return points[0];
+  const lengths = points.slice(1).map((point, index) =>
+    localDistance(points[index], point),
+  );
+  const halfway = lengths.reduce((total, length) => total + length, 0) / 2;
+  let walked = 0;
+  for (let index = 0; index < lengths.length; index += 1) {
+    const segment = lengths[index];
+    if (walked + segment < halfway || segment === 0) {
+      walked += segment;
+      continue;
+    }
+    const ratio = (halfway - walked) / segment;
+    return {
+      longitude:
+        points[index].longitude +
+        (points[index + 1].longitude - points[index].longitude) * ratio,
+      latitude:
+        points[index].latitude +
+        (points[index + 1].latitude - points[index].latitude) * ratio,
+    };
+  }
+  return points.at(-1) ?? null;
+}
+
+function localDistance(
+  from: { longitude: number; latitude: number },
+  to: { longitude: number; latitude: number },
+): number {
+  const averageLatitude = ((from.latitude + to.latitude) / 2) * (Math.PI / 180);
+  const longitude = (to.longitude - from.longitude) * Math.cos(averageLatitude);
+  const latitude = to.latitude - from.latitude;
+  return Math.hypot(longitude, latitude);
+}
+
+function staticLegPoints(points: { longitude: number; latitude: number }[]): string {
+  return points
+    .map((point) => {
+      const position = staticMapPosition(point.longitude, point.latitude);
+      return `${position.x.toFixed(1)},${position.y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function staticLegLabelStyle(
+  points: { longitude: number; latitude: number }[],
+  index: number,
+): Record<string, string> {
+  const midpoint = routeMidpoint(points);
+  if (!midpoint) return {};
+  const position = staticMapPosition(midpoint.longitude, midpoint.latitude);
+  const left = Math.min(76, Math.max(24, position.x / 10.24));
+  const top = Math.min(82, Math.max(18, position.y / 6.4));
+  return {
+    "--leg-left": `${left.toFixed(2)}%`,
+    "--leg-top": `${top.toFixed(2)}%`,
+    "--leg-nudge-y": index % 2 ? "-2.5rem" : "2.5rem",
+  };
 }
 
 function staticMapPosition(longitude: number, latitude: number): { x: number; y: number } {
@@ -564,7 +669,11 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           {{ settingOrigin ? "请点击地图设置起点" : "在地图上设置起点" }}
         </button>
       </div>
-      <div class="zoo-map__canvas" :style="staticBoundaryStyle">
+      <div
+        class="zoo-map__canvas"
+        :class="{ 'has-active-route': activeRoute }"
+        :style="staticBoundaryStyle"
+      >
         <template v-if="guide.js_api && !interactiveFailed">
           <div
             ref="mapContainer"
@@ -585,19 +694,26 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             @error="imageFailed = true"
           />
           <svg
-            v-if="staticRoutePoints"
+            v-if="routeLegs.length"
             class="zoo-map__static-route"
             viewBox="0 0 1024 640"
             preserveAspectRatio="none"
             aria-hidden="true"
           >
-            <polyline :points="staticRoutePoints" />
+            <g v-for="leg in routeLegs" :key="leg.id">
+              <polyline class="is-halo" :points="staticLegPoints(leg.path)" />
+              <polyline class="is-route" :points="staticLegPoints(leg.path)" />
+            </g>
           </svg>
           <span
-            v-if="durationLabel"
-            class="zoo-map__duration-badge is-static"
-            :style="staticDurationStyle"
-          >{{ durationLabel }}</span>
+            v-for="(leg, index) in routeLegs"
+            :key="`label-${leg.id}`"
+            class="zoo-map__leg-label is-static"
+            :style="staticLegLabelStyle(leg.path, index)"
+          >
+            <strong>{{ leg.minutes }} 分钟</strong>
+            <small>步行</small>
+          </span>
           <button
             v-for="(point, index) in guide.points"
             :key="point.site"
@@ -605,6 +721,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             :class="{
               'is-active': selectedSite === point.site,
               'is-route-stop': displayedRouteSites.includes(point.site),
+              'is-label-left': markerLabelLeft(point, index),
             }"
             :style="markerStyle(point, index)"
             type="button"
@@ -613,6 +730,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             @click="emit('select', point.site); emit('routeToggle', point.site)"
           >
             <span class="zoo-map__marker-number">{{ markerNumber(point, index) }}</span>
+            <span class="zoo-map__marker-site-name">{{ point.site }}</span>
             <span
               v-if="routeAnimals(point.site).length"
               class="zoo-map__animal-stack"
@@ -629,6 +747,14 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           </button>
         </template>
       </div>
+
+      <ol v-if="routeLegs.length" class="zoo-map__leg-summary" aria-label="路线分段用时">
+        <li v-for="(leg, index) in routeLegs" :key="`summary-${leg.id}`">
+          <span>{{ index + 1 }}</span>
+          <p><strong>{{ leg.from_name }} → {{ leg.to_name }}</strong><small>{{ Math.round(leg.distance_meters / 10) * 10 }} 米</small></p>
+          <em>步行约 {{ leg.minutes }} 分钟</em>
+        </li>
+      </ol>
 
       <div class="zoo-map__caption">
         <div>
