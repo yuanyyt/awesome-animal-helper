@@ -15,4 +15,6 @@ _temp/
 .codex/
 temp/
 src/data/runtime/
+src/data/wx_info/.browser-profile/
+src/data/wx_info/progress.json
 node_modules/

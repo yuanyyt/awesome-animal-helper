@@ -7,8 +7,10 @@ import AnimalCard from "./components/AnimalCard.vue";
 import AnimalRouteDock from "./components/AnimalRouteDock.vue";
 import GuideChatBox from "./components/GuideChatBox.vue";
 import GuideIllustration from "./components/GuideIllustration.vue";
+import MobileBottomNav from "./components/MobileBottomNav.vue";
 import SearchDialog from "./components/SearchDialog.vue";
 import SiteFilter from "./components/SiteFilter.vue";
+import WikiPage from "./components/WikiPage.vue";
 import ZooMap from "./components/ZooMap.vue";
 import type {
   AnimalDetail,
@@ -46,7 +48,7 @@ const siteAnimals = computed(() => {
     ? items.filter((animal) => animal.sites.includes(selectedSite.value))
     : items;
 });
-type AppPage = "intro" | "animals" | "guide";
+type AppPage = "intro" | "animals" | "wiki" | "guide";
 const activePage = ref<AppPage>(pageFromLocation());
 let controller: AbortController | undefined;
 let mapController: AbortController | undefined;
@@ -67,6 +69,7 @@ onBeforeUnmount(() => {
 });
 
 function pageFromLocation(): AppPage {
+  if (window.location.hash.startsWith("#wiki")) return "wiki";
   if (window.location.hash === "#animals") return "animals";
   if (["#guide", "#map", "#venues"].includes(window.location.hash)) return "guide";
   return "intro";
@@ -82,9 +85,19 @@ function showPage(page: AppPage): void {
   const hashes: Record<AppPage, string> = {
     intro: "#home",
     animals: "#animals",
+    wiki: "#wiki",
     guide: "#guide",
   };
   window.history.pushState(null, "", hashes[page]);
+}
+
+function openWiki(animalName = ""): void {
+  selectedAnimal.value = null;
+  activePage.value = "wiki";
+  const params = new URLSearchParams();
+  if (animalName) params.set("animal", animalName);
+  const suffix = params.size ? `?${params.toString()}` : "";
+  window.history.pushState(null, "", `#wiki${suffix}`);
 }
 
 async function loadMap(): Promise<void> {
@@ -217,6 +230,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
         <div class="page-tabs" aria-label="页面切换">
           <button type="button" :aria-current="activePage === 'intro' ? 'page' : undefined" @click="showPage('intro')">首页</button>
           <button type="button" :aria-current="activePage === 'animals' ? 'page' : undefined" @click="showPage('animals')">动物邻居</button>
+          <button type="button" :aria-current="activePage === 'wiki' ? 'page' : undefined" @click="showPage('wiki')">动物 Wiki</button>
           <button type="button" :aria-current="activePage === 'guide' ? 'page' : undefined" @click="showPage('guide')">园区导览</button>
         </div>
         <button class="search-pill" type="button" aria-label="搜索动物，快捷键 Control 或 Command K" @click="openSearch">
@@ -251,6 +265,17 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     </section>
 
     <section
+      id="wiki"
+      class="page-panel wiki-page"
+      :class="{ 'is-active': activePage === 'wiki' }"
+      :aria-hidden="activePage !== 'wiki'"
+      :inert="activePage !== 'wiki'"
+      aria-label="动物趣事 Wiki"
+    >
+      <WikiPage :active="activePage === 'wiki'" />
+    </section>
+
+    <section
       id="animals"
       class="page-panel animals-page"
       :class="{ 'is-active': activePage === 'animals' }"
@@ -260,6 +285,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     >
       <header class="animals-page__heading">
         <h1 id="animals-title">把想见的邻居，放进今天的路线。</h1>
+        <button class="animals-page__wiki-entry" type="button" @click="openWiki()">读园内趣事 →</button>
       </header>
 
       <SiteFilter
@@ -336,6 +362,8 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     </section>
   </main>
 
+  <MobileBottomNav :active-page="activePage === 'wiki' ? 'animals' : activePage" @navigate="showPage" />
+
   <SearchDialog :open="searchOpen" @close="closeSearch" @select="chooseSearchResult" />
-  <AnimalDetailDialog :animal="selectedAnimal" @close="closeAnimal" />
+  <AnimalDetailDialog :animal="selectedAnimal" @close="closeAnimal" @wiki="openWiki" />
 </template>

@@ -18,6 +18,7 @@ export interface AnimalDetail {
   language: string | null;
   data_status: "success" | "partial" | string;
   sites: string[];
+  wiki_fact_count: number;
 }
 
 export interface AnimalListResponse {
@@ -25,6 +26,51 @@ export interface AnimalListResponse {
   sites: SiteSummary[];
   total: number;
   filtered_count: number;
+}
+
+export interface WikiSource {
+  title: string;
+  url: string;
+  published_at: string;
+}
+
+export interface WikiFact {
+  text: string;
+  evidence: string;
+  source: WikiSource;
+}
+
+export interface WikiAnimalSummary {
+  site: string;
+  scientific_name: string;
+  animal_name: string;
+  aliases: string[];
+  fact_count: number;
+  source_count: number;
+}
+
+export interface WikiScientificGroup {
+  scientific_name: string;
+  animals: WikiAnimalSummary[];
+}
+
+export interface WikiSiteGroup {
+  name: string;
+  fact_count: number;
+  scientific_groups: WikiScientificGroup[];
+}
+
+export interface WikiIndexResponse {
+  sites: WikiSiteGroup[];
+  total_animals: number;
+  total_facts: number;
+  filtered_count: number;
+  generated_at: string;
+}
+
+export interface WikiPage extends WikiAnimalSummary {
+  facts: WikiFact[];
+  markdown: string;
 }
 
 export interface MapLocation {

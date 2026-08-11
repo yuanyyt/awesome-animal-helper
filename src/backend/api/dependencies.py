@@ -10,6 +10,7 @@ from src.backend.agents.guide import GuideAgentService
 from src.backend.integrations.amap.client import AmapClient
 from src.backend.integrations.audio.realtime import AudioRealtimeService
 from src.backend.repositories.animals import AnimalRepository
+from src.backend.repositories.wiki import WikiRepository
 
 
 @lru_cache(maxsize=1)
@@ -17,6 +18,13 @@ def get_repository() -> AnimalRepository:
     """Return the process-wide immutable animal repository."""
 
     return AnimalRepository()
+
+
+@lru_cache(maxsize=1)
+def get_wiki_repository() -> WikiRepository:
+    """Return a reload-on-change view of generated Wiki pages."""
+
+    return WikiRepository()
 
 
 @lru_cache(maxsize=1)
@@ -45,6 +53,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Warm local data and release external clients on shutdown."""
 
     get_repository()
+    get_wiki_repository()
     yield
     if get_amap_client.cache_info().currsize:
         get_amap_client().close()

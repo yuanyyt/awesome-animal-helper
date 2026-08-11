@@ -3,6 +3,8 @@ import type {
   GuideChatResponse,
   MapGuide,
   MapNamedLocation,
+  WikiIndexResponse,
+  WikiPage,
 } from "./types";
 
 export interface AnimalQuery {
@@ -34,6 +36,31 @@ export async function fetchMapGuide(signal?: AbortSignal): Promise<MapGuide> {
     throw new Error(`地图配置请求失败（${response.status}）`);
   }
   return response.json() as Promise<MapGuide>;
+}
+
+export async function fetchWikiIndex(
+  query: { q?: string; site?: string } = {},
+  signal?: AbortSignal,
+): Promise<WikiIndexResponse> {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  if (query.site?.trim()) params.set("site", query.site.trim());
+  const suffix = params.size ? `?${params.toString()}` : "";
+  const response = await fetch(`/api/wiki${suffix}`, { signal });
+  if (!response.ok) throw new Error(`动物 Wiki 请求失败（${response.status}）`);
+  return response.json() as Promise<WikiIndexResponse>;
+}
+
+export async function fetchWikiPage(
+  site: string,
+  scientificName: string,
+  animal: string,
+  signal?: AbortSignal,
+): Promise<WikiPage> {
+  const params = new URLSearchParams({ site, scientific_name: scientificName, animal });
+  const response = await fetch(`/api/wiki/page?${params.toString()}`, { signal });
+  if (!response.ok) throw new Error(`动物故事请求失败（${response.status}）`);
+  return response.json() as Promise<WikiPage>;
 }
 
 export async function sendGuideMessage(

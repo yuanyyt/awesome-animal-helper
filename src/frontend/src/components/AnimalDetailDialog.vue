@@ -6,7 +6,7 @@ import type { AnimalDetail } from "../types";
 import AnimalPhoto from "./AnimalPhoto.vue";
 
 const props = defineProps<{ animal: AnimalDetail | null }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; wiki: [animalName: string] }>();
 const dialog = ref<HTMLDialogElement>();
 
 const fields: Array<{ key: keyof AnimalDetail; label: string }> = [
@@ -73,6 +73,13 @@ watch(
           <a v-if="animal.source_url" :href="animal.source_url" target="_blank" rel="noopener noreferrer">
             查看 Wikipedia 来源 ↗
           </a>
+          <button
+            v-if="animal.wiki_fact_count"
+            type="button"
+            @click="emit('wiki', animal.name)"
+          >
+            读 {{ animal.wiki_fact_count }} 条园内趣事 →
+          </button>
         </footer>
       </article>
     </dialog>

@@ -175,9 +175,9 @@ def main() -> None:
 def _build_llm(args: argparse.Namespace) -> LlmExtractor | None:
     if args.no_llm:
         return None
-    api_key = os.getenv("LLM_API_KEY", "")
+    api_key = os.getenv("LLM_API_KEY") or os.getenv("DASHSCOPE_API_KEY", "")
     if not api_key or not args.llm_model:
-        LOGGER.warning("未配置 LLM_API_KEY/LLM_MODEL，将仅使用 Wikipedia 与 Wikidata")
+        LOGGER.warning("未配置 LLM_API_KEY（或 DASHSCOPE_API_KEY）/LLM_MODEL，将仅使用 Wikipedia 与 Wikidata")
         return None
     return LlmExtractor(
         api_key=api_key,

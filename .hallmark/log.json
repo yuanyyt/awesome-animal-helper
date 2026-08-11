@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-11",
+    "macrostructure": "Index-First",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / cool-cyan",
+    "vibe": "warm visitor field-guide archive",
+    "enrichment": "none",
+    "nav": "N3 internal side-rail",
+    "footer": "none",
+    "brief": "按场馆、学名与动物分层浏览有微信来源的园内趣事 Wiki"
+  },
+  {
     "date": "2026-08-10",
     "macrostructure": "Workbench",
     "theme": "custom",

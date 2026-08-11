@@ -29,6 +29,7 @@ class AnimalDetail(BaseModel):
     language: str | None = None
     data_status: str
     sites: list[str]
+    wiki_fact_count: int = 0
 
 
 class AnimalListResponse(BaseModel):
@@ -38,6 +39,65 @@ class AnimalListResponse(BaseModel):
     sites: list[SiteSummary]
     total: int
     filtered_count: int
+
+
+class WikiSource(BaseModel):
+    """One WeChat article supporting an animal fact."""
+
+    title: str
+    url: str
+    published_at: str = ""
+
+
+class WikiFact(BaseModel):
+    """A source-grounded animal story fragment."""
+
+    text: str
+    evidence: str = ""
+    source: WikiSource
+
+
+class WikiAnimalSummary(BaseModel):
+    """Animal entry shown in the hierarchical Wiki index."""
+
+    site: str
+    scientific_name: str
+    animal_name: str
+    aliases: list[str] = Field(default_factory=list)
+    fact_count: int
+    source_count: int
+
+
+class WikiScientificGroup(BaseModel):
+    """Animals sharing a scientific-name folder inside one venue."""
+
+    scientific_name: str
+    animals: list[WikiAnimalSummary]
+
+
+class WikiSiteGroup(BaseModel):
+    """One venue branch of the Wiki index."""
+
+    name: str
+    fact_count: int
+    scientific_groups: list[WikiScientificGroup]
+
+
+class WikiIndexResponse(BaseModel):
+    """Filtered venue/scientific-name/animal hierarchy."""
+
+    sites: list[WikiSiteGroup]
+    total_animals: int
+    total_facts: int
+    filtered_count: int
+    generated_at: str = ""
+
+
+class WikiPageResponse(WikiAnimalSummary):
+    """Full generated Wiki page and its structured facts."""
+
+    facts: list[WikiFact]
+    markdown: str
 
 
 class MapLocation(BaseModel):
