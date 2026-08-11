@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 
 import type { AnimalDetail } from "../types";
 import AnimalPhoto from "./AnimalPhoto.vue";
 import AnimalStories from "./AnimalStories.vue";
+import ExpandableText from "./ExpandableText.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -20,8 +21,15 @@ const emit = defineEmits<{ close: [] }>();
 const dialog = ref<HTMLDialogElement>();
 const panel = ref<HTMLElement>();
 
-const fields: Array<{ key: keyof AnimalDetail; label: string }> = [
-  { key: "taxonomy", label: "分类" },
+type ProfileFieldKey =
+  | "habitat"
+  | "distribution"
+  | "diet"
+  | "behavior"
+  | "reproduction"
+  | "conservation_status";
+
+const fields: Array<{ key: ProfileFieldKey; label: string }> = [
   { key: "habitat", label: "栖息地" },
   { key: "distribution", label: "分布" },
   { key: "diet", label: "食性" },
@@ -29,6 +37,18 @@ const fields: Array<{ key: keyof AnimalDetail; label: string }> = [
   { key: "reproduction", label: "繁殖" },
   { key: "conservation_status", label: "保护状态" },
 ];
+
+const visibleFields = computed(() => {
+  if (!props.animal) return [];
+  return fields.flatMap((field) => {
+    const text = props.animal?.[field.key]?.trim();
+    return text ? [{ ...field, text }] : [];
+  });
+});
+
+const visibleFunFacts = computed(
+  () => props.animal?.fun_facts.map((fact) => fact.trim()).filter(Boolean) ?? [],
+);
 
 watch(
   () => props.animal,
@@ -74,9 +94,9 @@ function scrollToStories(): void {
       <article v-if="animal" ref="panel" class="detail-dialog__panel" tabindex="-1">
         <header class="detail-dialog__header">
           <div>
-            <p>{{ animal.sites.join(" · ") }}</p>
+            <p v-if="animal.sites.length">{{ animal.sites.join(" · ") }}</p>
             <h2 id="detail-title">{{ animal.name }}</h2>
-            <span>{{ animal.scientific_name || "学名待补充" }}</span>
+            <span v-if="animal.scientific_name?.trim()">{{ animal.scientific_name.trim() }}</span>
           </div>
           <button class="detail-dialog__close" type="button" aria-label="关闭动物介绍" @click="emit('close')">×</button>
         </header>
@@ -87,24 +107,25 @@ function scrollToStories(): void {
         </figure>
 
         <div class="detail-dialog__body">
-          <section v-for="field in fields" :key="field.key">
-            <h3>{{ field.label }}</h3>
-            <p>{{ animal[field.key] || "资料待补充" }}</p>
-          </section>
-
-          <section>
-            <h3>趣味事实</h3>
-            <ul v-if="animal.fun_facts.length">
-              <li v-for="fact in animal.fun_facts" :key="fact">{{ fact }}</li>
-            </ul>
-            <p v-else>资料待补充</p>
-          </section>
-
           <AnimalStories
             v-if="animal.wiki_fact_count"
             :animal="animal"
             :active="true"
           />
+
+          <section v-if="visibleFunFacts.length" class="detail-dialog__fun-facts">
+            <h3>趣味事实</h3>
+            <ul>
+              <li v-for="fact in visibleFunFacts" :key="fact">
+                <ExpandableText :text="fact" />
+              </li>
+            </ul>
+          </section>
+
+          <section v-for="field in visibleFields" :key="field.key">
+            <h3>{{ field.label }}</h3>
+            <ExpandableText :text="field.text" />
+          </section>
         </div>
 
         <footer class="detail-dialog__footer">

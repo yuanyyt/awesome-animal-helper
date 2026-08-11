@@ -81,9 +81,61 @@
 
 .detail-dialog__body > .animal-stories {
   grid-column: 1 / -1;
-  margin-top: var(--space-lg);
-  padding-top: var(--space-xl);
+  margin-top: 0;
+  padding-top: var(--space-md);
   border-top: var(--rule-strong) solid var(--color-rule-strong);
+}
+
+.detail-dialog__body > section.detail-dialog__fun-facts {
+  grid-column: 1 / -1;
+}
+
+.detail-dialog__fun-facts li {
+  min-width: 0;
+}
+
+.expandable-text {
+  min-width: 0;
+}
+
+.expandable-text__content {
+  overflow: hidden;
+  display: -webkit-box;
+  margin: 0;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--expandable-lines);
+  overflow-wrap: anywhere;
+}
+
+.expandable-text__content.is-expanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.expandable-text__toggle {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: opacity var(--dur-short) var(--ease-out), transform var(--dur-short) var(--ease-out);
+}
+
+.expandable-text__toggle:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: var(--rule-strong) solid var(--color-focus);
+  outline-offset: var(--space-2xs);
+}
+
+.expandable-text__toggle:active {
+  transform: translateY(1px);
 }
 
 .animal-stories__heading {
@@ -298,6 +350,10 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .expandable-text__toggle:hover {
+    opacity: 0.78;
+  }
+
   .animal-stories__state button:hover {
     transform: translateY(-1px);
   }
@@ -332,6 +388,10 @@
     grid-column: 1 / -1;
   }
 
+  .detail-dialog__body > section.detail-dialog__fun-facts {
+    grid-column: 1 / -1;
+  }
+
   .detail-dialog__footer {
     align-items: center;
     flex-direction: row;
@@ -342,7 +402,8 @@
 @media (pointer: coarse) {
   .animal-stories__state button,
   .animal-story-group summary,
-  .animal-story-group a {
+  .animal-story-group a,
+  .expandable-text__toggle {
     min-height: 3rem;
   }
 }
@@ -353,6 +414,10 @@
   }
 
   .animal-stories__state button {
+    transition-duration: 0ms;
+  }
+
+  .expandable-text__toggle {
     transition-duration: 0ms;
   }
 }
