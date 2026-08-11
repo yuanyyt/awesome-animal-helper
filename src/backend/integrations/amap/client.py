@@ -43,6 +43,7 @@ AMAP_JS_PROXY_PATH = "/_AMapService"
 
 _SITE_ALIASES: dict[str, tuple[str, ...]] = {
     "大熊猫": ("南京熊猫馆", "金陵中华大熊猫苑"),
+    "唐家河": ("唐家河展区", "小熊猫馆", "金丝猴馆"),
     "犀鸟雨林": ("热带鸟馆",),
     "非洲之歌": ("非洲之歌",),
     "澳洲袋鼠角": ("澳洲区", "袋鼠"),
@@ -60,6 +61,7 @@ _SITE_ALIASES: dict[str, tuple[str, ...]] = {
     "象": ("大象馆",),
     "亚洲灵长区": ("亚洲灵长区",),
     "冈瓦纳": ("冈瓦纳",),
+    "熊馆": ("熊谷", "熊馆", "黑熊馆", "棕熊馆"),
 }
 
 
@@ -143,6 +145,11 @@ class AmapClient:
         facility_pois = self._search_facilities(center_poi)
         points = self._match_sites(site_list, nearby)
         boundary = self._build_boundary()
+        matched_sites = {point.site for point in points}
+        missing_sites = [site for site in site_list if site.name not in matched_sites]
+        if missing_sites:
+            nearby.extend(self._search_site_aliases(missing_sites, boundary))
+            points = self._match_sites(site_list, nearby)
         facility_pois = [
             poi
             for poi in facility_pois
@@ -322,6 +329,42 @@ class AmapClient:
             )
             found.extend(_parse_pois(data))
         return list({(poi.name, poi.longitude, poi.latitude): poi for poi in found}.values())
+
+    def _search_site_aliases(
+        self,
+        sites: list[SiteSummary],
+        boundary: MapBoundary,
+    ) -> list[_Poi]:
+        """Resolve nearby-search misses with venue synonyms verified inside the zoo."""
+
+        found: list[_Poi] = []
+        request_count = 0
+        for site in sites:
+            aliases = _SITE_ALIASES.get(site.name, (site.name,))
+            for alias in aliases:
+                if request_count:
+                    self._sleep(1.05)
+                data = self._get_json(
+                    POI_TEXT_URL,
+                    {
+                        "keywords": f"{ZOO_KEYWORD}{alias}",
+                        "region": ZOO_REGION,
+                        "city_limit": "true",
+                        "page_size": 10,
+                    },
+                )
+                request_count += 1
+                normalized_alias = _normalize(alias)
+                candidates = [
+                    poi
+                    for poi in _parse_pois(data)
+                    if normalized_alias in _normalize(poi.name)
+                    and _point_in_boundary(poi, boundary.points)
+                ]
+                if candidates:
+                    found.append(min(candidates, key=lambda poi: len(poi.name)))
+                    break
+        return found
 
     @staticmethod
     def _default_origin(center: _Poi, nearby: list[_Poi]) -> MapNamedLocation:
