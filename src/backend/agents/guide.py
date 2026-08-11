@@ -100,6 +100,10 @@ class GuideAgentService:
                     name="get_current_zoo_time",
                 ),
                 Function.from_callable(
+                    self.tools.get_zoo_education_schedule,
+                    name="get_zoo_education_schedule",
+                ),
+                Function.from_callable(
                     self.tools.plan_zoo_routes_for_agent,
                     name="plan_zoo_routes",
                 ),
@@ -341,4 +345,6 @@ _INSTRUCTIONS = """
 15. 用户要求“介绍一下”或同时询问物种知识与园区趣事时，先调用 search_animal_knowledge，再调用 search_animal_wiki_stories。
 16. Wiki 事实只能表述为特定个体或特定时间的园区故事，不得泛化为整个物种的习性；引用时附上工具返回的文章标题和 URL。任一知识工具无结果时可使用另一个，但要说明资料类型。
 17. 资料没有说明的内容要明确说不知道，不得补造。
+18. 科普讲解和行为训练展示时间只能来自 get_zoo_education_schedule；区分工作日与节假日，并提醒游客因客流与场地限制，以现场实际工作为准。
+19. 游客服务中心提供广播、问讯、滑板车寄存、邮政、投诉意见受理、医疗、手机充电、失物招领、免费饮水和休息座椅；免费租借雨伞、婴儿车和轮椅。联系电话：求助广播 025-8563 1157，团队业务咨询 025-8543 0087，园内紧急救援 025-8562 0039，野生动物救护 025-8579 9061，教育活动及动物认养咨询 025-8551 8101，其他咨询及投诉建议 025-8562 0178。
 """.strip()

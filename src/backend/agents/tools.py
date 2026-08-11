@@ -19,6 +19,7 @@ from src.backend.repositories.animals import AnimalRepository
 from src.backend.repositories.wiki import WikiRepository
 from src.backend.services.guide_intent import GuideTurnResolver
 from src.backend.services.route_planner import RoutePlanner, RoutePlanningError
+from src.backend.services.zoo_education import education_schedule
 from src.backend.services.zoo_services import shuttle_service
 from src.backend.services.zoo_time import zoo_operating_status
 
@@ -128,6 +129,11 @@ class ZooGuideTools:
 
         guide = self.amap.build_guide(self.repository.site_summaries())
         return zoo_operating_status(guide.shuttle or shuttle_service(), self.now_provider)
+
+    def get_zoo_education_schedule(self, venue: str = "") -> dict[str, object]:
+        """Return science-talk and holiday animal-training times, optionally by venue."""
+
+        return education_schedule(venue)
 
     def search_animals_and_venues(
         self,
