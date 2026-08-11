@@ -483,22 +483,6 @@ main {
   stroke-width: 10;
 }
 
-.zoo-map__mode {
-  position: absolute;
-  z-index: 3;
-  top: var(--space-md);
-  right: var(--space-md);
-  padding: var(--space-xs) var(--space-sm);
-  border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-round);
-  background: var(--color-paper-3);
-  color: var(--color-ink-2);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  line-height: 1;
-  pointer-events: none;
-}
-
 .zoo-map__marker {
   position: absolute;
   z-index: 8;

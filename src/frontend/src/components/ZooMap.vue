@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 import { resolveAnimalImage } from "../animalImages";
-import { expandedConvexHull, isPointInPolygon, polygonBounds } from "../mapGeometry";
+import { isPointInPolygon, polygonBounds } from "../mapGeometry";
 import type {
   AnimalDetail,
   MapGuide,
@@ -105,7 +105,7 @@ const routeAnimalsBySite = computed(() => {
   }
   return animalsBySite;
 });
-const boundaryPath = computed(() => expandedConvexHull(props.guide?.points ?? [], 1.5));
+const boundaryPath = computed(() => props.guide?.boundary.points ?? []);
 const boundaryCoordinates = computed(() =>
   boundaryPath.value.map(
     (point) => [point.longitude, point.latitude] as [number, number],
@@ -798,8 +798,6 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             role="region"
             aria-label="可拖拽和缩放的南京红山森林动物园高德地图"
           ></div>
-          <span v-if="!interactiveReady" class="zoo-map__mode">正在加载交互地图…</span>
-          <span v-else class="zoo-map__mode">可拖拽 · 可缩放</span>
         </template>
         <template v-else>
           <img
@@ -879,10 +877,13 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           <span v-if="selectedPoint">
             {{ selectedPoint.address }} · {{ selectedPoint.animal_count }} 种动物
           </span>
-          <span v-else>高德已收录 {{ guide.points.length }} 个园内场馆点位 · 绿色轮廓为导览显示范围</span>
+          <span v-else>高德已收录 {{ guide.points.length }} 个园内场馆点位 · 绿色轮廓来自 OSM way {{ guide.boundary.object_id }}</span>
         </div>
         <strong v-if="selectedPoint">下方查看馆内动物 ↓</strong>
-        <small v-else>地图数据来自 {{ guide.provider }}</small>
+        <small v-else>
+          地图来自 {{ guide.provider }} ·
+          <a :href="guide.boundary.source_url" target="_blank" rel="noreferrer">{{ guide.boundary.attribution }}</a>
+        </small>
       </div>
     </template>
   </div>

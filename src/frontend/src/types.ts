@@ -44,11 +44,21 @@ export interface MapJsConfig {
   service_host: string;
 }
 
+export interface MapBoundary {
+  points: MapLocation[];
+  source: string;
+  source_url: string;
+  attribution: string;
+  object_type: "way";
+  object_id: number;
+}
+
 export interface MapGuide {
   center: MapLocation;
   zoom: number;
   image_url: string;
   points: MapPoint[];
+  boundary: MapBoundary;
   provider: string;
   js_api: MapJsConfig | null;
   default_origin: MapNamedLocation | null;

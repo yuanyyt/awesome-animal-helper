@@ -69,6 +69,17 @@ class MapJsConfig(BaseModel):
     service_host: str
 
 
+class MapBoundary(BaseModel):
+    """One attributed zoo boundary rendered in GCJ-02 coordinates."""
+
+    points: list[MapLocation]
+    source: str
+    source_url: str
+    attribution: str
+    object_type: Literal["way"]
+    object_id: int
+
+
 class MapGuideResponse(BaseModel):
     """Map configuration consumed by the Vue guide."""
 
@@ -76,6 +87,7 @@ class MapGuideResponse(BaseModel):
     zoom: int
     image_url: str
     points: list[MapPoint]
+    boundary: MapBoundary
     provider: str
     js_api: MapJsConfig | None = None
     default_origin: MapNamedLocation | None = None

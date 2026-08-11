@@ -11,7 +11,9 @@ from dataclasses import dataclass
 import httpx
 from dotenv import load_dotenv
 
+from .osm_boundary import load_osm_boundary
 from .schemas import (
+    MapBoundary,
     MapGuideResponse,
     MapJsConfig,
     MapLocation,
@@ -25,6 +27,7 @@ POI_TEXT_URL = "https://restapi.amap.com/v5/place/text"
 POI_AROUND_URL = "https://restapi.amap.com/v5/place/around"
 STATIC_MAP_URL = "https://restapi.amap.com/v3/staticmap"
 WALKING_ROUTE_URL = "https://restapi.amap.com/v3/direction/walking"
+COORDINATE_CONVERT_URL = "https://restapi.amap.com/v3/assistant/coordinate/convert"
 
 ZOO_KEYWORD = "南京红山森林动物园"
 ZOO_REGION = "南京"
@@ -103,6 +106,7 @@ class AmapClient:
         self._guide_cache: dict[tuple[tuple[str, int], ...], MapGuideResponse] = {}
         self._image_cache: tuple[bytes, str] | None = None
         self._walking_cache: dict[tuple[float, float, float, float], WalkingRoute] = {}
+        self._boundary_cache: MapBoundary | None = None
 
     @classmethod
     def from_env(cls) -> AmapClient:
@@ -138,6 +142,7 @@ class AmapClient:
             zoom=MAP_ZOOM,
             image_url="/api/map/image",
             points=points,
+            boundary=self._build_boundary(),
             provider="高德地图",
             default_origin=self._default_origin(center_poi, nearby),
             js_api=(
@@ -151,6 +156,49 @@ class AmapClient:
         )
         self._guide_cache[cache_key] = guide
         return guide
+
+    def convert_gps_coordinates(
+        self, points: Iterable[MapLocation]
+    ) -> list[MapLocation]:
+        """Convert WGS-84 GPS coordinates to GCJ-02 in API-sized batches."""
+
+        source = list(points)
+        converted: list[MapLocation] = []
+        for start in range(0, len(source), 40):
+            batch = source[start : start + 40]
+            data = self._get_json(
+                COORDINATE_CONVERT_URL,
+                {
+                    "locations": "|".join(
+                        f"{point.longitude:.6f},{point.latitude:.6f}"
+                        for point in batch
+                    ),
+                    "coordsys": "gps",
+                    "output": "JSON",
+                },
+            )
+            batch_result = _parse_converted_locations(data)
+            if len(batch_result) != len(batch):
+                raise AmapServiceError("高德坐标转换返回点数不一致")
+            converted.extend(batch_result)
+        return converted
+
+    def _build_boundary(self) -> MapBoundary:
+        if self._boundary_cache is not None:
+            return self._boundary_cache
+        snapshot = load_osm_boundary()
+        converted = self.convert_gps_coordinates(snapshot.points[:-1])
+        if len(converted) < 3:
+            raise AmapServiceError("OSM 园区边界没有足够坐标")
+        self._boundary_cache = MapBoundary(
+            points=[*converted, converted[0]],
+            source=snapshot.source,
+            source_url=snapshot.source_url,
+            attribution=snapshot.attribution,
+            object_type="way",
+            object_id=snapshot.object_id,
+        )
+        return self._boundary_cache
 
     def walking_route(self, origin: MapLocation, destination: MapLocation) -> WalkingRoute:
         """Return and cache one AMap walking route between GCJ-02 coordinates."""
@@ -370,6 +418,13 @@ def _parse_polyline(value: str) -> list[MapLocation]:
             continue
         points.append(MapLocation(longitude=longitude, latitude=latitude))
     return points
+
+
+def _parse_converted_locations(data: dict) -> list[MapLocation]:
+    value = str(data.get("locations", "")).strip()
+    if not value:
+        raise AmapServiceError("高德未返回坐标转换结果")
+    return _parse_polyline(value)
 
 
 def _safe_int(value: object) -> int:
