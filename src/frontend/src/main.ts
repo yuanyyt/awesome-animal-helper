@@ -5,6 +5,6 @@ import { createApp } from "vue";
 
 import App from "./App.vue";
 import "./styles.css";
-import "./wiki.css";
+import "./animal-stories.css";
 
 createApp(App).mount("#app");

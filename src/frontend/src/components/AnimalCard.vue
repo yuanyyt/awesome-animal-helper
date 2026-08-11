@@ -17,6 +17,9 @@ const emit = defineEmits<{
         <span v-if="animal.conservation_status" class="animal-card__status">
           {{ animal.conservation_status }}
         </span>
+        <span v-if="animal.wiki_fact_count" class="animal-card__stories">
+          {{ animal.wiki_fact_count }} 条园内趣事
+        </span>
       </span>
       <span class="animal-card__content">
         <span class="animal-card__heading">

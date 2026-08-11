@@ -1,0 +1,358 @@
+/* Hallmark · macrostructure: Ecosystem Index · genre: playful-editorial · theme: field-guide archive
+ * tone: natural and approachable · anchor hue: forest-green · enrichment: real animal photography
+ * nav: existing field tabs · footer: none · pre-emit critique: P5 H5 E5 S5 R5 V5
+ * contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47)
+ * tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50–57)
+ */
+
+.detail-dialog__panel {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  scroll-padding-top: calc(var(--space-4xl) + var(--space-lg));
+}
+
+.detail-dialog__panel:focus-visible {
+  outline: 0;
+}
+
+.detail-dialog__header {
+  position: sticky;
+  z-index: var(--z-sticky);
+  top: 0;
+  align-items: center;
+  padding: max(var(--space-md), env(safe-area-inset-top)) max(var(--space-md), env(safe-area-inset-right)) var(--space-md) max(var(--space-md), env(safe-area-inset-left));
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+}
+
+.detail-dialog__header > div {
+  min-width: 0;
+}
+
+.detail-dialog__header p,
+.detail-dialog__header h2,
+.detail-dialog__header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-dialog__close {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.detail-dialog__illustration {
+  height: auto;
+  aspect-ratio: 4 / 3;
+}
+
+.detail-dialog__body {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-lg);
+  padding: var(--space-xl) max(var(--space-md), env(safe-area-inset-right)) var(--space-2xl) max(var(--space-md), env(safe-area-inset-left));
+}
+
+.detail-dialog__body > section {
+  grid-column: auto;
+}
+
+.detail-dialog__body > section:nth-last-child(1),
+.detail-dialog__body > section:nth-last-child(2) {
+  grid-column: auto;
+}
+
+.detail-dialog__footer {
+  align-items: flex-start;
+  flex-direction: column;
+  padding: 0 max(var(--space-md), env(safe-area-inset-right)) max(var(--space-4xl), env(safe-area-inset-bottom)) max(var(--space-md), env(safe-area-inset-left));
+}
+
+.animal-stories {
+  min-width: 0;
+  scroll-margin-top: calc(var(--space-4xl) + var(--space-lg));
+}
+
+.detail-dialog__body > .animal-stories {
+  grid-column: 1 / -1;
+  margin-top: var(--space-lg);
+  padding-top: var(--space-xl);
+  border-top: var(--rule-strong) solid var(--color-rule-strong);
+}
+
+.animal-stories__heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+}
+
+.animal-stories__heading > div {
+  min-width: 0;
+}
+
+.animal-stories__heading h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+
+.animal-stories__heading p,
+.animal-stories__heading > span {
+  margin: var(--space-2xs) 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.animal-stories__heading > span {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.animal-stories__skeleton {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.animal-stories__skeleton span {
+  height: 7rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-skeleton);
+  color: var(--color-ink);
+  animation: skeleton-pulse 1.4s var(--ease-in-out) infinite alternate;
+}
+
+.animal-stories__state {
+  min-height: 9rem;
+  display: grid;
+  place-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper);
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.animal-stories__state.is-error {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.animal-stories__state p {
+  margin: 0;
+}
+
+.animal-stories__state button {
+  min-height: 2.75rem;
+  padding-inline: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.animal-stories__state button:active {
+  transform: translateY(1px);
+}
+
+.animal-stories__state button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.animal-stories__pages {
+  display: grid;
+  gap: var(--space-xl);
+}
+
+.detail-dialog__body .animal-story-group {
+  min-width: 0;
+  padding-top: var(--space-md);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.animal-story-group > header {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-md);
+}
+
+.animal-story-group h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-style: normal;
+}
+
+.animal-story-group > header span {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.animal-story-group ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.animal-story-group li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: var(--space-sm);
+  padding-block: var(--space-lg);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.animal-story-group li > span {
+  color: var(--color-accent);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.animal-story-group li > div {
+  min-width: 0;
+}
+
+.animal-story-group li p {
+  max-width: 62ch;
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.55;
+}
+
+.animal-story-group details {
+  margin-bottom: var(--space-md);
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+}
+
+.animal-story-group summary {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.animal-story-group blockquote {
+  max-width: 58ch;
+  margin: 0 0 var(--space-md);
+  padding-inline-start: var(--space-md);
+  border-inline-start: var(--rule-strong) solid var(--color-cyan);
+  color: var(--color-muted);
+}
+
+.animal-story-group a {
+  min-width: 0;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-decoration-thickness: var(--rule-hair);
+  text-underline-offset: var(--space-2xs);
+}
+
+.animal-story-group a span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.animal-story-group a small,
+.animal-story-group a b {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.animal-story-group a small {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .animal-stories__state button:hover {
+    transform: translateY(-1px);
+  }
+
+  .animal-story-group a:hover {
+    opacity: 0.78;
+  }
+}
+
+@media (min-width: 48rem) {
+  .detail-dialog__panel {
+    width: min(52rem, 100%);
+    margin-inline-start: auto;
+  }
+
+  .detail-dialog__illustration {
+    aspect-ratio: 16 / 7;
+  }
+
+  .detail-dialog__body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-xl);
+    padding: var(--space-2xl) var(--space-xl);
+  }
+
+  .detail-dialog__body > section:nth-last-child(1),
+  .detail-dialog__body > section:nth-last-child(2) {
+    grid-column: auto;
+  }
+
+  .detail-dialog__body > .animal-stories {
+    grid-column: 1 / -1;
+  }
+
+  .detail-dialog__footer {
+    align-items: center;
+    flex-direction: row;
+    padding: 0 var(--space-xl) var(--space-2xl);
+  }
+}
+
+@media (pointer: coarse) {
+  .animal-stories__state button,
+  .animal-story-group summary,
+  .animal-story-group a {
+    min-height: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animal-stories__skeleton span {
+    animation: none;
+  }
+
+  .animal-stories__state button {
+    transition-duration: 0ms;
+  }
+}

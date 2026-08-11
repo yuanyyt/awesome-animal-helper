@@ -21,6 +21,8 @@ export interface AnimalDetail {
   wiki_fact_count: number;
 }
 
+export type AnimalDetailSection = "profile" | "stories";
+
 export interface AnimalListResponse {
   items: AnimalDetail[];
   sites: SiteSummary[];

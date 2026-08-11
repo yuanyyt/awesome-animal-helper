@@ -10,10 +10,10 @@ import GuideIllustration from "./components/GuideIllustration.vue";
 import MobileBottomNav from "./components/MobileBottomNav.vue";
 import SearchDialog from "./components/SearchDialog.vue";
 import SiteFilter from "./components/SiteFilter.vue";
-import WikiPage from "./components/WikiPage.vue";
 import ZooMap from "./components/ZooMap.vue";
 import type {
   AnimalDetail,
+  AnimalDetailSection,
   AnimalListResponse,
   GuideAutoRequest,
   MapGuide,
@@ -25,6 +25,8 @@ const data = ref<AnimalListResponse>();
 const selectedSite = ref("");
 const gallerySite = ref("");
 const selectedAnimal = ref<AnimalDetail | null>(null);
+const detailSection = ref<AnimalDetailSection>("profile");
+const detailFocusRequest = ref(0);
 const selectedAnimals = ref<AnimalDetail[]>([]);
 const searchOpen = ref(false);
 const loading = ref(true);
@@ -48,13 +50,15 @@ const siteAnimals = computed(() => {
     ? items.filter((animal) => animal.sites.includes(selectedSite.value))
     : items;
 });
-type AppPage = "intro" | "animals" | "wiki" | "guide";
+type AppPage = "intro" | "animals" | "guide";
 const activePage = ref<AppPage>(pageFromLocation());
 let controller: AbortController | undefined;
 let mapController: AbortController | undefined;
 let lastTrigger: HTMLElement | null = null;
 
 onMounted(() => {
+  normalizeLegacyWikiHash();
+  activePage.value = pageFromLocation();
   void loadAnimals();
   void loadMap();
   window.addEventListener("keydown", handleGlobalShortcut);
@@ -69,14 +73,16 @@ onBeforeUnmount(() => {
 });
 
 function pageFromLocation(): AppPage {
-  if (window.location.hash.startsWith("#wiki")) return "wiki";
-  if (window.location.hash === "#animals") return "animals";
+  if (window.location.hash.startsWith("#wiki")) return "animals";
+  if (window.location.hash.startsWith("#animals")) return "animals";
   if (["#guide", "#map", "#venues"].includes(window.location.hash)) return "guide";
   return "intro";
 }
 
 function syncPageFromLocation(): void {
+  normalizeLegacyWikiHash();
   activePage.value = pageFromLocation();
+  syncAnimalFromLocation();
 }
 
 function showPage(page: AppPage): void {
@@ -85,19 +91,35 @@ function showPage(page: AppPage): void {
   const hashes: Record<AppPage, string> = {
     intro: "#home",
     animals: "#animals",
-    wiki: "#wiki",
     guide: "#guide",
   };
   window.history.pushState(null, "", hashes[page]);
 }
 
-function openWiki(animalName = ""): void {
-  selectedAnimal.value = null;
-  activePage.value = "wiki";
-  const params = new URLSearchParams();
-  if (animalName) params.set("animal", animalName);
+function normalizeLegacyWikiHash(): void {
+  if (!window.location.hash.startsWith("#wiki")) return;
+  const params = hashParams();
+  if (params.get("animal")) params.set("section", "stories");
   const suffix = params.size ? `?${params.toString()}` : "";
-  window.history.pushState(null, "", `#wiki${suffix}`);
+  window.history.replaceState(null, "", `#animals${suffix}`);
+}
+
+function hashParams(): URLSearchParams {
+  const [, search = ""] = window.location.hash.split("?", 2);
+  return new URLSearchParams(search);
+}
+
+function syncAnimalFromLocation(): void {
+  if (activePage.value !== "animals" || !data.value) return;
+  const params = hashParams();
+  const site = params.get("site");
+  if (site && data.value.sites.some((item) => item.name === site)) gallerySite.value = site;
+  const animalName = params.get("animal");
+  selectedAnimal.value = animalName
+    ? data.value.items.find((animal) => animal.name === animalName) ?? null
+    : null;
+  detailSection.value = params.get("section") === "stories" ? "stories" : "profile";
+  detailFocusRequest.value += 1;
 }
 
 async function loadMap(): Promise<void> {
@@ -124,6 +146,7 @@ async function loadAnimals(): Promise<void> {
   error.value = "";
   try {
     data.value = await fetchAnimals({}, controller.signal);
+    syncAnimalFromLocation();
   } catch (reason) {
     if ((reason as Error).name !== "AbortError") {
       error.value = "动物名册暂时没有打开，请确认后端服务已经启动。";
@@ -183,13 +206,32 @@ function selectRoute(route: RouteOption): void {
   activeRoute.value = route;
 }
 
-function openAnimal(animal: AnimalDetail, event?: MouseEvent): void {
+function openAnimal(
+  animal: AnimalDetail,
+  event?: MouseEvent,
+  section: AnimalDetailSection = "profile",
+): void {
   lastTrigger = event?.currentTarget as HTMLElement | null;
   selectedAnimal.value = animal;
+  detailSection.value = section;
+  detailFocusRequest.value += 1;
+  if (activePage.value === "animals") {
+    const params = new URLSearchParams({ animal: animal.name });
+    if (section === "stories") params.set("section", "stories");
+    window.history.pushState({ animalDialog: true }, "", `#animals?${params.toString()}`);
+  }
 }
 
 function closeAnimal(): void {
-  selectedAnimal.value = null;
+  if (activePage.value === "animals" && hashParams().has("animal")) {
+    if (window.history.state?.animalDialog) window.history.back();
+    else {
+      selectedAnimal.value = null;
+      window.history.replaceState(null, "", "#animals");
+    }
+  } else {
+    selectedAnimal.value = null;
+  }
   window.setTimeout(() => lastTrigger?.focus(), 0);
 }
 
@@ -203,13 +245,13 @@ function closeSearch(): void {
   window.setTimeout(() => lastTrigger?.focus(), 0);
 }
 
-async function chooseSearchResult(animal: AnimalDetail): Promise<void> {
+async function chooseSearchResult(animal: AnimalDetail, section: AnimalDetailSection): Promise<void> {
   searchOpen.value = false;
   await nextTick();
   await new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => resolve());
   });
-  selectedAnimal.value = animal;
+  openAnimal(animal, undefined, section);
 }
 
 function handleGlobalShortcut(event: KeyboardEvent): void {
@@ -230,10 +272,9 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
         <div class="page-tabs" aria-label="页面切换">
           <button type="button" :aria-current="activePage === 'intro' ? 'page' : undefined" @click="showPage('intro')">首页</button>
           <button type="button" :aria-current="activePage === 'animals' ? 'page' : undefined" @click="showPage('animals')">动物邻居</button>
-          <button type="button" :aria-current="activePage === 'wiki' ? 'page' : undefined" @click="showPage('wiki')">动物 Wiki</button>
           <button type="button" :aria-current="activePage === 'guide' ? 'page' : undefined" @click="showPage('guide')">园区导览</button>
         </div>
-        <button class="search-pill" type="button" aria-label="搜索动物，快捷键 Control 或 Command K" @click="openSearch">
+        <button class="search-pill" type="button" aria-label="搜索动物和园内趣事，快捷键 Control 或 Command K" @click="openSearch">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
           <span>搜索动物</span><kbd>⌘ K</kbd>
         </button>
@@ -265,17 +306,6 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     </section>
 
     <section
-      id="wiki"
-      class="page-panel wiki-page"
-      :class="{ 'is-active': activePage === 'wiki' }"
-      :aria-hidden="activePage !== 'wiki'"
-      :inert="activePage !== 'wiki'"
-      aria-label="动物趣事 Wiki"
-    >
-      <WikiPage :active="activePage === 'wiki'" />
-    </section>
-
-    <section
       id="animals"
       class="page-panel animals-page"
       :class="{ 'is-active': activePage === 'animals' }"
@@ -284,8 +314,10 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       aria-labelledby="animals-title"
     >
       <header class="animals-page__heading">
-        <h1 id="animals-title">把想见的邻居，放进今天的路线。</h1>
-        <button class="animals-page__wiki-entry" type="button" @click="openWiki()">读园内趣事 →</button>
+        <div>
+          <h1 id="animals-title">把想见的邻居，放进今天的路线。</h1>
+          <p v-if="data">{{ data.total }} 位动物邻居，故事和档案都在这里。</p>
+        </div>
       </header>
 
       <SiteFilter
@@ -362,8 +394,18 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     </section>
   </main>
 
-  <MobileBottomNav :active-page="activePage === 'wiki' ? 'animals' : activePage" @navigate="showPage" />
+  <MobileBottomNav :active-page="activePage" @navigate="showPage" />
 
-  <SearchDialog :open="searchOpen" @close="closeSearch" @select="chooseSearchResult" />
-  <AnimalDetailDialog :animal="selectedAnimal" @close="closeAnimal" @wiki="openWiki" />
+  <SearchDialog
+    :open="searchOpen"
+    :animals="data?.items ?? []"
+    @close="closeSearch"
+    @select="chooseSearchResult"
+  />
+  <AnimalDetailDialog
+    :animal="selectedAnimal"
+    :focus-section="detailSection"
+    :focus-request="detailFocusRequest"
+    @close="closeAnimal"
+  />
 </template>

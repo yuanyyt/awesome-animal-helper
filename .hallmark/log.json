@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-12",
+    "macrostructure": "Ecosystem Index",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / chromatic-green",
+    "vibe": "natural mobile animal discovery",
+    "enrichment": "real animal photography",
+    "nav": "existing field tabs",
+    "footer": "none",
+    "brief": "将动物 Wiki 故事融入动物邻居卡片、详情与全局搜索"
+  },
+  {
     "date": "2026-08-11",
     "macrostructure": "Index-First",
     "theme": "custom",

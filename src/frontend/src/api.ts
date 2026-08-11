@@ -47,7 +47,7 @@ export async function fetchWikiIndex(
   if (query.site?.trim()) params.set("site", query.site.trim());
   const suffix = params.size ? `?${params.toString()}` : "";
   const response = await fetch(`/api/wiki${suffix}`, { signal });
-  if (!response.ok) throw new Error(`动物 Wiki 请求失败（${response.status}）`);
+  if (!response.ok) throw new Error(`园内趣事请求失败（${response.status}）`);
   return response.json() as Promise<WikiIndexResponse>;
 }
 

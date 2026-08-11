@@ -1,6 +1,6 @@
 <script setup lang="ts">
-type AppPage = "intro" | "animals" | "wiki" | "guide";
-type NavPage = Exclude<AppPage, "wiki">;
+type AppPage = "intro" | "animals" | "guide";
+type NavPage = AppPage;
 type NavState = "default" | "loading" | "error" | "success";
 
 const props = withDefaults(

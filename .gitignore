@@ -14,5 +14,6 @@ AGENTS.md
 _temp/
 .codex/
 temp/
+src/data/runtime/
 src/data/wx_info/output/*/images/
 node_modules/

@@ -36,12 +36,18 @@ class WikiRepository:
         self._ensure_current()
         query = (q or "").strip().casefold()
         selected_site = (site or "").strip()
-        filtered = [
-            item
-            for item in self._items
-            if (not selected_site or item["site"] == selected_site)
-            and (not query or _matches(item, query))
+        candidates = [
+            item for item in self._items if not selected_site or item["site"] == selected_site
         ]
+        if query:
+            ranked = [(_match_score(item, query), index, item) for index, item in enumerate(candidates)]
+            filtered = [
+                item
+                for score, _, item in sorted(ranked, key=lambda row: (-row[0], row[1]))
+                if score > 0
+            ]
+        else:
+            filtered = candidates
         grouped: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
         for item in filtered:
             grouped[item["site"]][item["scientific_name"]].append(item)
@@ -193,18 +199,44 @@ def _summary(item: dict) -> WikiAnimalSummary:
     )
 
 
-def _matches(item: dict, query: str) -> bool:
-    facts = " ".join(str(fact.get("text", "")) for fact in item.get("facts", []))
-    text = " ".join(
-        [
-            str(item.get("site", "")),
-            str(item.get("scientific_name", "")),
-            str(item.get("animal_name", "")),
-            " ".join(str(alias) for alias in item.get("aliases", [])),
-            facts,
+def _match_score(item: dict, query: str) -> int:
+    identity = " ".join(
+        str(value)
+        for value in [
+            item.get("site", ""),
+            item.get("scientific_name", ""),
+            item.get("animal_name", ""),
+            *(item.get("aliases", []) if isinstance(item.get("aliases"), list) else []),
         ]
     )
-    return query in text.casefold()
+    fact_text = " ".join(
+        f"{fact.get('text', '')} {fact.get('evidence', '')}"
+        for fact in item.get("facts", [])
+        if isinstance(fact, dict)
+    )
+    source_titles = " ".join(
+        str(fact.get("source", {}).get("title", ""))
+        for fact in item.get("facts", [])
+        if isinstance(fact, dict) and isinstance(fact.get("source"), dict)
+    )
+    normalized_query = _normalize(query)
+    searchable = _normalize(f"{identity} {fact_text} {source_titles}")
+    if normalized_query in searchable:
+        return 1000
+    tokens = _search_tokens(normalized_query)
+    required_matches = min(2, len(tokens))
+    matched_tokens = {token for token in tokens if token in searchable}
+    if not required_matches or len(matched_tokens) < required_matches:
+        return 0
+    normalized_identity = _normalize(identity)
+    normalized_facts = _normalize(fact_text)
+    normalized_titles = _normalize(source_titles)
+    return sum(
+        8 * (token in normalized_titles)
+        + 4 * (token in normalized_identity)
+        + (token in normalized_facts)
+        for token in matched_tokens
+    )
 
 
 def _normalize(value: str) -> str:

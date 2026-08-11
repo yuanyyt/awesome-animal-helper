@@ -1559,6 +1559,24 @@ main {
   white-space: nowrap;
 }
 
+.animal-card__stories {
+  position: absolute;
+  right: var(--space-sm);
+  bottom: var(--space-sm);
+  max-width: calc(100% - 2 * var(--space-lg));
+  padding: var(--space-2xs) var(--space-sm);
+  overflow: hidden;
+  border: var(--rule-hair) solid var(--color-accent);
+  border-radius: var(--radius-round);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .animal-card__content {
   display: grid;
   min-width: 0;
@@ -1866,6 +1884,18 @@ main {
 .search-dialog__result small {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-dialog__result em {
+  flex: 0 0 auto;
+  padding: var(--space-2xs) var(--space-xs);
+  border: var(--rule-hair) solid var(--color-accent);
+  border-radius: var(--radius-round);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-style: normal;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -3329,6 +3359,10 @@ body {
 }
 
 .animals-page__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-lg);
   padding-bottom: var(--space-xl);
   border-bottom: var(--rule-hair) solid var(--color-rule-strong);
 }
@@ -3338,6 +3372,11 @@ body {
   margin: 0;
   font-size: clamp(2.8rem, 6vw, 5.5rem);
   letter-spacing: -0.05em;
+}
+
+.animals-page__heading p {
+  margin: var(--space-md) 0 0;
+  color: var(--color-muted);
 }
 
 .animals-page__state {
@@ -3531,7 +3570,26 @@ body {
   }
 
   .animals-page__heading {
+    align-items: flex-start;
+    flex-direction: column;
     padding-bottom: var(--space-md);
+  }
+
+  .animals-page__heading h1 {
+    font-size: clamp(2.35rem, 11vw, 3.5rem);
+  }
+
+  .site-filter {
+    flex-wrap: nowrap;
+    margin-inline: calc(-1 * var(--space-md));
+    padding-inline: var(--space-md);
+    padding-bottom: var(--space-xs);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .site-filter__chip {
+    flex: 0 0 auto;
   }
 
   .animal-grid {

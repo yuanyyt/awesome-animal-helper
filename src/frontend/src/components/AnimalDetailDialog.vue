@@ -1,13 +1,24 @@
 <script setup lang="ts">
-import { watch } from "vue";
-import { ref } from "vue";
+import { nextTick, ref, watch } from "vue";
 
 import type { AnimalDetail } from "../types";
 import AnimalPhoto from "./AnimalPhoto.vue";
+import AnimalStories from "./AnimalStories.vue";
 
-const props = defineProps<{ animal: AnimalDetail | null }>();
-const emit = defineEmits<{ close: []; wiki: [animalName: string] }>();
+const props = withDefaults(
+  defineProps<{
+    animal: AnimalDetail | null;
+    focusSection?: "profile" | "stories";
+    focusRequest?: number;
+  }>(),
+  {
+    focusSection: "profile",
+    focusRequest: 0,
+  },
+);
+const emit = defineEmits<{ close: [] }>();
 const dialog = ref<HTMLDialogElement>();
+const panel = ref<HTMLElement>();
 
 const fields: Array<{ key: keyof AnimalDetail; label: string }> = [
   { key: "taxonomy", label: "分类" },
@@ -21,11 +32,34 @@ const fields: Array<{ key: keyof AnimalDetail; label: string }> = [
 
 watch(
   () => props.animal,
-  (animal) => {
-    if (animal) dialog.value?.showModal();
-    else if (dialog.value?.open) dialog.value.close();
+  async (animal) => {
+    if (animal) {
+      if (!dialog.value?.open) dialog.value?.showModal();
+      await nextTick();
+      panel.value?.focus({ preventScroll: true });
+      panel.value?.scrollTo({ top: 0 });
+      if (props.focusSection === "stories") scrollToStories();
+    } else if (dialog.value?.open) {
+      dialog.value.close();
+    }
   },
 );
+
+watch(
+  () => props.focusRequest,
+  () => {
+    if (props.animal && props.focusSection === "stories") scrollToStories();
+  },
+);
+
+function scrollToStories(): void {
+  window.requestAnimationFrame(() => {
+    panel.value?.querySelector<HTMLElement>("#animal-stories")?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start",
+    });
+  });
+}
 </script>
 
 <template>
@@ -37,7 +71,7 @@ watch(
       @cancel.prevent="emit('close')"
       @click.self="emit('close')"
     >
-      <article v-if="animal" class="detail-dialog__panel">
+      <article v-if="animal" ref="panel" class="detail-dialog__panel" tabindex="-1">
         <header class="detail-dialog__header">
           <div>
             <p>{{ animal.sites.join(" · ") }}</p>
@@ -65,6 +99,12 @@ watch(
             </ul>
             <p v-else>资料待补充</p>
           </section>
+
+          <AnimalStories
+            v-if="animal.wiki_fact_count"
+            :animal="animal"
+            :active="true"
+          />
         </div>
 
         <footer class="detail-dialog__footer">
@@ -73,13 +113,6 @@ watch(
           <a v-if="animal.source_url" :href="animal.source_url" target="_blank" rel="noopener noreferrer">
             查看 Wikipedia 来源 ↗
           </a>
-          <button
-            v-if="animal.wiki_fact_count"
-            type="button"
-            @click="emit('wiki', animal.name)"
-          >
-            读 {{ animal.wiki_fact_count }} 条园内趣事 →
-          </button>
         </footer>
       </article>
     </dialog>
