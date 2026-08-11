@@ -35,6 +35,16 @@ from src.backend.services.guide_intent import GuideTurnResolver, TurnResolution
 RUNTIME_DIR = Path(__file__).resolve().parents[2] / "data" / "runtime"
 _SESSION_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,100}")
 _ROUTE_LIST = TypeAdapter(list[RouteOption])
+_ROUTE_FIELDS = {
+    "available_minutes": ("计划游览时长（分钟）", "int"),
+    "energy_level": ("体力状况（轻松、一般或充沛）", "str"),
+    "transport_preference": ("游览方式（纯步行或可乘观光车）", "str"),
+}
+_FORCE_USER_INPUT = {"type": "function", "function": {"name": "get_user_input"}}
+_PLAIN_INPUT_REQUEST = re.compile(
+    r"请.{0,12}(?:提供|选择|补充|告诉)|需要.{0,12}(?:了解|知道|确认)|"
+    r"还缺少|为了.{0,20}需要"
+)
 
 
 class GuideAgentError(RuntimeError):
@@ -63,7 +73,23 @@ class GuideAgentService:
         self.repository = repository
         self.resolver = GuideTurnResolver(repository)
         self.tools = ZooGuideTools(amap, repository, knowledge=knowledge, wiki=wiki)
-        self.agent = Agent(
+        self.agent = self._build_agent(api_key, base_url, model_id)
+        self.hitl_agent = self._build_agent(
+            api_key,
+            base_url,
+            model_id,
+            tool_choice=_FORCE_USER_INPUT,
+        )
+
+    def _build_agent(
+        self,
+        api_key: str,
+        base_url: str,
+        model_id: str,
+        *,
+        tool_choice: dict[str, Any] | None = None,
+    ) -> Agent:
+        return Agent(
             id="hongshan-route-guide",
             name="红山森林导览员",
             model=OpenAILike(
@@ -122,6 +148,7 @@ class GuideAgentService:
             markdown=False,
             reasoning=False,
             telemetry=False,
+            tool_choice=tool_choice,
         )
 
     async def chat(
@@ -133,6 +160,12 @@ class GuideAgentService:
         session = _session_id(session_id)
         turn = self.resolver.resolve(message, map_context)
         dependencies = turn.as_dependencies(map_context)
+        route_preferences = (
+            _extract_route_preferences(message)
+            if turn.intent in {"route", "mixed"}
+            else {}
+        )
+        dependencies["route_preferences"] = route_preferences
         context = {
             "visitor_message": message,
             "intent_hint": turn.intent,
@@ -145,15 +178,73 @@ class GuideAgentService:
             ],
             "unresolved_terms": list(turn.unresolved_terms),
             "map_context": map_context.model_dump(mode="json"),
+            "route_preferences": route_preferences,
             "available_venues": [site.name for site in self.repository.site_summaries()],
         }
+        missing_route_fields = [
+            name for name in _ROUTE_FIELDS if name not in route_preferences
+        ]
+        if turn.intent in {"route", "mixed"} and missing_route_fields:
+            output = await self._force_user_input(
+                session,
+                dependencies,
+                missing_route_fields=missing_route_fields,
+            )
+            return self._response(output, session, turn)
+
         output = await self.agent.arun(
             json.dumps(context, ensure_ascii=False),
             session_id=session,
             dependencies=dependencies,
             metadata={"guide_turn": dependencies},
         )
+        if not output.is_paused and _requests_plain_input(output):
+            output = await self._force_user_input(
+                session,
+                dependencies,
+                rejected_message=_content_text(output.content),
+            )
         return self._response(output, session, turn)
+
+    async def _force_user_input(
+        self,
+        session_id: str,
+        dependencies: dict[str, object],
+        *,
+        missing_route_fields: list[str] | None = None,
+        rejected_message: str | None = None,
+    ) -> RunOutput:
+        if missing_route_fields:
+            requested = [
+                {
+                    "field_name": name,
+                    "field_type": _ROUTE_FIELDS[name][1],
+                    "field_description": _ROUTE_FIELDS[name][0],
+                }
+                for name in missing_route_fields
+            ]
+            task = {
+                "task": "仅调用 get_user_input 收集路线规划缺失信息",
+                "user_input_fields": requested,
+                "known_route_preferences": dependencies.get("route_preferences", {}),
+            }
+        else:
+            task = {
+                "task": "上一条回答错误地在正文索要信息。仅调用 get_user_input，把其中确实缺失的信息转成简洁的中文表单字段",
+                "rejected_assistant_message": rejected_message or "",
+            }
+        output = await self.hitl_agent.arun(
+            json.dumps(task, ensure_ascii=False),
+            session_id=session_id,
+            dependencies=dependencies,
+            metadata={"guide_turn": dependencies},
+        )
+        actual_fields = _pending_input_names(output)
+        if not output.is_paused or not actual_fields:
+            raise GuideAgentError("导览员未能正确发起信息补充请求，请重试")
+        if missing_route_fields and set(actual_fields) != set(missing_route_fields):
+            raise GuideAgentError("导览员返回了无效的路线补充字段，请重试")
+        return output
 
     async def continue_run(
         self,
@@ -183,12 +274,19 @@ class GuideAgentService:
             if requirement.needs_user_input:
                 requirement.provide_user_input(coerced)
         dependencies = _stored_turn(output)
+        route_preferences = dict(dependencies.get("route_preferences") or {})
+        route_preferences.update(
+            {name: value for name, value in coerced.items() if name in _ROUTE_FIELDS}
+        )
+        dependencies["route_preferences"] = route_preferences
+        metadata = dict(output.metadata or {})
+        metadata["guide_turn"] = dependencies
         continued = await self.agent.acontinue_run(
             run_id=output.run_id,
             requirements=output.requirements,
             session_id=session,
             dependencies=dependencies,
-            metadata=output.metadata,
+            metadata=metadata,
         )
         return self._response(continued, session)
 
@@ -226,14 +324,21 @@ class GuideAgentService:
                             GuideInputField(
                                 name=field.name,
                                 field_type=str(field.field_type),
-                                description=field.description or field.name,
+                                description=_input_description(
+                                    field.name,
+                                    field.description,
+                                ),
                             )
                         )
             return GuideChatResponse(
                 session_id=session_id,
                 run_id=output.run_id,
                 status="input_required",
-                assistant_message="为了把路线安排得更合适，还需要你补充一点信息。",
+                assistant_message=(
+                    "为了把路线安排得更合适，还需要你补充一点信息。"
+                    if intent in {"route", "mixed"}
+                    else "继续之前，还需要你补充一点信息。"
+                ),
                 intent=intent,
                 resolved_sites=_string_items(turn_data.get("resolved_sites")),
                 unresolved_terms=unresolved,
@@ -287,6 +392,22 @@ def _stored_turn(output: RunOutput) -> dict[str, Any]:
     return turn if isinstance(turn, dict) else {}
 
 
+def _pending_input_names(output: RunOutput) -> list[str]:
+    return [
+        field.name
+        for requirement in output.active_requirements
+        if requirement.needs_user_input
+        for field in (requirement.user_input_schema or [])
+        if field.value is None and field.name
+    ]
+
+
+def _input_description(name: str, description: str | None) -> str:
+    if name in _ROUTE_FIELDS:
+        return _ROUTE_FIELDS[name][0]
+    return description or "请补充所需信息"
+
+
 def _string_items(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -301,6 +422,88 @@ def _content_text(content: Any) -> str:
     if isinstance(content, str) and content.strip():
         return content.strip()
     return "路线已经准备好，选择一张方案卡就能在地图上查看。"
+
+
+def _requests_plain_input(output: RunOutput) -> bool:
+    if output.is_paused or output.tools:
+        return False
+    content = output.content if isinstance(output.content, str) else ""
+    return bool(_PLAIN_INPUT_REQUEST.search(content))
+
+
+def _extract_route_preferences(message: str) -> dict[str, int | str]:
+    preferences: dict[str, int | str] = {}
+    if minutes := _extract_minutes(message):
+        preferences["available_minutes"] = minutes
+
+    energy_matches = [
+        value
+        for value, pattern in (
+            ("轻松", r"轻松|体力(?:较弱|不太好)|少走(?:一点|些)?|不太能走"),
+            ("一般", r"体力一般|体力正常"),
+            ("充沛", r"充沛|体力(?:很好|很棒)|很能走|多走(?:一点|些)?"),
+        )
+        if re.search(pattern, message)
+    ]
+    if len(set(energy_matches)) == 1:
+        preferences["energy_level"] = energy_matches[0]
+
+    walking_only = bool(
+        re.search(r"纯步行|全程步行|只(?:步行|走路)|不坐(?:观光车|游览车)", message)
+    )
+    walking = bool(re.search(r"步行|走路", message))
+    shuttle = bool(re.search(r"可乘观光车|可以坐(?:观光车|游览车)|观光车|游览车", message))
+    if walking_only:
+        preferences["transport_preference"] = "纯步行"
+    elif shuttle and not walking:
+        preferences["transport_preference"] = "可乘观光车"
+    elif walking and not shuttle:
+        preferences["transport_preference"] = "纯步行"
+    return preferences
+
+
+def _extract_minutes(message: str) -> int | None:
+    minute_match = re.search(r"(\d{1,4})\s*(?:分钟|分(?:钟)?)", message)
+    if minute_match:
+        return int(minute_match.group(1))
+
+    hour_match = re.search(
+        r"(\d+(?:\.\d+)?|[一二两三四五六七八九十]+)\s*(?:个)?(半)?小时(半)?",
+        message,
+    )
+    if hour_match:
+        hours = _number_value(hour_match.group(1))
+        if hours is not None:
+            has_half_hour = bool(hour_match.group(2) or hour_match.group(3))
+            return round(hours * 60 + (30 if has_half_hour else 0))
+    if "半小时" in message:
+        return 30
+    return None
+
+
+def _number_value(value: str) -> float | None:
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    digits = {
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+    }
+    if value == "十":
+        return 10
+    if "十" in value:
+        tens, ones = value.split("十", 1)
+        return digits.get(tens, 1) * 10 + digits.get(ones, 0)
+    return float(digits[value]) if value in digits else None
 
 
 def _session_id(value: str | None) -> str:
@@ -330,7 +533,7 @@ _INSTRUCTIONS = """
 
 规则：
 1. 路线、距离、时间和卡路里只能来自 plan_zoo_routes，绝不自行编造。
-2. intent_hint 为 route 或 mixed 时才规划路线。调用 plan_zoo_routes 前必须从用户原话或 HITL 结果中明确取得 available_minutes、energy_level（轻松、一般、充沛）和 transport_preference（纯步行、可乘观光车）；不得根据措辞、历史偏好或工具默认值猜测。缺少任一项时，必须调用 get_user_input 一次性询问所有缺失项，字段名严格使用 available_minutes、energy_level、transport_preference。用户已明确提供的字段不得再问。
+2. intent_hint 为 route 或 mixed 时才规划路线。route_preferences 是后端从用户原话中提取的可靠路线偏好；其中信息完整时直接据此调用 plan_zoo_routes，缺少信息时必须调用 get_user_input 一次性收集缺失项。不得猜测或填默认值，也不得在正文中展示工具字段名或把工具参数清单发给用户。
 3. 当任务所需的其他关键数据无法从本轮消息、map_context、上下文或工具结果中可靠确定时，也必须调用 get_user_input 进入 HITL；不要只在正文中提问，不要自行补默认值。字段描述应具体说明用户要提供什么。
 4. plan_zoo_routes 会把 resolved_sites 作为高优先级候选，把 must_see_sites 作为必到场馆，并为每个已选动物从 must_see_site_groups 中择一最顺路场馆；不要擅自提升、删除或重复动物场馆，也不要声称已解析目标未匹配，除非工具明确返回 unresolved_sites。
 5. intent_hint 为 animal_knowledge 或 mixed，或用户问的显然是动物事实、园区故事时，必须调用至少一个匹配的动物知识工具，只依据工具返回的本地资料回答；通用物种知识使用 search_animal_knowledge。
