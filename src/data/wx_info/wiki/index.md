@@ -50,7 +50,7 @@
 
 ### *Callithrix jacchus*
 
-- [普通绒](冈瓦纳/Callithrix jacchus/普通绒.md) · 3 条趣事
+- [普通狨](冈瓦纳/Callithrix jacchus/普通绒.md) · 3 条趣事
 
 ### *Chiropotes chiropotes*
 
@@ -94,11 +94,11 @@
 
 ### *Saguinus midas*
 
-- [赤掌縃](冈瓦纳/Saguinus midas/赤掌縃.md) · 13 条趣事
+- [赤掌狨](冈瓦纳/Saguinus midas/赤掌縃.md) · 13 条趣事
 
 ### *Saguinus oedipus*
 
-- [棉顶楈](冈瓦纳/Saguinus oedipus/棉顶楈.md) · 5 条趣事
+- [棉顶狨](冈瓦纳/Saguinus oedipus/棉顶楈.md) · 5 条趣事
 
 ### *Saimiri sciureus*
 
@@ -156,9 +156,9 @@
 
 - [獐子](本土物种保育区/Hydropotes inermis/獐子.md) · 4 条趣事
 
-### *Lutrinae*
+### *Aonyx cinerea*
 
-- [水獭](本土物种保育区/Lutrinae/水獭.md) · 8 条趣事
+- [小爪水獭](本土物种保育区/Lutrinae/水獭.md) · 8 条趣事
 
 ### *Mustela sibirica*
 
@@ -242,9 +242,9 @@
 
 ## 象
 
-### *Elephantidae*
+### *Elephas maximus*
 
-- [象](象/Elephantidae/象.md) · 4 条趣事
+- [亚洲象](象/Elephantidae/象.md) · 4 条趣事
 
 ## 非洲之歌
 

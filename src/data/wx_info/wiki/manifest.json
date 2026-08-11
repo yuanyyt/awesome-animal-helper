@@ -519,7 +519,7 @@
     {
       "site": "冈瓦纳",
       "scientific_name": "Callithrix jacchus",
-      "animal_name": "普通绒",
+      "animal_name": "普通狨",
       "aliases": [],
       "fact_count": 3,
       "source_count": 3,
@@ -976,7 +976,7 @@
     {
       "site": "冈瓦纳",
       "scientific_name": "Saguinus midas",
-      "animal_name": "赤掌縃",
+      "animal_name": "赤掌狨",
       "aliases": [
         "很高兴",
         "兴兴",
@@ -1017,7 +1017,7 @@
           }
         },
         {
-          "text": "饲养员播放赤掌縃群体叫声录音，帮助幼崽提前适应同伴语调与节奏。",
+          "text": "饲养员播放赤掌狨群体叫声录音，帮助幼崽提前适应同伴语调与节奏。",
           "evidence": "饲养员希望...让这些熟悉的声音悄悄渗入他的日常，让他提前适应这群未曾谋面的“家人”的语调与节奏。",
           "source": {
             "title": "52.4g超重宝宝，惊险开局！",
@@ -1111,7 +1111,7 @@
     {
       "site": "冈瓦纳",
       "scientific_name": "Saguinus oedipus",
-      "animal_name": "棉顶楈",
+      "animal_name": "棉顶狨",
       "aliases": [
         "康康",
         "牙牙",
@@ -1141,7 +1141,7 @@
           }
         },
         {
-          "text": "体型娇小的棉顶楈穿梭于较大的山茶花和海棠花瓣间，品尝春天的甜蜜。",
+          "text": "体型娇小的棉顶狨穿梭于较大的山茶花和海棠花瓣间，品尝春天的甜蜜。",
           "evidence": "普通狨体型娇小，但饲养员准备的鲜艳山茶花和海棠可不小，但这并不妨碍它们探索的热情，在花瓣间穿梭，品尝着春天的甜蜜。",
           "source": {
             "title": "把春天吃进肚子里~",
@@ -1740,8 +1740,8 @@
     },
     {
       "site": "本土物种保育区",
-      "scientific_name": "Lutrinae",
-      "animal_name": "水獭",
+      "scientific_name": "Aonyx cinerea",
+      "animal_name": "小爪水獭",
       "aliases": [
         "澜沧",
         "韩信",
@@ -2747,8 +2747,8 @@
     },
     {
       "site": "象",
-      "scientific_name": "Elephantidae",
-      "animal_name": "象",
+      "scientific_name": "Elephas maximus",
+      "animal_name": "亚洲象",
       "aliases": [
         "麦哥"
       ],

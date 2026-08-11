@@ -1198,6 +1198,12 @@ main {
   color: var(--color-accent);
 }
 
+.guide-chat__voice.is-speaking {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
 .guide-chat__voice.is-recording::before {
   content: "";
   position: absolute;
