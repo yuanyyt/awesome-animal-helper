@@ -288,8 +288,9 @@ class ZooGuideTools:
         origin_latitude: float | str | None = None,
         weight_kg: float | str | None = None,
         transport_preference: str = "walking",
+        single_route: bool = False,
     ) -> dict[str, Any]:
-        """Plan three AMap walking itineraries from visitor constraints.
+        """Plan AMap-backed itineraries from visitor constraints.
 
         Args:
             available_minutes: Total available visit time in minutes.
@@ -301,6 +302,7 @@ class ZooGuideTools:
             origin_latitude: GCJ-02 latitude for a custom start.
             weight_kg: Optional body weight for calorie estimation.
             transport_preference: Pure walking or a route that may use the shuttle.
+            single_route: Return only the best route for the stated energy level.
         """
 
         longitude = _optional_float(origin_longitude)
@@ -368,6 +370,7 @@ class ZooGuideTools:
                 if shuttle_status["fare_yuan"] is not None
                 else None
             ),
+            single_route=single_route,
         )
         if unresolved:
             warning = f"未加入路线：{'、'.join(unresolved)}（缺少可靠地图点位）"
@@ -388,15 +391,15 @@ class ZooGuideTools:
         run_context: RunContext,
         available_minutes: int,
         energy_level: str,
+        transport_preference: str,
         selected_sites: list[str] | str | None = None,
         must_see_sites: list[str] | str | None = None,
         origin_name: str | None = None,
         origin_longitude: float | str | None = None,
         origin_latitude: float | str | None = None,
         weight_kg: float | str | None = None,
-        transport_preference: str = "walking",
     ) -> dict[str, Any]:
-        """Plan with canonical per-turn targets injected by Agno."""
+        """Return the single best route after all required visitor input is known."""
 
         dependencies = run_context.dependencies or {}
         selected = (
@@ -434,6 +437,7 @@ class ZooGuideTools:
             origin_latitude=origin_latitude,
             weight_kg=weight_kg,
             transport_preference=transport_preference,
+            single_route=True,
         )
 
     def plan_with_context(
@@ -459,6 +463,7 @@ class ZooGuideTools:
             values.setdefault("origin_name", context.origin.name)
             values.setdefault("origin_longitude", context.origin.longitude)
             values.setdefault("origin_latitude", context.origin.latitude)
+        values["single_route"] = True
         return self.plan_zoo_routes(**values)
 
 

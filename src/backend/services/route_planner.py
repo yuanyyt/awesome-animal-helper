@@ -48,7 +48,7 @@ _PROFILES = (
 
 
 class RoutePlanner:
-    """Build three transparent, constraint-aware walking itineraries."""
+    """Build transparent, constraint-aware zoo itineraries."""
 
     def __init__(self, amap: AmapClient) -> None:
         self.amap = amap
@@ -67,6 +67,7 @@ class RoutePlanner:
         transport_preference: str = "walking",
         shuttle_operating: bool = False,
         shuttle_fare_yuan: int | None = None,
+        single_route: bool = False,
     ) -> list[RouteOption]:
         if available_minutes < 30:
             raise RoutePlanningError("可用时间至少需要 30 分钟")
@@ -91,7 +92,13 @@ class RoutePlanner:
         )
         results: list[RouteOption] = []
         signatures: set[tuple[str, ...]] = set()
-        for profile in _PROFILES:
+        route_id = {"轻松": "easy", "一般": "balanced", "充沛": "full"}[energy_level]
+        profiles = (
+            tuple(profile for profile in _PROFILES if profile.identifier == route_id)
+            if single_route
+            else _PROFILES
+        )
+        for profile in profiles:
             target_minutes = max(30, round(available_minutes * profile.fraction))
             distance_limit = round(ENERGY_LIMITS[energy_level] * profile.fraction)
             sites = self._pick_sites(
@@ -461,7 +468,8 @@ def _add_best_candidates(
     """Greedily solve a small orienteering problem using insertion cost as edge weight."""
 
     route = list(chosen)
-    remaining = list(candidates)
+    chosen_sites = {point.site for point in route}
+    remaining = [point for point in candidates if point.site not in chosen_sites]
     added = 0
     while remaining and (limit is None or added < limit):
         feasible: list[tuple[float, str, list[MapPoint], MapPoint]] = []
