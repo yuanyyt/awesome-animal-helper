@@ -462,7 +462,12 @@ function scrollToLatest(): void {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-5 14-2.5-5.5L5 12Z" /></svg>
         </button>
       </div>
-      <p class="guide-chat__helper" :class="{ 'is-error': error }" aria-live="polite">
+      <p
+        v-if="error || voiceBusy || voiceDraftReady"
+        class="guide-chat__helper"
+        :class="{ 'is-error': error }"
+        aria-live="polite"
+      >
         {{ error || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，发送后将自动语音回复" : "") }}
       </p>
     </footer>

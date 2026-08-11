@@ -2180,7 +2180,7 @@ body {
 
 .guide-workspace {
   display: block;
-  padding-block: var(--space-xl) var(--space-3xl);
+  padding-block: var(--space-xl) calc(var(--space-3xl) + 7rem);
 }
 
 .page-panel.guide-workspace.is-active {
@@ -2468,7 +2468,7 @@ body {
 
   .guide-workspace {
     display: block;
-    padding-block: var(--space-md);
+    padding-block: var(--space-md) calc(var(--space-3xl) + 7rem);
   }
 
   .guide-workspace__heading {
@@ -2928,15 +2928,38 @@ body {
 }
 
 .guide-chat__dock {
-  width: min(100%, 54rem);
-  padding: var(--space-lg) 0 var(--space-xs);
-  border-top: var(--rule-hair) solid var(--color-rule);
-  background: transparent;
+  position: fixed;
+  z-index: 90;
+  right: 50%;
+  bottom: max(var(--space-lg), env(safe-area-inset-bottom));
+  width: min(calc(100% - 2 * var(--space-xl)), 54rem);
+  padding: var(--space-sm);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-md);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  background: var(--color-paper);
+  box-shadow: 0 var(--space-md) var(--space-2xl) var(--color-shadow);
+  transform: translateX(50%);
+}
+
+.guide-chat__dock:focus-within {
+  outline-color: var(--color-focus);
 }
 
 .guide-chat__dock .guide-chat__composer {
+  min-height: 3.5rem;
   margin: 0;
-  background: var(--color-paper);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.guide-chat__dock .guide-chat__composer textarea {
+  min-height: 2.75rem;
+  padding-block: var(--space-xs);
 }
 
 .guide-chat__dock .guide-chat__helper {
@@ -2968,7 +2991,7 @@ body {
 
 @media (max-width: 40rem) {
   .guide-workspace {
-    padding-block: var(--space-md) var(--space-xl);
+    padding-block: var(--space-md) calc(var(--size-mobile-nav) + 10rem);
   }
 
   .guide-workspace > .guide-chat .guide-chat__intro {
@@ -3551,6 +3574,15 @@ body {
 
   .animal-route-dock > button {
     justify-content: center;
+  }
+
+  .guide-chat__dock {
+    right: max(var(--space-md), env(safe-area-inset-right));
+    bottom: calc(var(--size-mobile-nav) + max(var(--space-sm), env(safe-area-inset-bottom)));
+    left: max(var(--space-md), env(safe-area-inset-left));
+    width: auto;
+    max-width: none;
+    transform: none;
   }
 }
 
