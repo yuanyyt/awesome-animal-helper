@@ -13,7 +13,9 @@
 
 html,
 body {
-  min-width: 20rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
   overflow-x: clip;
   background: var(--color-paper);
@@ -103,16 +105,6 @@ h3 {
   padding-top: var(--space-xs);
   border-bottom: var(--rule-hair) solid var(--color-rule-strong);
   background: var(--color-paper);
-}
-
-.site-nav__edition {
-  width: min(100% - 2 * var(--space-xl), 84rem);
-  margin: 0 auto;
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.14em;
 }
 
 .site-nav__inner {
@@ -231,14 +223,6 @@ main {
   min-width: 0;
 }
 
-.guide-hero__kicker {
-  margin-bottom: var(--space-lg);
-  color: var(--color-accent);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-}
-
 .guide-hero h1 {
   max-width: 7.25em;
   margin-bottom: var(--space-xl);
@@ -292,14 +276,6 @@ main {
 
 .button-link:active {
   transform: translateY(1px);
-}
-
-.guide-hero__note {
-  margin-bottom: 0;
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.05em;
 }
 
 .guide-hero__art {
@@ -1012,7 +988,7 @@ main {
 
 .guide-chat__intro {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-md);
   margin-bottom: var(--space-md);
@@ -1036,26 +1012,6 @@ main {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
-}
-
-.guide-chat__intro h3 {
-  margin-bottom: var(--space-2xs);
-  font-size: var(--text-lg);
-}
-
-.guide-chat__intro p {
-  margin-bottom: 0;
-  color: var(--color-muted);
-  font-size: var(--text-sm);
-}
-
-.guide-chat__intro strong {
-  padding: var(--space-2xs) var(--space-sm);
-  border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-round);
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-  white-space: nowrap;
 }
 
 .guide-chat__composer {
@@ -2025,7 +1981,11 @@ body,
 }
 
 #app {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 100svh;
+  overflow-x: clip;
 }
 
 body {
@@ -2486,7 +2446,7 @@ body {
   min-height: 4.75rem;
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-md);
   margin: 0;
@@ -2512,26 +2472,12 @@ body {
   stroke-width: 1.7;
 }
 
-.guide-chat__intro h2,
-.guide-chat__intro p {
+.guide-chat__intro h2 {
   margin: 0;
 }
 
 .guide-chat__intro h2 {
   font-size: var(--text-lg);
-}
-
-.guide-chat__intro p {
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-}
-
-.guide-chat__intro > strong {
-  color: var(--color-accent);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  white-space: nowrap;
 }
 
 .guide-workspace > .guide-chat .guide-chat__scroll {
@@ -2917,10 +2863,6 @@ body {
     padding-inline: var(--space-sm);
   }
 
-  .guide-chat__intro > strong {
-    display: none;
-  }
-
   .guide-workspace > .guide-chat .guide-chat__scroll {
     padding: var(--space-md) 0;
   }
@@ -3001,7 +2943,6 @@ body {
     scroll-behavior: auto;
   }
 
-  .site-nav__edition,
   .site-nav__inner,
   main,
   .site-footer {
@@ -3010,13 +2951,6 @@ body {
 
   .site-nav__inner {
     min-height: 4rem;
-  }
-
-  .site-nav__edition {
-    overflow: hidden;
-    font-size: 0.625rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .site-nav__brand {
@@ -3104,15 +3038,6 @@ body {
 
   .guide-chat__intro {
     grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .guide-chat__intro > strong {
-    grid-column: 2;
-    justify-self: start;
-  }
-
-  .guide-chat__intro p {
-    display: none;
   }
 
   .section-heading {
@@ -3251,16 +3176,6 @@ body {
 }
 
 /* Animal catalogue and route basket */
-.guide-hero__kicker button {
-  padding: 0;
-  border: 0;
-  border-bottom: var(--rule-hair) solid currentColor;
-  background: transparent;
-  color: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-}
-
 .animals-page {
   align-content: start;
   gap: var(--space-2xl);
@@ -3272,26 +3187,8 @@ body {
 }
 
 .animals-page__heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 0.55fr);
-  align-items: end;
-  gap: var(--space-3xl);
   padding-bottom: var(--space-xl);
   border-bottom: var(--rule-hair) solid var(--color-rule-strong);
-}
-
-.animals-page__heading > div,
-.animals-page__heading > p {
-  min-width: 0;
-}
-
-.animals-page__heading > div > p {
-  margin-bottom: var(--space-md);
-  color: var(--color-accent);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
 }
 
 .animals-page__heading h1 {
@@ -3299,11 +3196,6 @@ body {
   margin: 0;
   font-size: clamp(2.8rem, 6vw, 5.5rem);
   letter-spacing: -0.05em;
-}
-
-.animals-page__heading > p {
-  margin: 0;
-  color: var(--color-muted);
 }
 
 .animals-page__state {
@@ -3489,8 +3381,43 @@ body {
   }
 
   .animals-page__heading {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-md);
+    padding-bottom: var(--space-md);
+  }
+
+  .animal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md) var(--space-sm);
+  }
+
+  .animal-card__visual,
+  .animal-skeleton span {
+    aspect-ratio: 1 / 1;
+  }
+
+  .animal-card__content {
+    gap: 0;
+    padding: var(--space-sm);
+  }
+
+  .animal-card__heading strong {
+    font-size: clamp(1rem, 5vw, 1.25rem);
+  }
+
+  .animal-card__scientific {
+    font-size: var(--text-xs);
+  }
+
+  .animal-card__status {
+    top: var(--space-xs);
+    left: var(--space-xs);
+    max-width: calc(100% - 2 * var(--space-xs));
+    padding-inline: var(--space-xs);
+  }
+
+  .animal-card__route {
+    min-height: 2.5rem;
+    margin: 0 var(--space-sm) var(--space-sm);
+    font-size: var(--text-xs);
   }
 
   .animal-route-dock {
@@ -3506,8 +3433,25 @@ body {
 }
 
 @media (max-width: 40rem) {
+  .site-nav__inner {
+    gap: var(--space-xs);
+  }
+
   .site-nav__brand {
-    max-width: 6.5rem;
+    min-width: 0;
+    max-width: 5.25rem;
+    flex: 0 1 auto;
+    font-size: 1.2rem;
+  }
+
+  .site-nav__links {
+    min-width: 0;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .page-tabs {
+    min-width: 0;
   }
 
   .search-pill {
@@ -3515,6 +3459,41 @@ body {
   }
 
   .page-tabs button {
-    padding-inline: var(--space-xs);
+    min-width: 0;
+    padding-inline: 0.375rem;
+  }
+
+  .page-panel,
+  .guide-workspace,
+  .guide-workspace > .guide-chat,
+  .chat-turn,
+  .chat-artifact,
+  .guide-chat__dock,
+  .zoo-map,
+  .animal-grid,
+  .animal-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .chat-turn__bubble,
+  .chat-turn__markdown,
+  .route-options > button,
+  .zoo-map__planner-copy,
+  .zoo-map__caption div {
+    overflow-wrap: anywhere;
+  }
+
+  .animal-route-dock {
+    right: max(var(--space-md), env(safe-area-inset-right));
+    left: max(var(--space-md), env(safe-area-inset-left));
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+
+  .animal-selection-chip {
+    min-width: 0;
+    max-width: 100%;
   }
 }

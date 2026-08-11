@@ -311,9 +311,7 @@ function scrollToLatest(): void {
       </span>
       <div>
         <h2 id="guide-chat-title">问问森林导览员</h2>
-        <p>{{ selectedSites.length ? `已选 ${selectedSites.length} 个场馆` : "路线和动物知识，都可以从一句话开始" }}</p>
       </div>
-      <strong>AGNO · VOICE</strong>
     </header>
 
     <div ref="scrollArea" class="guide-chat__scroll" aria-live="polite">
@@ -455,8 +453,8 @@ function scrollToLatest(): void {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-5 14-2.5-5.5L5 12Z" /></svg>
         </button>
       </div>
-      <p class="guide-chat__helper" :class="{ 'is-error': error }">
-        {{ error || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，发送后将自动语音回复" : "语音会先转成文字，由您确认后发送") }}
+      <p class="guide-chat__helper" :class="{ 'is-error': error }" aria-live="polite">
+        {{ error || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，发送后将自动语音回复" : "") }}
       </p>
     </footer>
   </section>

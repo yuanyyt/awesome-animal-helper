@@ -209,7 +209,6 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
 
 <template>
   <header class="site-nav" :class="{ 'is-guide': activePage === 'guide' }">
-    <p class="site-nav__edition">FOREST FIELD GUIDE · NANJING · HONGSHAN</p>
     <div class="site-nav__inner">
       <button class="site-nav__brand" type="button" aria-label="返回红山动物指南首页" @click="showPage('intro')">
         <strong>红山动物志</strong>
@@ -237,12 +236,6 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       aria-labelledby="intro-title"
     >
       <div class="guide-hero__copy">
-        <p class="guide-hero__kicker">
-          <button type="button" @click="showPage('animals')">
-            {{ data?.total ?? "—" }} 位动物邻居
-          </button>
-          · {{ data?.sites.length ?? "—" }} 座场馆 · 一次慢慢认识
-        </p>
         <h1 id="intro-title">在城市的森林里，认识每一位邻居。</h1>
         <p class="guide-hero__lede">
           从一座场馆出发，听听动物们的故事。这里整理了它们的栖息地、食性、行为和保护状态，也留下一些值得带回家的有趣发现。
@@ -251,7 +244,6 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
           <button class="button-link is-primary" type="button" @click="showPage('guide')">打开园区地图</button>
           <button class="button-link" type="button" @click="showPage('animals')">认识动物邻居</button>
         </div>
-        <p class="guide-hero__note">◆ 动物资料整理自 Wikipedia 与 Wikidata</p>
       </div>
       <div class="guide-hero__art">
         <GuideIllustration />
@@ -267,11 +259,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       aria-labelledby="animals-title"
     >
       <header class="animals-page__heading">
-        <div>
-          <p>HONGSHAN NEIGHBOURS · 动物图册</p>
-          <h1 id="animals-title">把想见的邻居，放进今天的路线。</h1>
-        </div>
-        <p>打开卡片认识它，或点按“加入想看”。选好以后，森林导览员会替你寻找更顺路的场馆组合。</p>
+        <h1 id="animals-title">把想见的邻居，放进今天的路线。</h1>
       </header>
 
       <SiteFilter
