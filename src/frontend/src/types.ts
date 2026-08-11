@@ -39,6 +39,61 @@ export interface MapPoint extends MapLocation {
   animal_count: number;
 }
 
+export type FacilityCategory =
+  | "metro"
+  | "bus_terminal"
+  | "train_station"
+  | "visitor_center"
+  | "entrance"
+  | "bag_storage"
+  | "ticket_office"
+  | "parking"
+  | "smoking_area"
+  | "drinking_water"
+  | "tour_bus_station"
+  | "mobility_rental"
+  | "police"
+  | "shopping"
+  | "restaurant"
+  | "coffee"
+  | "toilet"
+  | "nursing_room"
+  | "family_toilet";
+
+export interface FacilityPoint extends MapLocation {
+  id: string;
+  name: string;
+  category: FacilityCategory;
+  address: string;
+}
+
+export interface ShuttleStation extends MapLocation {
+  id: string;
+  name: string;
+  order: number;
+}
+
+export interface ShuttleSchedule {
+  day_type: "weekday" | "statutory_holiday";
+  label: string;
+  fare_yuan: number;
+  ticket_sales_start: string;
+  ticket_sales_end: string;
+  service_start: string;
+  service_end: string;
+}
+
+export interface ShuttleService {
+  name: string;
+  loop: boolean;
+  stations: ShuttleStation[];
+  polyline: MapLocation[];
+  schedules: ShuttleSchedule[];
+  average_speed_kmh: number;
+  average_wait_minutes: number;
+  notes: string[];
+}
+
 export interface MapJsConfig {
   api_key: string;
   service_host: string;
@@ -58,6 +113,8 @@ export interface MapGuide {
   zoom: number;
   image_url: string;
   points: MapPoint[];
+  facilities: FacilityPoint[];
+  shuttle: ShuttleService | null;
   boundary: MapBoundary;
   provider: string;
   js_api: MapJsConfig | null;
@@ -82,6 +139,8 @@ export interface RouteLeg {
   duration_seconds: number;
   steps: RouteStep[];
   polyline: MapLocation[];
+  mode: "walking" | "shuttle";
+  estimated: boolean;
 }
 
 export interface RouteOption {
@@ -90,7 +149,9 @@ export interface RouteOption {
   description: string;
   sites: string[];
   distance_meters: number;
+  walking_distance_meters: number | null;
   walking_minutes: number;
+  shuttle_minutes: number;
   visiting_minutes: number;
   total_minutes: number;
   calories_kcal: number | null;
@@ -99,6 +160,10 @@ export interface RouteOption {
   warnings: string[];
   legs: RouteLeg[];
   polyline: MapLocation[];
+  transport_preference: "walking" | "mixed";
+  uses_shuttle: boolean;
+  shuttle_fare_yuan: number | null;
+  estimated_wait_minutes: number;
 }
 
 export interface GuideInputField {
@@ -113,7 +178,7 @@ export interface GuideChatResponse {
   run_id: string;
   status: "completed" | "input_required";
   assistant_message: string;
-  intent: "route" | "animal_knowledge" | "mixed" | "unknown";
+  intent: "route" | "animal_knowledge" | "mixed" | "facility" | "unknown";
   resolved_sites: string[];
   unresolved_terms: string[];
   knowledge_items: AnimalDetail[];

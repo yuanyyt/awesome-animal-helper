@@ -56,6 +56,71 @@ class MapPoint(MapLocation):
     animal_count: int
 
 
+FacilityCategory = Literal[
+    "metro",
+    "bus_terminal",
+    "train_station",
+    "visitor_center",
+    "entrance",
+    "bag_storage",
+    "ticket_office",
+    "parking",
+    "smoking_area",
+    "drinking_water",
+    "tour_bus_station",
+    "mobility_rental",
+    "police",
+    "shopping",
+    "restaurant",
+    "coffee",
+    "toilet",
+    "nursing_room",
+    "family_toilet",
+]
+
+
+class FacilityPoint(MapLocation):
+    """A visitor facility exposed without internal provenance metadata."""
+
+    id: str
+    name: str
+    category: FacilityCategory
+    address: str = "园内"
+
+
+class ShuttleStation(MapLocation):
+    """One stop on the zoo sightseeing shuttle loop."""
+
+    id: str
+    name: str
+    order: int
+
+
+class ShuttleSchedule(BaseModel):
+    """Fare and service hours for one calendar-day type."""
+
+    day_type: Literal["weekday", "statutory_holiday"]
+    label: str
+    fare_yuan: int
+    ticket_sales_start: str
+    ticket_sales_end: str
+    service_start: str
+    service_end: str
+
+
+class ShuttleService(BaseModel):
+    """Static zoo shuttle facts and its clockwise display geometry."""
+
+    name: str
+    loop: bool = True
+    stations: list[ShuttleStation]
+    polyline: list[MapLocation]
+    schedules: list[ShuttleSchedule]
+    average_speed_kmh: int = 12
+    average_wait_minutes: int = 5
+    notes: list[str] = Field(default_factory=list)
+
+
 class MapNamedLocation(MapLocation):
     """A named map location, such as the default zoo entrance."""
 
@@ -87,6 +152,8 @@ class MapGuideResponse(BaseModel):
     zoom: int
     image_url: str
     points: list[MapPoint]
+    facilities: list[FacilityPoint] = Field(default_factory=list)
+    shuttle: ShuttleService | None = None
     boundary: MapBoundary
     provider: str
     js_api: MapJsConfig | None = None
@@ -111,6 +178,8 @@ class RouteLeg(BaseModel):
     duration_seconds: int
     steps: list[RouteStep]
     polyline: list[MapLocation]
+    mode: Literal["walking", "shuttle"] = "walking"
+    estimated: bool = False
 
 
 class RouteOption(BaseModel):
@@ -121,7 +190,9 @@ class RouteOption(BaseModel):
     description: str
     sites: list[str]
     distance_meters: int
+    walking_distance_meters: int | None = None
     walking_minutes: int
+    shuttle_minutes: int = 0
     visiting_minutes: int
     total_minutes: int
     calories_kcal: int | None = None
@@ -130,6 +201,10 @@ class RouteOption(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     legs: list[RouteLeg]
     polyline: list[MapLocation]
+    transport_preference: Literal["walking", "mixed"] = "walking"
+    uses_shuttle: bool = False
+    shuttle_fare_yuan: int | None = None
+    estimated_wait_minutes: int = 0
 
 
 class GuideMapContext(BaseModel):
@@ -171,7 +246,7 @@ class GuideChatResponse(BaseModel):
     run_id: str
     status: Literal["completed", "input_required"]
     assistant_message: str
-    intent: Literal["route", "animal_knowledge", "mixed", "unknown"] = "unknown"
+    intent: Literal["route", "animal_knowledge", "mixed", "facility", "unknown"] = "unknown"
     resolved_sites: list[str] = Field(default_factory=list)
     unresolved_terms: list[str] = Field(default_factory=list)
     knowledge_items: list[AnimalDetail] = Field(default_factory=list)

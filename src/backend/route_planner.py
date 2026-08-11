@@ -13,6 +13,8 @@ from .schemas import (
     MapPoint,
     RouteLeg,
     RouteOption,
+    ShuttleService,
+    ShuttleStation,
 )
 
 ENERGY_LIMITS = {"轻松": 1_500, "一般": 3_000, "充沛": 5_000}
@@ -62,11 +64,16 @@ class RoutePlanner:
         energy_level: str,
         origin: MapNamedLocation | None = None,
         weight_kg: float | None = None,
+        transport_preference: str = "walking",
+        shuttle_operating: bool = False,
+        shuttle_fare_yuan: int | None = None,
     ) -> list[RouteOption]:
         if available_minutes < 30:
             raise RoutePlanningError("可用时间至少需要 30 分钟")
         if energy_level not in ENERGY_LIMITS:
             raise RoutePlanningError("体力状态应为轻松、一般或充沛")
+        if transport_preference not in {"walking", "mixed"}:
+            raise RoutePlanningError("出行方式应为纯步行或可乘观光车")
         point_by_site = {point.site: point for point in guide.points}
         preferred = list(dict.fromkeys(site for site in selected_sites if site in point_by_site))
         mandatory = list(dict.fromkeys(site for site in must_see_sites if site in point_by_site))
@@ -104,6 +111,10 @@ class RoutePlanner:
                 target_minutes,
                 distance_limit,
                 weight_kg,
+                guide,
+                transport_preference,
+                shuttle_operating,
+                shuttle_fare_yuan,
             )
             route = self._trim_to_budget(
                 route,
@@ -115,6 +126,10 @@ class RoutePlanner:
                 target_minutes,
                 distance_limit,
                 weight_kg,
+                guide,
+                transport_preference,
+                shuttle_operating,
+                shuttle_fare_yuan,
             )
             signature = tuple(route.sites)
             if signature not in signatures:
@@ -192,12 +207,24 @@ class RoutePlanner:
         target_minutes: int,
         distance_limit: int,
         weight_kg: float | None,
+        guide: MapGuideResponse,
+        transport_preference: str,
+        shuttle_operating: bool,
+        shuttle_fare_yuan: int | None,
     ) -> RouteOption:
         """Drop low-priority optional stops when AMap measurements exceed the estimate."""
 
         current = list(sites)
         while (
-            (route.total_minutes > target_minutes or route.distance_meters > distance_limit)
+            (
+                route.total_minutes > target_minutes
+                or (
+                    route.walking_distance_meters
+                    if route.walking_distance_meters is not None
+                    else route.distance_meters
+                )
+                > distance_limit
+            )
             and len(current) > 1
         ):
             removable = [point for point in current if point.site not in mandatory]
@@ -220,6 +247,10 @@ class RoutePlanner:
                 target_minutes,
                 distance_limit,
                 weight_kg,
+                guide,
+                transport_preference,
+                shuttle_operating,
+                shuttle_fare_yuan,
             )
         return route
 
@@ -231,47 +262,48 @@ class RoutePlanner:
         target_minutes: int,
         distance_limit: int,
         weight_kg: float | None,
+        guide: MapGuideResponse,
+        transport_preference: str,
+        shuttle_operating: bool,
+        shuttle_fare_yuan: int | None,
     ) -> RouteOption:
         legs: list[RouteLeg] = []
         current: MapLocation = origin
         current_name = origin.name
         for point in sites:
-            try:
-                if _same_location(current, point):
-                    distance, duration, steps, polyline = 0, 0, [], [current, point]
-                else:
-                    route = self.amap.walking_route(current, point)
-                    distance = route.distance_meters
-                    duration = route.duration_seconds
-                    steps = list(route.steps)
-                    polyline = list(route.polyline)
-            except AmapServiceError as exc:
-                raise RoutePlanningError(f"无法规划到「{point.site}」的步行路线") from exc
-            legs.append(
-                RouteLeg(
-                    from_name=current_name,
-                    to_name=point.site,
-                    distance_meters=distance,
-                    duration_seconds=duration,
-                    steps=steps,
-                    polyline=polyline,
+            legs.extend(
+                self._travel_legs(
+                    current,
+                    current_name,
+                    point,
+                    point.site,
+                    guide,
+                    transport_preference == "mixed" and shuttle_operating,
                 )
             )
             current, current_name = point, point.site
 
         distance = sum(leg.distance_meters for leg in legs)
-        walking_minutes = math.ceil(sum(leg.duration_seconds for leg in legs) / 60)
+        walking_distance = sum(leg.distance_meters for leg in legs if leg.mode == "walking")
+        walking_seconds = sum(leg.duration_seconds for leg in legs if leg.mode == "walking")
+        shuttle_seconds = sum(leg.duration_seconds for leg in legs if leg.mode == "shuttle")
+        walking_minutes = math.ceil(walking_seconds / 60)
+        shuttle_minutes = math.ceil(shuttle_seconds / 60)
         visiting_minutes = sum(_visit_minutes(point.animal_count) for point in sites)
-        total_minutes = walking_minutes + visiting_minutes
+        total_minutes = walking_minutes + shuttle_minutes + visiting_minutes
         warnings: list[str] = []
         if total_minutes > target_minutes:
             warnings.append(f"高德实测后约超出该方案目标 {total_minutes - target_minutes} 分钟")
-        if distance > distance_limit:
-            warnings.append(f"高德实测距离比体力目标多 {distance - distance_limit} 米")
+        if walking_distance > distance_limit:
+            warnings.append(f"高德实测步行距离比体力目标多 {walking_distance - distance_limit} 米")
+        if transport_preference == "mixed" and not shuttle_operating:
+            warnings.append("当前不在观光车运营时段内，本方案按纯步行规划")
+        if shuttle_seconds:
+            warnings.append("观光车车程按平均 12 km/h、候车 5 分钟估算")
         has_stairs = any(step.walk_type == "21" for leg in legs for step in leg.steps)
         if has_stairs:
             warnings.append("路线包含高德标记的阶梯路段")
-        calories, calories_range = _calories(sum(leg.duration_seconds for leg in legs), weight_kg)
+        calories, calories_range = _calories(walking_seconds, weight_kg)
         polyline = [point for leg in legs for point in leg.polyline]
         return RouteOption(
             id=profile.identifier,
@@ -279,7 +311,9 @@ class RoutePlanner:
             description=profile.description,
             sites=[point.site for point in sites],
             distance_meters=distance,
+            walking_distance_meters=walking_distance,
             walking_minutes=walking_minutes,
+            shuttle_minutes=shuttle_minutes,
             visiting_minutes=visiting_minutes,
             total_minutes=total_minutes,
             calories_kcal=calories,
@@ -288,7 +322,118 @@ class RoutePlanner:
             warnings=warnings,
             legs=legs,
             polyline=polyline,
+            transport_preference=transport_preference,
+            uses_shuttle=bool(shuttle_seconds),
+            shuttle_fare_yuan=shuttle_fare_yuan if shuttle_seconds else None,
+            estimated_wait_minutes=5 if shuttle_seconds else 0,
         )
+
+    def _travel_legs(
+        self,
+        origin: MapLocation,
+        origin_name: str,
+        destination: MapLocation,
+        destination_name: str,
+        guide: MapGuideResponse,
+        allow_shuttle: bool,
+    ) -> list[RouteLeg]:
+        direct = self._walking_leg(origin, origin_name, destination, destination_name)
+        shuttle = guide.shuttle
+        if not allow_shuttle or shuttle is None or len(shuttle.stations) < 2:
+            return [direct]
+
+        boarding = sorted(shuttle.stations, key=lambda station: _distance(origin, station))[:2]
+        alighting = sorted(shuttle.stations, key=lambda station: _distance(destination, station))[:2]
+        candidates: list[list[RouteLeg]] = []
+        for start in boarding:
+            for end in alighting:
+                if start.id == end.id:
+                    continue
+                before = self._walking_leg(origin, origin_name, start, start.name)
+                after = self._walking_leg(end, end.name, destination, destination_name)
+                ride = _shuttle_leg(shuttle, start.id, end.id)
+                candidate = [leg for leg in (before, ride, after) if leg.distance_meters or leg.mode == "shuttle"]
+                walk_distance = sum(leg.distance_meters for leg in candidate if leg.mode == "walking")
+                if walk_distance + 200 >= direct.distance_meters:
+                    continue
+                candidates.append(candidate)
+        if not candidates:
+            return [direct]
+        best = min(candidates, key=lambda legs: sum(leg.duration_seconds for leg in legs))
+        if sum(leg.duration_seconds for leg in best) >= direct.duration_seconds:
+            return [direct]
+        return best
+
+    def _walking_leg(
+        self,
+        origin: MapLocation,
+        origin_name: str,
+        destination: MapLocation,
+        destination_name: str,
+    ) -> RouteLeg:
+        try:
+            if _same_location(origin, destination):
+                return RouteLeg(
+                    from_name=origin_name,
+                    to_name=destination_name,
+                    distance_meters=0,
+                    duration_seconds=0,
+                    steps=[],
+                    polyline=[origin, destination],
+                )
+            route = self.amap.walking_route(origin, destination)
+        except AmapServiceError as exc:
+            raise RoutePlanningError(f"无法规划到「{destination_name}」的步行路线") from exc
+        return RouteLeg(
+            from_name=origin_name,
+            to_name=destination_name,
+            distance_meters=route.distance_meters,
+            duration_seconds=route.duration_seconds,
+            steps=list(route.steps),
+            polyline=list(route.polyline),
+        )
+
+
+def _shuttle_leg(
+    shuttle: ShuttleService,
+    start_id: str,
+    end_id: str,
+) -> RouteLeg:
+    stations = shuttle.stations
+    start_index = next(index for index, station in enumerate(stations) if station.id == start_id)
+    path = [stations[start_index]]
+    index = start_index
+    while path[-1].id != end_id:
+        index = (index + 1) % len(stations)
+        path.append(stations[index])
+    polyline = _shuttle_polyline(shuttle, path[0], path[-1])
+    distance = round(
+        sum(_distance(polyline[index], polyline[index + 1]) for index in range(len(polyline) - 1))
+    )
+    ride_seconds = math.ceil(distance / (12_000 / 3_600))
+    return RouteLeg(
+        from_name=path[0].name,
+        to_name=path[-1].name,
+        distance_meters=distance,
+        duration_seconds=ride_seconds + 5 * 60,
+        steps=[],
+        polyline=polyline,
+        mode="shuttle",
+        estimated=True,
+    )
+
+
+def _shuttle_polyline(
+    shuttle: ShuttleService,
+    start: ShuttleStation,
+    end: ShuttleStation,
+) -> list[MapLocation]:
+    points = shuttle.polyline
+    start_index = min(range(len(points)), key=lambda index: _distance(points[index], start))
+    end_index = min(range(len(points)), key=lambda index: _distance(points[index], end))
+    if end_index > start_index:
+        return points[start_index : end_index + 1]
+    return [*points[start_index:], *points[1 : end_index + 1]]
 
 
 def _nearest_neighbor(origin: MapLocation, points: list[MapPoint]) -> list[MapPoint]:

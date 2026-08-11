@@ -9,7 +9,7 @@ from typing import Literal
 from .repository import AnimalRepository
 from .schemas import GuideMapContext
 
-GuideIntent = Literal["route", "animal_knowledge", "mixed", "unknown"]
+GuideIntent = Literal["route", "animal_knowledge", "mixed", "facility", "unknown"]
 
 _ROUTE_PATTERN = re.compile(
     r"路线|规划|导航|怎么走|怎么去|带我去|先去|下一站|顺路|逛|游览|"
@@ -18,6 +18,10 @@ _ROUTE_PATTERN = re.compile(
 _KNOWLEDGE_PATTERN = re.compile(
     r"介绍|了解|讲讲|科普|知识|学名|分类|栖息地|分布|吃什么|食性|"
     r"习性|行为|繁殖|保护状态|趣味|为什么|寿命|特点"
+)
+_FACILITY_PATTERN = re.compile(
+    r"卫生间|厕所|洗手间|家庭卫生间|母婴室|餐厅|餐饮|吃饭|咖啡|饮水|"
+    r"商店|寄存|停车|游客中心|售票|出入口|警务|吸烟区|观光车|游览车"
 )
 
 _SITE_ALIASES = {
@@ -166,10 +170,13 @@ class GuideTurnResolver:
 def _classify(message: str, has_animal: bool) -> GuideIntent:
     wants_route = bool(_ROUTE_PATTERN.search(message))
     wants_knowledge = bool(_KNOWLEDGE_PATTERN.search(message))
+    wants_facility = bool(_FACILITY_PATTERN.search(message))
     if wants_route and wants_knowledge:
         return "mixed"
     if wants_route:
         return "route"
+    if wants_facility:
+        return "facility"
     if wants_knowledge or has_animal:
         return "animal_knowledge"
     return "unknown"

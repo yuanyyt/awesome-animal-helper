@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import math
 import re
+from collections.abc import Callable
+from datetime import datetime
 from typing import Any, Protocol
 
 from agno.run import RunContext
@@ -13,6 +16,8 @@ from .guide_intent import GuideTurnResolver
 from .repository import AnimalRepository
 from .route_planner import RoutePlanner, RoutePlanningError
 from .schemas import AnimalDetail, GuideMapContext, MapNamedLocation
+from .zoo_time import zoo_operating_status
+from .zoo_services import shuttle_service
 
 
 class AnimalKnowledgeProvider(Protocol):
@@ -45,12 +50,78 @@ class ZooGuideTools:
         amap: AmapClient,
         repository: AnimalRepository,
         knowledge: AnimalKnowledgeProvider | None = None,
+        now_provider: Callable[[], datetime] | None = None,
     ) -> None:
         self.amap = amap
         self.repository = repository
         self.planner = RoutePlanner(amap)
         self.resolver = GuideTurnResolver(repository)
         self.knowledge = knowledge or LocalAnimalKnowledgeProvider(repository)
+        self.now_provider = now_provider
+
+    def search_zoo_facilities_for_agent(
+        self,
+        run_context: RunContext,
+        categories: list[str] | str | None = None,
+        near_name: str = "",
+    ) -> dict[str, Any]:
+        """Find visitor facilities without exposing internal coordinate provenance."""
+
+        guide = self.amap.build_guide(self.repository.site_summaries())
+        requested = _facility_categories(categories)
+        facilities = [
+            item for item in guide.facilities if not requested or item.category in requested
+        ]
+        dependencies = run_context.dependencies or {}
+        context = GuideMapContext.model_validate(dependencies.get("map_context") or {})
+        reference = context.origin
+        label = reference.name if reference else "园区中心"
+        normalized_near = near_name.strip()
+        if normalized_near:
+            resolved_near, _ = self.resolver.resolve_site_terms([normalized_near])
+            point = next(
+                (
+                    point
+                    for point in guide.points
+                    if point.site in resolved_near
+                    or normalized_near in point.site
+                    or normalized_near in point.poi_name
+                ),
+                None,
+            )
+            if point is not None:
+                reference, label = point, point.site
+        elif reference is None and context.selected_sites:
+            point = next(
+                (point for point in guide.points if point.site == context.selected_sites[0]),
+                None,
+            )
+            if point is not None:
+                reference, label = point, point.site
+        reference = reference or guide.center
+        ranked = sorted(facilities, key=lambda item: _map_distance(reference, item))[:12]
+        return {
+            "near": label,
+            "matched": len(facilities),
+            "facilities": [
+                {
+                    "id": item.id,
+                    "name": item.name,
+                    "category": item.category,
+                    "address": item.address,
+                    "longitude": item.longitude,
+                    "latitude": item.latitude,
+                    "distance_meters": round(_map_distance(reference, item)),
+                }
+                for item in ranked
+            ],
+        }
+
+    def get_current_zoo_time(self) -> dict[str, object]:
+        """Return current Shanghai time and today's shuttle operating status."""
+
+        guide = self.amap.build_guide(self.repository.site_summaries())
+        return zoo_operating_status(guide.shuttle or shuttle_service(), self.now_provider)
 
     def search_animals_and_venues(
         self,
@@ -108,6 +179,7 @@ class ZooGuideTools:
         origin_longitude: float | str | None = None,
         origin_latitude: float | str | None = None,
         weight_kg: float | str | None = None,
+        transport_preference: str = "walking",
     ) -> dict[str, Any]:
         """Plan three AMap walking itineraries from visitor constraints.
 
@@ -120,6 +192,7 @@ class ZooGuideTools:
             origin_longitude: GCJ-02 longitude for a custom start.
             origin_latitude: GCJ-02 latitude for a custom start.
             weight_kg: Optional body weight for calorie estimation.
+            transport_preference: Pure walking or a route that may use the shuttle.
         """
 
         longitude = _optional_float(origin_longitude)
@@ -169,6 +242,8 @@ class ZooGuideTools:
                 longitude=longitude,
                 latitude=latitude,
             )
+        shuttle_status = self.get_current_zoo_time()
+        transport = _transport_preference(transport_preference)
         routes = self.planner.plan(
             guide=guide,
             selected_sites=routable,
@@ -178,6 +253,13 @@ class ZooGuideTools:
             energy_level=energy_level,
             origin=origin,
             weight_kg=weight,
+            transport_preference=transport,
+            shuttle_operating=bool(shuttle_status["shuttle_operating"]),
+            shuttle_fare_yuan=(
+                int(shuttle_status["fare_yuan"])
+                if shuttle_status["fare_yuan"] is not None
+                else None
+            ),
         )
         if unresolved:
             warning = f"未加入路线：{'、'.join(unresolved)}（缺少可靠地图点位）"
@@ -204,6 +286,7 @@ class ZooGuideTools:
         origin_longitude: float | str | None = None,
         origin_latitude: float | str | None = None,
         weight_kg: float | str | None = None,
+        transport_preference: str = "walking",
     ) -> dict[str, Any]:
         """Plan with canonical per-turn targets injected by Agno."""
 
@@ -242,6 +325,7 @@ class ZooGuideTools:
             origin_longitude=origin_longitude,
             origin_latitude=origin_latitude,
             weight_kg=weight_kg,
+            transport_preference=transport_preference,
         )
 
     def plan_with_context(
@@ -286,6 +370,53 @@ def normalize_site_list(value: list[str] | str | None) -> list[str]:
         if isinstance(parsed, list):
             return [str(item).strip() for item in parsed if str(item).strip()]
     return [item.strip() for item in re.split(r"[,，、；;]", text) if item.strip()]
+
+
+_FACILITY_ALIASES = {
+    "卫生间": "toilet",
+    "厕所": "toilet",
+    "家庭卫生间": "family_toilet",
+    "母婴室": "nursing_room",
+    "餐饮": "restaurant",
+    "餐厅": "restaurant",
+    "咖啡": "coffee",
+    "饮水": "drinking_water",
+    "直饮水": "drinking_water",
+    "商店": "shopping",
+    "寄存": "bag_storage",
+    "停车场": "parking",
+    "游客中心": "visitor_center",
+    "售票处": "ticket_office",
+    "出入口": "entrance",
+    "观光车站": "tour_bus_station",
+    "警务室": "police",
+    "吸烟区": "smoking_area",
+}
+
+
+def _facility_categories(value: list[str] | str | None) -> set[str]:
+    items = normalize_site_list(value)
+    return {_FACILITY_ALIASES.get(item, item) for item in items}
+
+
+def _transport_preference(value: str) -> str:
+    normalized = value.strip().casefold()
+    if normalized in {"mixed", "可乘观光车", "观光车", "混合"}:
+        return "mixed"
+    if normalized in {"walking", "纯步行", "步行"}:
+        return "walking"
+    raise RoutePlanningError("出行方式应为纯步行或可乘观光车")
+
+
+def _map_distance(first: object, second: object) -> float:
+    first_longitude = float(getattr(first, "longitude"))
+    first_latitude = float(getattr(first, "latitude"))
+    second_longitude = float(getattr(second, "longitude"))
+    second_latitude = float(getattr(second, "latitude"))
+    latitude = math.radians((first_latitude + second_latitude) / 2)
+    x = math.radians(second_longitude - first_longitude) * math.cos(latitude)
+    y = math.radians(second_latitude - first_latitude)
+    return math.hypot(x, y) * 6_371_000
 
 
 def _excerpt(value: str | None, limit: int = 360) -> str | None:

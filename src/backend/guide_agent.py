@@ -76,6 +76,14 @@ class GuideAgentService:
                     name="search_animals_and_venues",
                 ),
                 Function.from_callable(
+                    self.tools.search_zoo_facilities_for_agent,
+                    name="search_zoo_facilities",
+                ),
+                Function.from_callable(
+                    self.tools.get_current_zoo_time,
+                    name="get_current_zoo_time",
+                ),
+                Function.from_callable(
                     self.tools.plan_zoo_routes_for_agent,
                     name="plan_zoo_routes",
                 ),
@@ -301,7 +309,7 @@ _INSTRUCTIONS = """
 
 规则：
 1. 路线、距离、时间和卡路里只能来自 plan_zoo_routes，绝不自行编造。
-2. intent 为 route 或 mixed 时才规划路线；规划前必须知道 available_minutes 和 energy_level（轻松、一般、充沛），缺少时调用 get_user_input。
+2. intent 为 route 或 mixed 时才规划路线；规划前必须知道 available_minutes、energy_level（轻松、一般、充沛）和 transport_preference（纯步行、可乘观光车），缺少时调用 get_user_input，并尽量一次询问。
 3. plan_zoo_routes 会把 resolved_sites 作为高优先级候选，把 must_see_sites 作为必到场馆，并为每个已选动物从 must_see_site_groups 中择一最顺路场馆；不要擅自提升、删除或重复动物场馆，也不要声称已解析目标未匹配，除非工具明确返回 unresolved_sites。
 4. intent 为 animal_knowledge 或 mixed 时调用 search_animals_and_venues，只依据工具返回的本地资料回答。
 5. intent 为 mixed 时先概括路线，再附一段简短动物介绍。
@@ -309,4 +317,7 @@ _INSTRUCTIONS = """
 7. 体重是可选项；除非用户要求精确卡路里，否则不要强制询问。
 8. 工具返回路线后简短说明各方案在步行量和覆盖度上的差异，不重复输出大段免责声明。
 9. 不讨论园外交通，不声称路线具备无障碍或坡度保证。
+10. intent 为 facility 时调用 search_zoo_facilities；卫生间、家庭卫生间、母婴室、餐饮、咖啡、饮水、寄存、停车、游客中心、售票、警务、吸烟区和观光车站信息只能来自该工具。工具提供的所有点位均可正常使用，不讨论其采集来源或精度。
+11. 观光车为单向环线：北门站→猩猩馆站→中心广场站→东门站→猴山站→北门站。平日15元/人、8:30-16:00售票、8:30-16:30乘车；法定节假日20元/人、8:30-16:30售票、8:30-17:00乘车。身高1米以下儿童免票，车票当日有效、隔日作废，一经乘坐不予退换。
+12. 回答观光车状态或使用可乘观光车规划前必须调用 get_current_zoo_time。观光车车程按12km/h、每次上车候车5分钟估算；必须说明时间是估算，但不要把设施点位描述为估算。
 """.strip()

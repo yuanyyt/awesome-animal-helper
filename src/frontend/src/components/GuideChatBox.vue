@@ -236,8 +236,14 @@ function moveAnimalsToEnd(): void {
 function suggestedValue(field: GuideInputField): string | number | boolean {
   if (field.value !== null && !Array.isArray(field.value)) return field.value;
   if (isEnergyField(field)) return "一般";
+  if (isTransportField(field)) return "纯步行";
   if (isNumberField(field)) return field.name.includes("weight") ? 60 : 120;
   return "";
+}
+
+function isTransportField(field: GuideInputField): boolean {
+  const text = `${field.name} ${field.description}`.toLowerCase();
+  return text.includes("transport") || text.includes("出行方式") || text.includes("观光车");
 }
 
 function isEnergyField(field: GuideInputField): boolean {
@@ -362,10 +368,10 @@ function scrollToLatest(): void {
                 :class="{ 'is-active': activeRoute?.id === route.id }"
                 @click="emit('routeSelect', route)"
               >
-                <span class="route-options__eyebrow">{{ route.sites.length }} 站 · {{ Math.round(route.distance_meters / 10) * 10 }} 米</span>
+                <span class="route-options__eyebrow">{{ route.sites.length }} 站 · 步行 {{ Math.round((route.walking_distance_meters ?? route.distance_meters) / 10) * 10 }} 米</span>
                 <strong>{{ route.name }}</strong>
                 <p>{{ route.description }}</p>
-                <small>{{ route.total_minutes }} 分钟 · {{ calories(route) }}</small>
+                <small>{{ route.total_minutes }} 分钟 · {{ calories(route) }}{{ route.uses_shuttle ? ` · 观光车 ${route.shuttle_fare_yuan} 元/人` : "" }}</small>
                 <em v-if="route.warnings.length">{{ route.warnings.join("；") }}</em>
               </button>
             </div>
@@ -409,6 +415,9 @@ function scrollToLatest(): void {
           <span>{{ field.description }}</span>
           <select v-if="isEnergyField(field)" v-model="inputValues[field.name]">
             <option value="轻松">轻松</option><option value="一般">一般</option><option value="充沛">充沛</option>
+          </select>
+          <select v-else-if="isTransportField(field)" v-model="inputValues[field.name]">
+            <option value="纯步行">纯步行</option><option value="可乘观光车">可乘观光车</option>
           </select>
           <input v-else-if="isNumberField(field)" v-model.number="inputValues[field.name]" type="number" min="1" />
           <input v-else v-model="inputValues[field.name]" type="text" />

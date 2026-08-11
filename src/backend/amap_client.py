@@ -22,6 +22,7 @@ from .schemas import (
     RouteStep,
     SiteSummary,
 )
+from .zoo_services import facility_category, public_facilities, shuttle_service
 
 POI_TEXT_URL = "https://restapi.amap.com/v5/place/text"
 POI_AROUND_URL = "https://restapi.amap.com/v5/place/around"
@@ -68,6 +69,7 @@ class _Poi:
     latitude: float
     address: str
     distance: int | None = None
+    typecode: str = ""
 
 
 @dataclass(frozen=True)
@@ -133,7 +135,16 @@ class AmapClient:
 
         center_poi = self._search_zoo()
         nearby = self._search_nearby(center_poi)
+        facility_pois = self._search_facilities(center_poi)
         points = self._match_sites(site_list, nearby)
+        boundary = self._build_boundary()
+        facility_pois = [
+            poi
+            for poi in facility_pois
+            if facility_category(poi.name, poi.typecode)
+            in {"metro", "bus_terminal", "train_station", "parking", "entrance"}
+            or _point_in_boundary(poi, boundary.points)
+        ]
         guide = MapGuideResponse(
             center=MapLocation(
                 longitude=center_poi.longitude,
@@ -142,7 +153,9 @@ class AmapClient:
             zoom=MAP_ZOOM,
             image_url="/api/map/image",
             points=points,
-            boundary=self._build_boundary(),
+            facilities=public_facilities(facility_pois),
+            shuttle=shuttle_service(),
+            boundary=boundary,
             provider="高德地图",
             default_origin=self._default_origin(center_poi, nearby),
             js_api=(
@@ -283,6 +296,28 @@ class AmapClient:
             found.extend(_parse_pois(data))
         return list({(poi.name, poi.longitude, poi.latitude): poi for poi in found}.values())
 
+    def _search_facilities(self, center: _Poi) -> list[_Poi]:
+        """Fetch broad visitor-service POIs; curated map points fill any gaps."""
+
+        found: list[_Poi] = []
+        for page in (1, 2, 3):
+            if page > 1:
+                self._sleep(1.05)
+            data = self._get_json(
+                POI_AROUND_URL,
+                {
+                    "location": f"{center.longitude:.6f},{center.latitude:.6f}",
+                    "radius": 1200,
+                    "types": "050000|060000|070000|110000|150000|160000|170000|200000",
+                    "sortrule": "distance",
+                    "region": ZOO_REGION,
+                    "page_size": 25,
+                    "page_num": page,
+                },
+            )
+            found.extend(_parse_pois(data))
+        return list({(poi.name, poi.longitude, poi.latitude): poi for poi in found}.values())
+
     @staticmethod
     def _default_origin(center: _Poi, nearby: list[_Poi]) -> MapNamedLocation:
         entrances = [poi for poi in nearby if "门" in poi.name and "红山" in poi.name]
@@ -373,6 +408,7 @@ def _parse_pois(data: dict) -> list[_Poi]:
                 latitude=latitude,
                 address=str(raw.get("address", "")).strip(),
                 distance=int(distance_text) if distance_text.isdigit() else None,
+                typecode=str(raw.get("typecode", "")).strip(),
             )
         )
     return [poi for poi in pois if poi.name]
@@ -380,6 +416,24 @@ def _parse_pois(data: dict) -> list[_Poi]:
 
 def _normalize(value: str) -> str:
     return re.sub(r"[^\w\u4e00-\u9fff]", "", value).casefold()
+
+
+def _point_in_boundary(point: _Poi, polygon: list[MapLocation]) -> bool:
+    inside = False
+    for index, current in enumerate(polygon):
+        previous = polygon[index - 1]
+        crosses = (current.latitude > point.latitude) != (previous.latitude > point.latitude)
+        if not crosses:
+            continue
+        crossing_longitude = (
+            (previous.longitude - current.longitude)
+            * (point.latitude - current.latitude)
+            / (previous.latitude - current.latitude)
+            + current.longitude
+        )
+        if point.longitude < crossing_longitude:
+            inside = not inside
+    return inside
 
 
 def _parse_walking_route(data: dict) -> WalkingRoute:
