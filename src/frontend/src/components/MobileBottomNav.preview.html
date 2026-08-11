@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>移动端底部导航状态预览</title>
+    <link rel="stylesheet" href="../../../../tokens.css" />
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: var(--space-xl); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); }
+      main { width: min(100%, 32rem); margin: auto; }
+      h1 { font: 700 var(--text-xl)/1.2 var(--font-display); }
+      section { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); }
+      article { display: grid; grid-template-columns: 5rem minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
+      article > span { color: var(--color-muted); font-size: var(--text-xs); }
+      nav { display: grid; grid-template-columns: repeat(4, 1fr); padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper-3); }
+      button { min-height: 4.25rem; display: grid; place-items: center; gap: var(--space-2xs); padding: var(--space-xs); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-muted); font: 700 var(--text-xs)/1 var(--font-body); }
+      button span:first-child { width: 2.35rem; height: 2.35rem; display: grid; place-items: center; border: var(--rule-hair) solid transparent; border-radius: var(--radius-round); font-size: var(--text-lg); }
+      svg { width: 1.75rem; height: 1.75rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+      button[aria-current="page"] { color: var(--color-accent); }
+      button[aria-current="page"] span:first-child { border-color: var(--color-accent); background: var(--color-accent-soft); }
+      .is-hover { transform: translateY(-1px); }
+      .is-focus { outline: 3px solid var(--color-focus); outline-offset: 1px; }
+      .is-active { transform: translateY(1px) scale(.98); }
+      .is-disabled, .is-loading { opacity: .5; }
+      .is-error { color: var(--color-danger); }
+      .is-success { color: var(--color-success); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>底部导航 · 交互状态</h1>
+      <section id="states"></section>
+    </main>
+    <script>
+      const states = ["default", "hover", "focus", "active", "disabled", "loading", "error", "success"];
+      const icons = {
+        home: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6.5 14.5 16 6l9.5 8.5v11H6.5v-11Z"/><path d="M12 25.5v-7.75h8v7.75"/></svg>`,
+        guide: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m5 8.4 7-2.8 8 2.8 7-2.8v18l-7 2.8-8-2.8-7 2.8v-18Z"/><path d="M12 5.6v18M20 8.4v18"/></svg>`,
+        wiki: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 5.5h13.5A4.5 4.5 0 0 1 25 10v16H11.5A4.5 4.5 0 0 1 7 21.5v-16Z"/><path d="M11.5 26A4.5 4.5 0 0 1 7 21.5 4.5 4.5 0 0 1 11.5 17H25"/></svg>`,
+        animal: `<svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="21.2" rx="6.7" ry="5.2"/><ellipse cx="8.5" cy="15" rx="2.5" ry="3.2"/><ellipse cx="14" cy="10.6" rx="2.5" ry="3.2"/><ellipse cx="19.5" cy="10.6" rx="2.5" ry="3.2"/><ellipse cx="24" cy="15" rx="2.5" ry="3.2"/></svg>`,
+      };
+      document.querySelector("#states").innerHTML = states.map((state) => `
+        <article>
+          <span>${state}</span>
+          <nav aria-label="${state} 状态">
+            <button class="is-${state}"><span>${icons.home}</span><span>首页</span></button>
+            <button class="is-${state}" aria-current="page"><span>${icons.guide}</span><span>园区导览</span></button>
+            <button class="is-${state}"><span>${icons.wiki}</span><span>故事</span></button>
+            <button class="is-${state}" ${state === "disabled" ? "disabled" : ""}><span>${icons.animal}</span><span>动物</span></button>
+          </nav>
+        </article>`).join("");
+    </script>
+  </body>
+</html>

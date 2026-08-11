@@ -3470,6 +3470,14 @@ body {
 }
 
 @media (max-width: 48rem) {
+  .page-tabs {
+    display: none;
+  }
+
+  .app-pages {
+    padding-bottom: calc(var(--size-mobile-nav) + env(safe-area-inset-bottom));
+  }
+
   .zoo-map__leg-label {
     min-width: 4.75rem;
     padding-inline: var(--space-xs);
@@ -3534,6 +3542,7 @@ body {
   }
 
   .animal-route-dock {
+    bottom: calc(var(--size-mobile-nav) + max(var(--space-sm), env(safe-area-inset-bottom)));
     width: calc(100% - 2 * var(--space-md));
     align-items: stretch;
     flex-direction: column;
@@ -3563,17 +3572,8 @@ body {
     justify-content: flex-end;
   }
 
-  .page-tabs {
-    min-width: 0;
-  }
-
   .search-pill {
-    display: none;
-  }
-
-  .page-tabs button {
-    min-width: 0;
-    padding-inline: 0.375rem;
+    display: flex;
   }
 
   .page-panel,
