@@ -1,33 +1,50 @@
 # 动物趣事 Wiki 数据管线
 
-这套管线只把真实抓取到的微信正文交给 LLM。验证码页、环境异常页和正文过短的页面会记录为失败，不会根据标题生成内容。
+Wiki 构建器不直接访问微信公众号，只读取已经整理好的 Markdown，并把正文交给 LLM 提取动物趣事。
 
-首次使用先安装浏览器并完成人工验证：
+## 1. 抓取微信公众号文章
 
-```bash
-uv sync
-uv run playwright install chromium
-uv run python -m src.crawler.wechat_wiki login
-```
-
-浏览器打开后完成微信验证，确认能看到文章正文，再回到终端按 Enter。登录资料保存在已忽略的 `.browser-profile/`，不要复制或提交该目录。
-
-批量抓取正文并生成 Wiki：
+使用 [bzd6661/wechat-article-for-ai](https://github.com/bzd6661/wechat-article-for-ai) 将公众号文章转换为带 YAML front matter 的 Markdown：
 
 ```bash
-uv run python -m src.crawler.wechat_wiki run
+git clone https://github.com/bzd6661/wechat-article-for-ai.git
+cd wechat-article-for-ai
+pip install -r requirements.txt
+python main.py -f /path/to/urls.txt \
+  -o /path/to/awesome-animal-helper/src/data/wx_info/output \
+  -v
 ```
 
-也可以分步运行：
+如遇微信验证码，可增加 `--no-headless`，在打开的浏览器中手动完成验证。输出应保持该工具的默认结构：
+
+```text
+src/data/wx_info/output/
+└── 文章标题/
+    ├── 文章标题.md
+    └── images/
+```
+
+每篇 Markdown 必须包含 `title`、`author`、`date`、`source` 四个 front matter 字段。请等待公众号抓取全部完成后再构建 Wiki。
+
+## 2. 构建 Wiki
+
+在本项目根目录配置 `.env`：
+
+```dotenv
+LLM_MODEL=模型名
+LLM_BASE_URL=OpenAI兼容接口地址
+DASHSCOPE_API_KEY=接口密钥
+```
+
+也可以使用 `LLM_API_KEY`，其优先级高于 `DASHSCOPE_API_KEY`。执行全量构建：
 
 ```bash
-uv run python -m src.crawler.wechat_wiki crawl
-uv run python -m src.crawler.wechat_wiki build
+uv run python -m src.crawler.wechat_wiki build \
+  --articles src/data/wx_info/output \
+  --wiki src/data/wx_info/wiki
 ```
 
-LLM 从项目根目录 `.env` 读取 `LLM_MODEL`、`LLM_BASE_URL`，密钥优先使用 `LLM_API_KEY`，未配置时使用 `DASHSCOPE_API_KEY`。抓取在检测到微信验证页时立即停止；重新执行 `login` 后再次运行即可从成功记录之后继续。
-
-生成结果位于 `wiki/`：
+构建器会忽略文章图片和微信播放器噪声，并生成：
 
 ```text
 wiki/
@@ -37,4 +54,12 @@ wiki/
 └── 场馆/学名/动物名.md
 ```
 
-`manifest.json` 是后端读取索引，Markdown 是可人工检查的内容主数据，`report.json` 记录抓取、抽取、未归档和待确认情况。
+`manifest.json` 供后端读取，Markdown 用于人工检查，`report.json` 记录文章抽取成功数、失败数、未归档内容和待确认信息。
+
+## 3. 单文章真实 LLM 验证
+
+真实接口测试固定读取《水獭宝宝能有什么坏心思？》，不会重建正式 Wiki：
+
+```bash
+RUN_LLM_INTEGRATION=1 uv run pytest tests/test_wechat_wiki_integration.py -q
+```
