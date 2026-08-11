@@ -13,6 +13,8 @@ from agno.run import RunContext
 
 from src.backend.domain.models import AnimalDetail, GuideMapContext, MapNamedLocation
 from src.backend.integrations.amap.client import AmapClient
+from src.backend.knowledge import KnowledgeService
+from src.backend.knowledge.service import KnowledgeBuildError
 from src.backend.repositories.animals import AnimalRepository
 from src.backend.services.guide_intent import GuideTurnResolver
 from src.backend.services.route_planner import RoutePlanner, RoutePlanningError
@@ -49,14 +51,15 @@ class ZooGuideTools:
         self,
         amap: AmapClient,
         repository: AnimalRepository,
-        knowledge: AnimalKnowledgeProvider | None = None,
+        knowledge: KnowledgeService | AnimalKnowledgeProvider | None = None,
         now_provider: Callable[[], datetime] | None = None,
     ) -> None:
         self.amap = amap
         self.repository = repository
         self.planner = RoutePlanner(amap)
         self.resolver = GuideTurnResolver(repository)
-        self.knowledge = knowledge or LocalAnimalKnowledgeProvider(repository)
+        self.local_knowledge = LocalAnimalKnowledgeProvider(repository)
+        self.knowledge = knowledge or self.local_knowledge
         self.now_provider = now_provider
 
     def search_zoo_facilities_for_agent(
@@ -134,7 +137,12 @@ class ZooGuideTools:
             self.resolver.resolve(query, GuideMapContext()).animal_names
         )
         animals = []
-        records = self.knowledge.find(query, names)
+        provider = (
+            self.local_knowledge
+            if isinstance(self.knowledge, KnowledgeService)
+            else self.knowledge
+        )
+        records = provider.find(query, names)
         for animal in records:
             animals.append(
                 {
@@ -155,6 +163,69 @@ class ZooGuideTools:
             "animals": animals,
             "matched": len(records),
             "message": "未找到匹配的本地动物资料" if not animals else "资料来自园区本地数据集",
+        }
+
+    def search_animal_knowledge_for_agent(
+        self,
+        run_context: RunContext,
+        query: str = "",
+    ) -> dict[str, Any]:
+        """Retrieve structured facts and relevant local narration chunks."""
+
+        dependencies = run_context.dependencies or {}
+        names = _string_list(dependencies.get("animal_names"))
+        if not names:
+            names = list(self.resolver.resolve(query, GuideMapContext()).animal_names)
+        if isinstance(self.knowledge, KnowledgeService):
+            try:
+                payload = self.knowledge.search(query, names)
+                dependencies["_rag_chunk_ids"] = [
+                    item["id"] for item in payload.get("chunks", [])
+                ]
+                return payload
+            except KnowledgeBuildError:
+                pass
+        dependencies["_rag_chunk_ids"] = []
+        payload = self.search_animals_and_venues(query, names)
+        payload.update({"chunks": [], "semantic_available": False})
+        return payload
+
+    def get_neighboring_knowledge_chunks(
+        self,
+        run_context: RunContext,
+        chunk_ids: list[int] | str,
+        before: int = 1,
+        after: int = 1,
+    ) -> dict[str, Any]:
+        """Expand only chunk IDs returned by this run's preceding RAG search."""
+
+        dependencies = run_context.dependencies or {}
+        allowed = set(_int_list(dependencies.get("_rag_chunk_ids")))
+        requested = _int_list(chunk_ids)[:6]
+        accepted = [chunk_id for chunk_id in requested if chunk_id in allowed]
+        if not isinstance(self.knowledge, KnowledgeService) or not accepted:
+            return {
+                "chunks": [],
+                "matched": 0,
+                "message": "没有可扩展的本轮知识片段",
+            }
+        try:
+            chunks = self.knowledge.neighbors(accepted, before, after)
+        except KnowledgeBuildError:
+            chunks = []
+        return {
+            "chunks": [
+                {
+                    "id": item["id"],
+                    "section": item["section"],
+                    "content": item["content"],
+                    "source": "intro",
+                    "is_target": item["id"] in accepted,
+                }
+                for item in chunks
+            ],
+            "matched": len(chunks),
+            "message": "已补充同章节前后文" if chunks else "没有找到相邻讲解片段",
         }
 
     def search_animals_for_agent(
@@ -430,6 +501,23 @@ def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, str) and item]
+
+
+def _int_list(value: object) -> list[int]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            value = re.split(r"[,，、；;]", value)
+    if not isinstance(value, list):
+        return []
+    result: list[int] = []
+    for item in value:
+        try:
+            result.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return list(dict.fromkeys(result))
 
 
 def _site_groups(value: object) -> list[tuple[str, list[str]]]:

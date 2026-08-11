@@ -15,6 +15,11 @@ uv run uvicorn src.backend.main:app --reload
 接口文档位于 <http://127.0.0.1:8000/docs>，动物查询接口为
 `GET /api/animals`，支持 `q`、`site` 和 `name` 参数。
 
+后端按职责分层：`api` 负责 HTTP/WebSocket 与依赖生命周期，`agents` 负责 Agno
+编排，`services` 放置确定性业务逻辑，`repositories` 读取本地数据，`integrations`
+封装高德和实时音频等外部服务，`domain` 保存跨层共享的数据模型。启动入口保持为
+`src.backend.main:app`。
+
 另开一个终端启动 Vue 前端：
 
 ```bash
@@ -26,6 +31,9 @@ npm run dev --prefix src/frontend
 `/_AMapService` 请求代理到 FastAPI。
 
 园区地图使用高德 Web Service 获取场馆点位，并使用 JS API 提供拖拽和缩放能力。
+地图同时提供卫生间、餐饮、饮水、游客服务、交通等分类设施图层，以及北门站、
+猩猩馆站、中心广场站、东门站、猴山站组成的单向观光车环线。设施优先匹配高德
+POI，未匹配项由园区导览图补全；公开接口不返回内部点位来源字段。
 在项目根目录 `.env` 中配置：
 
 ```dotenv
@@ -45,6 +53,9 @@ SECURITY_KEY=JS API安全密钥
 本地场馆；地图已选场馆与消息提到的必看动物会在进入 LLM 前合并。Agent 会在缺少
 时间、体力等必要信息时通过 HITL 暂停并等待前端输入，随后返回轻松、均衡、尽兴
 三种高德步行方案。
+路线规划会额外询问“纯步行”或“可乘观光车”。观光车方案使用实时上海时间判断
+当日运营状态，车程按 12 km/h、每次乘车平均候车 5 分钟估算，并在界面中与红色
+步行路线分色展示。
 
 LLM 配置同样放在项目根目录 `.env`：
 
@@ -82,8 +93,30 @@ AUDIO_REALTIME_VOICE=longanqian
 语音转写会携带浏览器当前的 Agno `session_id`，因此语音和文字共享同一段会话历史、
 意图识别、动物资料查询和高德路线规划能力。Qwen-Audio 不直接调用业务工具，只朗读
 Agno 的最终答复。麦克风只能在 `localhost` 或 HTTPS 安全上下文使用；拒绝权限时仍可
-继续文字导览。动物知识目前来自本地 CSV，后续可通过 `AnimalKnowledgeProvider` 接口
-替换为更完整的知识解说服务。
+继续文字导览。动物知识由本地持久化知识库提供，语音与文字请求共用相同的检索工具。
+
+### 动物知识检索
+
+动物讲解使用独立的 `src/data/runtime/knowledge.db`，将 CSV 结构化资料、场馆关系、
+`intro.md` 讲解段落和 `sqlite-vec` 向量索引持久化到同一个 SQLite 数据库。首次启动
+会自动构建；数据库就绪后不会再次读取源文件或校验版本。需要人工更新数据时执行：
+
+```bash
+uv run python -m src.backend.knowledge rebuild
+```
+
+默认使用百炼 `text-embedding-v4` 的 1024 维向量，并复用
+`DASHSCOPE_API_KEY` 与 `LLM_BASE_URL`。也可单独设置：
+
+```dotenv
+EMBEDDING_BASE_URL=https://example.com/compatible-mode/v1
+EMBEDDING_MODEL=text-embedding-v4
+EMBEDDING_DIMENSIONS=1024
+```
+
+Agent 先调用 `search_animal_knowledge` 进行动物精确匹配与语义召回；仅在讲解需要
+上下文时，使用本轮返回的 Chunk ID 调用 `get_neighboring_knowledge_chunks`，且不会
+跨越讲解章节边界。
 
 ## 爬虫运行
 

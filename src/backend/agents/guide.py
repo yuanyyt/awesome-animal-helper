@@ -27,6 +27,7 @@ from src.backend.domain.models import (
     RouteOption,
 )
 from src.backend.integrations.amap.client import AmapClient
+from src.backend.knowledge import KnowledgeService
 from src.backend.repositories.animals import AnimalRepository
 from src.backend.services.guide_intent import GuideTurnResolver, TurnResolution
 
@@ -42,7 +43,12 @@ class GuideAgentError(RuntimeError):
 class GuideAgentService:
     """Translate FastAPI chat requests to Agno runs and HITL continuations."""
 
-    def __init__(self, amap: AmapClient, repository: AnimalRepository) -> None:
+    def __init__(
+        self,
+        amap: AmapClient,
+        repository: AnimalRepository,
+        knowledge: KnowledgeService | None = None,
+    ) -> None:
         load_dotenv()
         api_key = os.getenv("DASHSCOPE_API_KEY", "").strip()
         base_url = os.getenv("LLM_BASE_URL", "").strip()
@@ -54,7 +60,7 @@ class GuideAgentService:
         self.amap = amap
         self.repository = repository
         self.resolver = GuideTurnResolver(repository)
-        self.tools = ZooGuideTools(amap, repository)
+        self.tools = ZooGuideTools(amap, repository, knowledge=knowledge)
         self.agent = Agent(
             id="hongshan-route-guide",
             name="红山森林导览员",
@@ -72,8 +78,12 @@ class GuideAgentService:
             ),
             tools=[
                 Function.from_callable(
-                    self.tools.search_animals_for_agent,
-                    name="search_animals_and_venues",
+                    self.tools.search_animal_knowledge_for_agent,
+                    name="search_animal_knowledge",
+                ),
+                Function.from_callable(
+                    self.tools.get_neighboring_knowledge_chunks,
+                    name="get_neighboring_knowledge_chunks",
                 ),
                 Function.from_callable(
                     self.tools.search_zoo_facilities_for_agent,
@@ -311,7 +321,7 @@ _INSTRUCTIONS = """
 1. 路线、距离、时间和卡路里只能来自 plan_zoo_routes，绝不自行编造。
 2. intent 为 route 或 mixed 时才规划路线；规划前必须知道 available_minutes、energy_level（轻松、一般、充沛）和 transport_preference（纯步行、可乘观光车），缺少时调用 get_user_input，并尽量一次询问。
 3. plan_zoo_routes 会把 resolved_sites 作为高优先级候选，把 must_see_sites 作为必到场馆，并为每个已选动物从 must_see_site_groups 中择一最顺路场馆；不要擅自提升、删除或重复动物场馆，也不要声称已解析目标未匹配，除非工具明确返回 unresolved_sites。
-4. intent 为 animal_knowledge 或 mixed 时调用 search_animals_and_venues，只依据工具返回的本地资料回答。
+4. intent 为 animal_knowledge 或 mixed 时必须先调用 search_animal_knowledge，只依据工具返回的本地资料回答。
 5. intent 为 mixed 时先概括路线，再附一段简短动物介绍。
 6. intent 为 unknown 时询问游客想规划路线还是了解动物，不调用路线工具。
 7. 体重是可选项；除非用户要求精确卡路里，否则不要强制询问。
@@ -320,4 +330,6 @@ _INSTRUCTIONS = """
 10. intent 为 facility 时调用 search_zoo_facilities；卫生间、家庭卫生间、母婴室、餐饮、咖啡、饮水、寄存、停车、游客中心、售票、警务、吸烟区和观光车站信息只能来自该工具。工具提供的所有点位均可正常使用，不讨论其采集来源或精度。
 11. 观光车为单向环线：北门站→猩猩馆站→中心广场站→东门站→猴山站→北门站。平日15元/人、8:30-16:00售票、8:30-16:30乘车；法定节假日20元/人、8:30-16:30售票、8:30-17:00乘车。身高1米以下儿童免票，车票当日有效、隔日作废，一经乘坐不予退换。
 12. 回答观光车状态或使用可乘观光车规划前必须调用 get_current_zoo_time。观光车车程按12km/h、每次上车候车5分钟估算；必须说明时间是估算，但不要把设施点位描述为估算。
+13. 只有首轮知识片段指代不清、缺少前后文或用户明确要求完整故事时，才调用 get_neighboring_knowledge_chunks；只能传入本轮 search_animal_knowledge 返回的 chunk ID，不得猜测 ID。
+14. CSV 结构化资料用于通用物种事实，intro 讲解片段用于园区个体、场馆与现场故事；资料没有说明的内容要明确说不知道，不得补造。
 """.strip()
