@@ -16,6 +16,10 @@
   --color-cyan-soft: oklch(92% 0.04 194);
   --color-coral: oklch(66% 0.17 42);
   --color-coral-soft: oklch(92% 0.045 48);
+  --color-map-walk: oklch(62% 0.17 42);
+  --color-map-shuttle: oklch(53% 0.1 205);
+  --color-map-shuttle-active: oklch(57% 0.12 202);
+  --color-map-route-halo: oklch(98.5% 0.014 92);
   --color-leaf: oklch(62% 0.13 137);
   --color-leaf-soft: oklch(86% 0.065 132);
   --color-sun: oklch(82% 0.15 88);

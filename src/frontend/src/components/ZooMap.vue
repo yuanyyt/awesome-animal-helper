@@ -32,11 +32,10 @@ type MapPointLike = { longitude: number; latitude: number };
 // avoid passing unsupported oklch() values to different browser renderers.
 const AMAP_COLORS = {
   paper: "#f8f2df",
-  ink: "#0b2f0e",
   accent: "#2b641d",
-  danger: "#9b1e20",
+  walking: "#d45f36",
   shuttle: "#157f86",
-  activeShuttle: "#00aeb8",
+  activeShuttle: "#008f99",
 } as const;
 
 const emit = defineEmits<{
@@ -58,10 +57,10 @@ let amapMarkers: AmapMarker[] = [];
 let facilityMarkers: { marker: AmapMarker; facility: FacilityPoint }[] = [];
 let routeOverlays: AmapOverlay[] = [];
 let shuttleOverlay: AmapOverlay | undefined;
-let routeLabelMarkers: AmapMarker[] = [];
 let originMarker: AmapMarker | undefined;
 let boundaryLine: AmapOverlay | undefined;
 let mapBounds: AmapBounds | undefined;
+let mapLimitBounds: AmapBounds | undefined;
 let readinessTimer: number | undefined;
 let locationAttempt = 0;
 let automaticLocationAttempted = false;
@@ -69,16 +68,46 @@ const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
 );
 const selectedFacility = ref<FacilityPoint | null>(null);
-type FacilityGroup = "essentials" | "transport" | "services";
-const enabledFacilityGroups = ref<Set<FacilityGroup>>(new Set(["essentials"]));
-const facilityGroups: { id: FacilityGroup; label: string }[] = [
-  { id: "essentials", label: "卫生间 · 餐饮 · 饮水 · 观光车" },
-  { id: "services", label: "游客服务 · 商店 · 寄存" },
-  { id: "transport", label: "出入口 · 公共交通 · 停车" },
+type FacilityGroup = "common" | "refreshment" | "family" | "transport" | "none";
+const activeFacilityGroup = ref<FacilityGroup>("common");
+const facilityGroups: {
+  id: FacilityGroup;
+  label: string;
+  categories: FacilityCategory[];
+}[] = [
+  {
+    id: "common",
+    label: "常用服务",
+    categories: ["entrance", "visitor_center", "tour_bus_station"],
+  },
+  {
+    id: "refreshment",
+    label: "休息补给",
+    categories: ["drinking_water", "restaurant", "coffee", "shopping"],
+  },
+  {
+    id: "family",
+    label: "卫生亲子",
+    categories: ["toilet", "family_toilet", "nursing_room"],
+  },
+  {
+    id: "transport",
+    label: "出行保障",
+    categories: [
+      "metro", "bus_terminal", "train_station", "parking", "ticket_office",
+      "bag_storage", "mobility_rental", "police", "smoking_area",
+    ],
+  },
+  { id: "none", label: "隐藏服务", categories: [] },
 ];
+const activeFacilityCategories = computed(
+  () => new Set(
+    facilityGroups.find((group) => group.id === activeFacilityGroup.value)?.categories ?? [],
+  ),
+);
 const visibleFacilities = computed(() =>
   (props.guide?.facilities ?? []).filter((facility) =>
-    enabledFacilityGroups.value.has(facilityGroup(facility.category)),
+    activeFacilityCategories.value.has(facility.category),
   ),
 );
 const displayedRouteSites = computed(() => props.activeRoute?.sites ?? props.routeSites);
@@ -192,6 +221,7 @@ watch(
   () => props.selectedSite,
   (site) => {
     const point = props.guide?.points.find((candidate) => candidate.site === site);
+    if (site) selectedFacility.value = null;
     updateInteractiveMarkers(site);
     if (point && map) map.panTo([point.longitude, point.latitude]);
   },
@@ -215,9 +245,16 @@ async function initializeInteractiveMap(): Promise<void> {
       zoom: props.guide.zoom,
       viewMode: "2D",
       resizeEnable: true,
+      dragEnable: true,
+      zoomEnable: true,
+      touchZoom: true,
+      scrollWheel: true,
+      doubleClickZoom: true,
+      keyboardEnable: true,
     });
     const bounds = createAmapBounds(AMap, path);
     mapBounds = bounds;
+    mapLimitBounds = createAmapBounds(AMap, path, 0.45);
     if (path.length >= 3) {
       boundaryLine = new AMap.Polygon({
         path: outsideMaskPath(path),
@@ -232,6 +269,7 @@ async function initializeInteractiveMap(): Promise<void> {
     }
     map.on("complete", markInteractiveMapReady);
     map.on("click", handleMapClick);
+    map.on("zoomend", updateMarkerZoomState);
     readinessTimer = window.setTimeout(() => {
       if (interactiveReady.value) return;
       destroyInteractiveMap();
@@ -242,14 +280,13 @@ async function initializeInteractiveMap(): Promise<void> {
       const marker = new AMap.Marker({
         position: [point.longitude, point.latitude],
         content,
-        offset: new AMap.Pixel(-22, -22),
+        offset: new AMap.Pixel(-16, -16),
         title: point.poi_name,
         zIndex: 220,
       });
       content.addEventListener("click", (event) => {
         event.stopPropagation();
-        emit("select", point.site);
-        emit("routeToggle", point.site);
+        selectVenue(point.site);
       });
       return marker;
     });
@@ -275,7 +312,7 @@ function markInteractiveMapReady(): void {
   readinessTimer = undefined;
   if (map && mapBounds) {
     map.setBounds(mapBounds, true, [24, 24, 24, 24]);
-    map.setLimitBounds(mapBounds);
+    if (mapLimitBounds) map.setLimitBounds(mapLimitBounds);
   }
   interactiveReady.value = true;
   updateRouteOverlay();
@@ -293,6 +330,12 @@ function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
   return button;
 }
 
+function selectVenue(site: string): void {
+  selectedFacility.value = null;
+  emit("select", site);
+  emit("routeToggle", site);
+}
+
 function createFacilityMarkers(): void {
   if (!map || !window.AMap || !props.guide) return;
   const AMap = window.AMap;
@@ -300,7 +343,6 @@ function createFacilityMarkers(): void {
     const content = document.createElement("button");
     content.type = "button";
     content.className = "zoo-map__facility-marker";
-    content.dataset.group = facilityGroup(facility.category);
     content.textContent = facilityIcon(facility.category);
     content.title = facility.name;
     content.setAttribute("aria-label", `${facility.name}，${facilityLabel(facility.category)}`);
@@ -329,12 +371,12 @@ function createShuttleOverlay(): void {
       (point) => [point.longitude, point.latitude] as [number, number],
     ),
     strokeColor: AMAP_COLORS.shuttle,
-    strokeWeight: 5,
-    strokeOpacity: 0.7,
+    strokeWeight: 4,
+    strokeOpacity: 0.62,
     strokeStyle: "dashed",
     lineJoin: "round",
     lineCap: "round",
-    showDir: true,
+    showDir: false,
     zIndex: 120,
   });
   map.add(shuttleOverlay);
@@ -373,39 +415,25 @@ function moveInsideBoundary(point: MapPointLike): MapPointLike {
   return center;
 }
 
-function toggleFacilityGroup(group: FacilityGroup): void {
-  const next = new Set(enabledFacilityGroups.value);
-  if (next.has(group)) next.delete(group);
-  else next.add(group);
-  enabledFacilityGroups.value = next;
+function selectFacilityGroup(group: FacilityGroup): void {
+  activeFacilityGroup.value = group;
+  selectedFacility.value = null;
   updateFacilityVisibility();
 }
 
 function updateFacilityVisibility(): void {
   for (const { marker, facility } of facilityMarkers) {
-    marker.getContent().hidden = !enabledFacilityGroups.value.has(
-      facilityGroup(facility.category),
-    );
+    marker.getContent().hidden = !activeFacilityCategories.value.has(facility.category);
   }
-}
-
-function facilityGroup(category: FacilityCategory): FacilityGroup {
-  if (["metro", "bus_terminal", "train_station", "entrance", "parking"].includes(category)) {
-    return "transport";
-  }
-  if (["visitor_center", "bag_storage", "ticket_office", "mobility_rental", "police", "shopping", "smoking_area"].includes(category)) {
-    return "services";
-  }
-  return "essentials";
 }
 
 function facilityIcon(category: FacilityCategory): string {
   const icons: Record<FacilityCategory, string> = {
-    metro: "🚇", bus_terminal: "🚌", train_station: "🚆", visitor_center: "ℹ️",
-    entrance: "🚪", bag_storage: "🧳", ticket_office: "🎟️", parking: "🅿️",
-    smoking_area: "🚬", drinking_water: "🚰", tour_bus_station: "🚐",
-    mobility_rental: "♿", police: "👮", shopping: "🛍️", restaurant: "🍽️",
-    coffee: "☕", toilet: "🚻", nursing_room: "🍼", family_toilet: "👪",
+    metro: "地", bus_terminal: "巴", train_station: "站", visitor_center: "服",
+    entrance: "门", bag_storage: "存", ticket_office: "票", parking: "P",
+    smoking_area: "烟", drinking_water: "水", tour_bus_station: "车",
+    mobility_rental: "借", police: "警", shopping: "店", restaurant: "餐",
+    coffee: "咖", toilet: "卫", nursing_room: "婴", family_toilet: "亲",
   };
   return icons[category];
 }
@@ -432,16 +460,24 @@ function updateInteractiveMarkers(site: string): void {
     const routeSite = routeIndex >= 0;
     button.classList.toggle("is-active", active);
     button.classList.toggle("is-route-stop", routeSite);
+    button.classList.toggle("is-label-visible", (map?.getZoom() ?? 0) >= 17);
     button.classList.toggle(
       "is-label-left",
       (routeSite ? routeIndex : Number(button.dataset.defaultIndex ?? 1) - 1) % 2 === 1,
     );
     renderMarkerContent(
       button,
-      routeSite ? routeIndex + 1 : Number(button.dataset.defaultIndex ?? 0),
+      routeSite ? routeIndex + 1 : 0,
       routeSite ? routeAnimals(markerSite) : [],
     );
     button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function updateMarkerZoomState(): void {
+  const labelsVisible = (map?.getZoom() ?? 0) >= 17;
+  for (const marker of amapMarkers) {
+    marker.getContent().classList.toggle("is-label-visible", labelsVisible);
   }
 }
 
@@ -460,7 +496,7 @@ function renderMarkerContent(
 
   const number = document.createElement("span");
   number.className = "zoo-map__marker-number";
-  number.textContent = String(markerNumber);
+  number.textContent = markerNumber > 0 ? String(markerNumber) : "";
   const siteName = document.createElement("span");
   siteName.className = "zoo-map__marker-site-name";
   siteName.textContent = button.dataset.site ?? "";
@@ -489,9 +525,9 @@ function renderMarkerContent(
   }
 }
 
-function markerNumber(point: MapPoint, fallbackIndex: number): number {
+function markerNumber(point: MapPoint): number {
   const routeIndex = displayedRouteSites.value.indexOf(point.site);
-  return routeIndex >= 0 ? routeIndex + 1 : fallbackIndex + 1;
+  return routeIndex >= 0 ? routeIndex + 1 : 0;
 }
 
 function markerLabelLeft(point: MapPoint, fallbackIndex: number): boolean {
@@ -506,11 +542,11 @@ function destroyInteractiveMap(): void {
   amapMarkers = [];
   facilityMarkers = [];
   routeOverlays = [];
-  routeLabelMarkers = [];
   originMarker = undefined;
   boundaryLine = undefined;
   shuttleOverlay = undefined;
   mapBounds = undefined;
+  mapLimitBounds = undefined;
   map?.destroy();
   map = undefined;
   interactiveReady.value = false;
@@ -615,17 +651,17 @@ function updateRouteOverlay(): void {
     const shuttle = leg.mode === "shuttle";
     const halo = new window.AMap.Polyline({
       path,
-      strokeColor: AMAP_COLORS.ink,
-      strokeWeight: shuttle ? 15 : 17,
-      strokeOpacity: 0.82,
+      strokeColor: AMAP_COLORS.paper,
+      strokeWeight: shuttle ? 11 : 12,
+      strokeOpacity: 0.92,
       lineJoin: "round",
       lineCap: "round",
       zIndex: 148,
     });
     const line = new window.AMap.Polyline({
       path,
-      strokeColor: shuttle ? AMAP_COLORS.activeShuttle : AMAP_COLORS.danger,
-      strokeWeight: shuttle ? 8 : 10,
+      strokeColor: shuttle ? AMAP_COLORS.activeShuttle : AMAP_COLORS.walking,
+      strokeWeight: shuttle ? 6 : 7,
       strokeOpacity: 1,
       strokeStyle: "solid",
       lineJoin: "round",
@@ -636,19 +672,6 @@ function updateRouteOverlay(): void {
     routeOverlays.push(halo, line);
     map.add(halo);
     map.add(line);
-
-    const midpoint = routeMidpoint(leg.path);
-    if (!midpoint) continue;
-    const content = createRouteLegLabel(leg.minutes, leg.mode);
-    const marker = new window.AMap.Marker({
-      position: [midpoint.longitude, midpoint.latitude],
-      content,
-      offset: new window.AMap.Pixel(-42, -20),
-      title: `${leg.from_name}到${leg.to_name}${shuttle ? "乘观光车" : "步行"}约${leg.minutes}分钟`,
-      zIndex: 260,
-    });
-    routeLabelMarkers.push(marker);
-    map.add(marker);
   }
 
   const visibleLines = routeOverlays.filter((_, index) => index % 2 === 1);
@@ -658,58 +681,7 @@ function updateRouteOverlay(): void {
 function removeRouteOverlays(): void {
   if (!map) return;
   for (const overlay of routeOverlays) map.remove(overlay);
-  for (const marker of routeLabelMarkers) map.remove(marker);
   routeOverlays = [];
-  routeLabelMarkers = [];
-}
-
-function createRouteLegLabel(minutes: number, mode: "walking" | "shuttle"): HTMLElement {
-  const label = document.createElement("span");
-  label.className = "zoo-map__leg-label";
-  const time = document.createElement("strong");
-  time.textContent = `${minutes} 分钟`;
-  const modeLabel = document.createElement("small");
-  modeLabel.textContent = mode === "shuttle" ? "观光车·估算" : "步行";
-  label.classList.toggle("is-shuttle", mode === "shuttle");
-  label.append(time, modeLabel);
-  return label;
-}
-
-function routeMidpoint(points: { longitude: number; latitude: number }[]) {
-  if (!points.length) return null;
-  if (points.length === 1) return points[0];
-  const lengths = points.slice(1).map((point, index) =>
-    localDistance(points[index], point),
-  );
-  const halfway = lengths.reduce((total, length) => total + length, 0) / 2;
-  let walked = 0;
-  for (let index = 0; index < lengths.length; index += 1) {
-    const segment = lengths[index];
-    if (walked + segment < halfway || segment === 0) {
-      walked += segment;
-      continue;
-    }
-    const ratio = (halfway - walked) / segment;
-    return {
-      longitude:
-        points[index].longitude +
-        (points[index + 1].longitude - points[index].longitude) * ratio,
-      latitude:
-        points[index].latitude +
-        (points[index + 1].latitude - points[index].latitude) * ratio,
-    };
-  }
-  return points.at(-1) ?? null;
-}
-
-function localDistance(
-  from: { longitude: number; latitude: number },
-  to: { longitude: number; latitude: number },
-): number {
-  const averageLatitude = ((from.latitude + to.latitude) / 2) * (Math.PI / 180);
-  const longitude = (to.longitude - from.longitude) * Math.cos(averageLatitude);
-  const latitude = to.latitude - from.latitude;
-  return Math.hypot(longitude, latitude);
 }
 
 function staticLegPoints(points: { longitude: number; latitude: number }[]): string {
@@ -719,22 +691,6 @@ function staticLegPoints(points: { longitude: number; latitude: number }[]): str
       return `${position.x.toFixed(1)},${position.y.toFixed(1)}`;
     })
     .join(" ");
-}
-
-function staticLegLabelStyle(
-  points: { longitude: number; latitude: number }[],
-  index: number,
-): Record<string, string> {
-  const midpoint = routeMidpoint(points);
-  if (!midpoint) return {};
-  const position = staticMapPosition(midpoint.longitude, midpoint.latitude);
-  const left = Math.min(76, Math.max(24, position.x / 10.24));
-  const top = Math.min(82, Math.max(18, position.y / 6.4));
-  return {
-    "--leg-left": `${left.toFixed(2)}%`,
-    "--leg-top": `${top.toFixed(2)}%`,
-    "--leg-nudge-y": index % 2 ? "-2.5rem" : "2.5rem",
-  };
 }
 
 function staticMapPosition(longitude: number, latitude: number): { x: number; y: number } {
@@ -754,14 +710,25 @@ function staticMapPosition(longitude: number, latitude: number): { x: number; y:
 function createAmapBounds(
   AMap: AmapGlobal,
   path: [number, number][],
+  paddingRatio = 0,
 ): AmapBounds | undefined {
   const bounds = polygonBounds(
     path.map(([longitude, latitude]) => ({ longitude, latitude })),
   );
   if (!bounds) return undefined;
+  const longitudePadding =
+    (bounds.northEast.longitude - bounds.southWest.longitude) * paddingRatio;
+  const latitudePadding =
+    (bounds.northEast.latitude - bounds.southWest.latitude) * paddingRatio;
   return new AMap.Bounds(
-    [bounds.southWest.longitude, bounds.southWest.latitude],
-    [bounds.northEast.longitude, bounds.northEast.latitude],
+    [
+      bounds.southWest.longitude - longitudePadding,
+      bounds.southWest.latitude - latitudePadding,
+    ],
+    [
+      bounds.northEast.longitude + longitudePadding,
+      bounds.northEast.latitude + latitudePadding,
+    ],
   );
 }
 
@@ -855,6 +822,8 @@ interface AmapMap {
   destroy(): void;
   on(event: "complete", handler: () => void): void;
   on(event: "click", handler: (event: AmapMapClickEvent) => void): void;
+  on(event: "zoomend", handler: () => void): void;
+  getZoom(): number;
   panTo(position: [number, number]): void;
   setBounds(bounds: AmapBounds, immediately: boolean, padding: number[]): void;
   setFitView(overlays: AmapOverlay[], immediately: boolean, padding: number[]): void;
@@ -963,9 +932,9 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             v-for="group in facilityGroups"
             :key="group.id"
             type="button"
-            :class="{ 'is-active': enabledFacilityGroups.has(group.id) }"
-            :aria-pressed="enabledFacilityGroups.has(group.id)"
-            @click="toggleFacilityGroup(group.id)"
+            :class="{ 'is-active': activeFacilityGroup === group.id }"
+            :aria-pressed="activeFacilityGroup === group.id"
+            @click="selectFacilityGroup(group.id)"
           >
             {{ group.label }}
           </button>
@@ -1014,16 +983,6 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
               <polyline class="is-route" :points="staticLegPoints(leg.path)" />
             </g>
           </svg>
-          <span
-            v-for="(leg, index) in routeLegs"
-            :key="`label-${leg.id}`"
-            class="zoo-map__leg-label is-static"
-            :class="{ 'is-shuttle': leg.mode === 'shuttle' }"
-            :style="staticLegLabelStyle(leg.path, index)"
-          >
-            <strong>{{ leg.minutes }} 分钟</strong>
-            <small>{{ leg.mode === "shuttle" ? "观光车·估算" : "步行" }}</small>
-          </span>
           <button
             v-for="facility in visibleFacilities"
             :key="facility.id"
@@ -1049,9 +1008,9 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             type="button"
             :aria-label="`查看${point.site}，${point.animal_count}种动物`"
             :aria-pressed="selectedSite === point.site"
-            @click="emit('select', point.site); emit('routeToggle', point.site)"
+            @click="selectVenue(point.site)"
           >
-            <span class="zoo-map__marker-number">{{ markerNumber(point, index) }}</span>
+            <span class="zoo-map__marker-number">{{ markerNumber(point) }}</span>
             <span class="zoo-map__marker-site-name">{{ point.site }}</span>
             <span
               v-if="routeAnimals(point.site).length"
@@ -1078,21 +1037,28 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
         </li>
       </ol>
 
-      <aside v-if="selectedFacility" class="zoo-map__facility-detail" aria-live="polite">
-        <span>{{ facilityIcon(selectedFacility.category) }}</span>
-        <p><strong>{{ selectedFacility.name }}</strong><small>{{ facilityLabel(selectedFacility.category) }} · {{ selectedFacility.address }}</small></p>
-        <button type="button" aria-label="关闭设施信息" @click="selectedFacility = null">×</button>
-      </aside>
-
-      <div class="zoo-map__caption">
+      <div class="zoo-map__caption" aria-live="polite">
+        <span v-if="selectedFacility" class="zoo-map__caption-icon" aria-hidden="true">
+          {{ facilityIcon(selectedFacility.category) }}
+        </span>
         <div>
-          <p>{{ selectedPoint ? selectedPoint.poi_name : "选择地图上的琥珀色点位" }}</p>
-          <span v-if="selectedPoint">
+          <p>{{ selectedFacility?.name || selectedPoint?.poi_name || "点按场馆或服务点查看详情" }}</p>
+          <span v-if="selectedFacility">
+            {{ facilityLabel(selectedFacility.category) }} · {{ selectedFacility.address }}
+          </span>
+          <span v-else-if="selectedPoint">
             {{ selectedPoint.address }} · {{ selectedPoint.animal_count }} 种动物
           </span>
-          <span v-else>高德已收录 {{ guide.points.length }} 个园内场馆点位 · 绿色轮廓来自 OSM way {{ guide.boundary.object_id }}</span>
+          <span v-else>琥珀色圆点为场馆，方形标记为当前服务分类</span>
         </div>
-        <strong v-if="selectedPoint">下方查看馆内动物 ↓</strong>
+        <button
+          v-if="selectedFacility"
+          class="zoo-map__caption-close"
+          type="button"
+          aria-label="关闭设施信息"
+          @click="selectedFacility = null"
+        >×</button>
+        <strong v-else-if="selectedPoint">下方查看馆内动物 ↓</strong>
         <small v-else>
           地图来自 {{ guide.provider }} ·
           <a :href="guide.boundary.source_url" target="_blank" rel="noreferrer">{{ guide.boundary.attribution }}</a>

@@ -282,7 +282,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     </div>
   </header>
 
-  <main id="top" class="app-pages">
+  <main id="top" class="app-pages" :class="{ 'is-intro': activePage === 'intro' }">
     <section
       class="page-panel guide-hero"
       :class="{ 'is-active': activePage === 'intro' }"
@@ -291,13 +291,26 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       aria-labelledby="intro-title"
     >
       <div class="guide-hero__copy">
+        <div class="guide-hero__identity" aria-label="南京红山森林动物园">
+          <span class="guide-hero__mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40">
+              <path d="M6 28.5 15.5 17l6 6.5L27 14l7 14.5H6Z" />
+              <path d="M20 10.5c4.7-4.8 9-4.9 12.7-1.1-3.4 4.7-7.7 5.1-12.7 1.1Z" />
+              <path d="M20 10.5c1.2 4 1.1 7.7-.3 11.2" />
+            </svg>
+          </span>
+          <span>
+            <strong>南京 · 红山森林动物园</strong>
+            <small>城市里的森林动物园</small>
+          </span>
+        </div>
         <h1 id="intro-title">在城市的森林里，认识每一位邻居。</h1>
         <p class="guide-hero__lede">
-          从一座场馆出发，听听动物们的故事。这里整理了它们的栖息地、食性、行为和保护状态，也留下一些值得带回家的有趣发现。
+          从动物故事到实时导览，陪你更轻松地逛红山森林动物园。
         </p>
         <div class="guide-hero__actions">
-          <button class="button-link is-primary" type="button" @click="showPage('guide')">打开园区地图</button>
-          <button class="button-link" type="button" @click="showPage('animals')">认识动物邻居</button>
+          <button class="button-link is-primary" type="button" @click="showPage('guide')">园区导览</button>
+          <button class="button-link" type="button" @click="showPage('animals')">动物邻居</button>
         </div>
       </div>
       <div class="guide-hero__art">

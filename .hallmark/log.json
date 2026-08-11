@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-08-12",
+    "macrostructure": "Split Studio",
+    "theme": "custom",
+    "theme_axes": "light / high-contrast-serif / chromatic-green",
+    "vibe": "warm fixed mobile zoo welcome",
+    "enrichment": "Tier-B local SVG",
+    "nav": "existing field tabs and mobile bottom navigation",
+    "footer": "none",
+    "brief": "固定一屏的红山动物园移动端首页与品牌入口"
+  },
+  {
+    "date": "2026-08-12",
     "macrostructure": "Ecosystem Index",
     "theme": "custom",
     "theme_axes": "light / high-contrast-serif / chromatic-green",
