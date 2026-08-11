@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 
 from src.backend.domain.models import (
@@ -17,6 +19,7 @@ from src.backend.domain.models import (
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "wx_info" / "wiki"
 MANIFEST_PATH = DATA_DIR / "manifest.json"
+_SEARCH_TOKEN = re.compile(r"[a-z0-9]+|[\u4e00-\u9fff]")
 
 
 class WikiRepository:
@@ -94,6 +97,68 @@ class WikiRepository:
             counts[item["animal_name"]] += int(item.get("fact_count", 0))
         return dict(counts)
 
+    def search_facts(
+        self,
+        query: str,
+        animal_names: Sequence[str] = (),
+        site_names: Sequence[str] = (),
+        limit: int = 6,
+    ) -> list[dict]:
+        """Return compact, ranked Wiki facts without loading page Markdown."""
+
+        self._ensure_current()
+        query_text = _normalize(query)
+        selected_animals = {_normalize(name) for name in animal_names if name}
+        preferred_sites = {_normalize(name) for name in site_names if name}
+        query_tokens = _search_tokens(query_text)
+        ranked: list[tuple[int, int, int, dict]] = []
+        for item_index, item in enumerate(self._items):
+            animal = str(item.get("animal_name", ""))
+            aliases = [str(alias) for alias in item.get("aliases", [])]
+            identities = {_normalize(animal), *(_normalize(alias) for alias in aliases)}
+            if selected_animals and identities.isdisjoint(selected_animals):
+                continue
+
+            site = str(item.get("site", ""))
+            scientific_name = str(item.get("scientific_name", ""))
+            identity_score = 100 if selected_animals else 0
+            identity_score += 30 * sum(
+                bool(value and value in query_text)
+                for value in [*identities, _normalize(scientific_name)]
+            )
+            if _normalize(site) in preferred_sites:
+                identity_score += 20
+            if site and _normalize(site) in query_text:
+                identity_score += 20
+
+            for fact_index, fact in enumerate(item.get("facts", [])):
+                if not isinstance(fact, dict):
+                    continue
+                fact_text = str(fact.get("text", ""))
+                evidence = str(fact.get("evidence", ""))
+                searchable = _normalize(f"{fact_text} {evidence}")
+                content_score = sum(token in searchable for token in query_tokens)
+                score = identity_score + content_score
+                if score <= 0:
+                    continue
+                ranked.append(
+                    (
+                        score,
+                        item_index,
+                        fact_index,
+                        {
+                            "animal_name": animal,
+                            "scientific_name": scientific_name,
+                            "site": site,
+                            "text": fact_text,
+                            "evidence": evidence,
+                            "source": fact.get("source", {}),
+                        },
+                    )
+                )
+        ranked.sort(key=lambda row: (-row[0], row[1], row[2]))
+        return [row[3] for row in ranked[: max(1, min(limit, 6))]]
+
     def _ensure_current(self) -> None:
         try:
             mtime_ns = self.manifest_path.stat().st_mtime_ns
@@ -136,3 +201,14 @@ def _matches(item: dict, query: str) -> bool:
         ]
     )
     return query in text.casefold()
+
+
+def _normalize(value: str) -> str:
+    return "".join(value.casefold().split())
+
+
+def _search_tokens(query: str) -> set[str]:
+    parts = _SEARCH_TOKEN.findall(query)
+    latin = {part for part in parts if len(part) >= 2 and part.isascii()}
+    chinese = "".join(part for part in parts if not part.isascii())
+    return latin | {chinese[index : index + 2] for index in range(len(chinese) - 1)}

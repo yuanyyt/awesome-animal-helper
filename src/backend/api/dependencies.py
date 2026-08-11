@@ -54,6 +54,7 @@ def get_guide_agent() -> GuideAgentService:
         get_amap_client(),
         get_repository(),
         get_knowledge_service(),
+        get_wiki_repository(),
     )
 
 

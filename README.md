@@ -114,9 +114,12 @@ EMBEDDING_MODEL=text-embedding-v4
 EMBEDDING_DIMENSIONS=1024
 ```
 
-Agent 先调用 `search_animal_knowledge` 进行动物精确匹配与语义召回；仅在讲解需要
-上下文时，使用本轮返回的 Chunk ID 调用 `get_neighboring_knowledge_chunks`，且不会
-跨越讲解章节边界。
+Agent 使用两个独立的动物知识工具：
+
+- `search_animal_knowledge` 负责 CSV 通用物种资料和 `intro.md` 场馆讲解的精确匹配与语义召回。只有需要上下文时，才使用本轮返回的 Chunk ID 调用 `get_neighboring_knowledge_chunks`，且不会跨越讲解章节边界。
+- `search_animal_wiki_stories` 负责昵称、具体个体、饲养训练和公众号园区故事，每条结果保留文章标题、链接和原文证据。
+
+通用物种知识与园区趣事可在同一轮同时检索。Wiki 中特定个体的经历不会被当作整个物种的普遍习性。
 
 ## 爬虫运行
 

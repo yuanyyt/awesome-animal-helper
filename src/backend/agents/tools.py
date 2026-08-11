@@ -16,6 +16,7 @@ from src.backend.integrations.amap.client import AmapClient
 from src.backend.knowledge import KnowledgeService
 from src.backend.knowledge.service import KnowledgeBuildError
 from src.backend.repositories.animals import AnimalRepository
+from src.backend.repositories.wiki import WikiRepository
 from src.backend.services.guide_intent import GuideTurnResolver
 from src.backend.services.route_planner import RoutePlanner, RoutePlanningError
 from src.backend.services.zoo_services import shuttle_service
@@ -53,6 +54,7 @@ class ZooGuideTools:
         repository: AnimalRepository,
         knowledge: KnowledgeService | AnimalKnowledgeProvider | None = None,
         now_provider: Callable[[], datetime] | None = None,
+        wiki: WikiRepository | None = None,
     ) -> None:
         self.amap = amap
         self.repository = repository
@@ -61,6 +63,7 @@ class ZooGuideTools:
         self.local_knowledge = LocalAnimalKnowledgeProvider(repository)
         self.knowledge = knowledge or self.local_knowledge
         self.now_provider = now_provider
+        self.wiki = wiki
 
     def search_zoo_facilities_for_agent(
         self,
@@ -226,6 +229,34 @@ class ZooGuideTools:
             ],
             "matched": len(chunks),
             "message": "已补充同章节前后文" if chunks else "没有找到相邻讲解片段",
+        }
+
+    def search_animal_wiki_stories(
+        self,
+        run_context: RunContext,
+        query: str = "",
+    ) -> dict[str, Any]:
+        """Find sourced zoo-animal stories, individual events, and nicknames."""
+
+        if self.wiki is None:
+            return {"stories": [], "matched": 0, "message": "动物趣事 Wiki 当前不可用"}
+        dependencies = run_context.dependencies or {}
+        try:
+            stories = self.wiki.search_facts(
+                query,
+                animal_names=_string_list(dependencies.get("animal_names")),
+                site_names=_string_list(dependencies.get("resolved_sites")),
+            )
+        except (KeyError, OSError, TypeError, ValueError):
+            stories = []
+        return {
+            "stories": stories,
+            "matched": len(stories),
+            "message": (
+                "资料来自红山动物趣事 Wiki"
+                if stories
+                else "没有找到匹配的园区动物故事"
+            ),
         }
 
     def search_animals_for_agent(
