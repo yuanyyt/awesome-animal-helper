@@ -1433,11 +1433,53 @@ main {
 
 .guide-chat__select select {
   grid-area: 1 / 1;
+  box-sizing: border-box;
+  field-sizing: fixed;
   padding-inline-end: 2.5rem;
   overflow: hidden;
   appearance: none;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@supports (appearance: base-select) {
+  .guide-chat__select select,
+  .guide-chat__select select::picker(select) {
+    appearance: base-select;
+  }
+
+  .guide-chat__select select::picker(select) {
+    top: calc(anchor(bottom) + var(--rule-hair));
+    right: auto;
+    bottom: auto;
+    left: anchor(left);
+    width: anchor-size(width);
+    min-width: anchor-size(width);
+    max-width: anchor-size(width);
+    max-height: calc(100dvh - anchor(bottom) - var(--space-xs));
+    box-sizing: border-box;
+    margin: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    position-try-fallbacks: none;
+    border: var(--rule-hair) solid var(--color-rule-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+  }
+
+  .guide-chat__select select::picker-icon {
+    display: none;
+  }
+
+  .guide-chat__select option {
+    min-width: 0;
+    padding: var(--space-xs) var(--space-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .guide-chat__select svg {

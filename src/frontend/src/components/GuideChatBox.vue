@@ -54,9 +54,9 @@ type TimelineItem =
   | { id: number; kind: "animals" };
 
 const capabilityOptions: { id: GuideCapability; label: string; ariaLabel: string }[] = [
-  { id: "route", label: "路线优先", ariaLabel: "优先路线规划" },
-  { id: "animal", label: "动物优先", ariaLabel: "优先动物讲解" },
-  { id: "service", label: "服务优先", ariaLabel: "优先园区服务" },
+  { id: "route", label: "路线规划", ariaLabel: "优先路线规划" },
+  { id: "animal", label: "动物讲解", ariaLabel: "优先动物讲解" },
+  { id: "service", label: "园区服务", ariaLabel: "优先园区服务" },
 ];
 
 const question = ref("");
@@ -628,7 +628,6 @@ function handleComposerKeydown(event: KeyboardEvent): void {
       </template>
 
       <form v-if="requiredInputs.length" class="guide-chat__hitl" @submit.prevent="submit">
-        <p class="guide-chat__hitl-title">补充这些信息，就可以继续规划</p>
         <label v-for="field in requiredInputs" :key="field.name" :for="fieldInputId(field)">
           <span>{{ field.description }}</span>
           <span v-if="isEnergyField(field)" class="guide-chat__select">

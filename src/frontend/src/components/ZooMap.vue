@@ -1304,7 +1304,6 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           <template v-if="activePanel === 'services'">
             <div class="zoo-map__sheet-heading">
               <strong>在地图上找服务</strong>
-              <span>一次显示一类，地图更容易看清。</span>
             </div>
             <div class="zoo-map__service-options">
               <button
