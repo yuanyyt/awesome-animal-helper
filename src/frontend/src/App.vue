@@ -52,14 +52,6 @@ const siteAnimals = computed(() => {
 });
 type AppPage = "intro" | "animals" | "guide";
 const activePage = ref<AppPage>(pageFromLocation());
-const activePageLabel = computed(() => {
-  const labels: Record<AppPage, string> = {
-    intro: "首页",
-    animals: "动物邻居",
-    guide: "园区导览",
-  };
-  return labels[activePage.value];
-});
 const showBackToTop = ref(false);
 const pageScrollPositions: Record<AppPage, number> = {
   intro: 0,
@@ -325,9 +317,14 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
   <header class="site-nav" :class="`is-${activePage}`">
     <div class="site-nav__inner">
       <a class="site-nav__brand" href="#home" aria-label="返回红山动物指南首页" @click.prevent="showPage('intro')">
-        <strong>红山动物志</strong>
+        <img
+          src="/logo/logo.png"
+          alt=""
+          width="1579"
+          height="382"
+          decoding="async"
+        />
       </a>
-      <strong class="site-nav__mobile-title">{{ activePageLabel }}</strong>
       <nav class="site-nav__links" aria-label="主要导航">
         <div class="page-tabs" aria-label="页面切换">
           <a href="#home" :aria-current="activePage === 'intro' ? 'page' : undefined" @click.prevent="showPage('intro')">首页</a>
