@@ -22,7 +22,8 @@ body {
   color: var(--color-ink);
   font-family: var(--font-body);
   font-size: var(--text-md);
-  line-height: 1.6;
+  line-height: 1.65;
+  text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
 }
 
@@ -287,7 +288,7 @@ main {
   margin-bottom: var(--space-xl);
   font-size: var(--text-display);
   font-weight: 700;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.025em;
   line-height: 0.98;
 }
 
@@ -1134,7 +1135,7 @@ main {
   border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: var(--radius-md);
   background: var(--color-paper-3);
-  box-shadow: 0 var(--space-lg) var(--space-2xl) var(--color-shadow);
+  box-shadow: none;
 }
 
 .guide-chat__intro {
@@ -1335,7 +1336,7 @@ main {
   min-width: 0;
   max-width: 100%;
   display: grid;
-  grid-template-columns: repeat(2, minmax(min(14rem, 100%), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
   padding: var(--space-md);
@@ -1359,20 +1360,56 @@ main {
   font-size: var(--text-xs);
 }
 
-.guide-chat__hitl label > span {
+.guide-chat__hitl label > span:first-child {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .guide-chat__hitl input,
 .guide-chat__hitl select {
+  display: block;
   width: 100%;
+  inline-size: 100%;
   min-width: 0;
   max-width: 100%;
+  max-inline-size: 100%;
+  min-height: 2.75rem;
   padding: var(--space-xs) var(--space-sm);
   border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: var(--radius-sm);
   background: var(--color-paper-3);
+}
+
+.guide-chat__select {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+}
+
+.guide-chat__select select {
+  grid-area: 1 / 1;
+  padding-inline-end: 2.5rem;
+  overflow: hidden;
+  appearance: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-chat__select svg {
+  z-index: 1;
+  width: 1rem;
+  height: 1rem;
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: end;
+  margin-inline-end: var(--space-sm);
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  pointer-events: none;
 }
 
 .route-options {
@@ -1802,9 +1839,10 @@ main {
   max-height: min(44rem, calc(100vh - 2 * var(--space-3xl)));
   margin: var(--space-dialog-top) auto 0;
   overflow: hidden;
+  border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: var(--radius-lg);
   background: var(--color-paper-3);
-  box-shadow: 0 1.5rem 5rem -1rem var(--color-shadow);
+  box-shadow: none;
   animation: dialog-enter var(--dur-medium) var(--ease-out) both;
 }
 
@@ -1820,6 +1858,10 @@ main {
   gap: var(--space-sm);
   padding-inline: var(--space-lg);
   border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+
+.search-dialog__field:focus-within {
+  border-bottom-color: var(--color-accent);
 }
 
 .search-dialog__field input {
@@ -1838,13 +1880,16 @@ main {
 }
 
 .search-dialog__field input:focus-visible {
-  outline-color: var(--color-focus);
+  outline-color: transparent;
 }
 
 .search-dialog__esc {
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding-inline: var(--space-xs);
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: var(--space-sm);
 }
 
 .search-dialog__esc:hover {
@@ -1958,6 +2003,7 @@ main {
   min-height: 100%;
   margin-left: auto;
   overflow: hidden;
+  border-left: var(--rule-hair) solid var(--color-rule-strong);
   background: var(--color-paper-3);
   animation: drawer-enter var(--dur-long) var(--ease-out) both;
 }
@@ -2000,17 +2046,29 @@ main {
   border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: 50%;
   background: var(--color-paper);
-  font-size: var(--text-xl);
-  line-height: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--space-sm);
   transition: transform var(--dur-short) var(--ease-out);
 }
 
 .detail-dialog__close:hover {
-  transform: rotate(5deg);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 .detail-dialog__close:active {
-  transform: rotate(0deg) scale(0.96);
+  transform: scale(0.96);
+}
+
+.detail-dialog__close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
 }
 
 .detail-dialog__illustration {
@@ -2670,6 +2728,7 @@ body {
 }
 
 .guide-workspace > .guide-chat .guide-chat__intro {
+  position: relative;
   min-height: 4.75rem;
   display: grid;
   flex: 0 0 auto;
@@ -2680,6 +2739,18 @@ body {
   padding: 0 0 var(--space-lg);
   border-bottom: var(--rule-hair) solid var(--color-rule);
   background: transparent;
+}
+
+.guide-workspace > .guide-chat .guide-chat__intro::after {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 6.25rem;
+  height: 0.65rem;
+  border-top: var(--rule-strong) solid var(--color-accent);
+  border-radius: 55% 45% 0 0;
+  content: "";
+  transform: rotate(-1.5deg);
 }
 
 .guide-chat__intro > span {
@@ -2728,7 +2799,7 @@ body {
 
 .chat-turn__speaker {
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-xs);
 }
 
@@ -2739,17 +2810,19 @@ body {
 .chat-turn__bubble {
   min-width: 0;
   padding: var(--space-md) var(--space-lg);
-  border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-md);
-  background: var(--color-paper);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
 }
 
 .chat-turn.is-guide .chat-turn__bubble {
+  padding-inline-start: var(--space-lg);
   border-inline-start: var(--rule-strong) solid var(--color-accent);
+  border-radius: 0;
 }
 
 .chat-turn.is-visitor .chat-turn__bubble {
-  border-color: var(--color-accent);
+  border: var(--rule-hair) solid var(--color-accent-border);
   background: var(--color-accent-soft);
 }
 
@@ -3031,16 +3104,26 @@ body {
   width: min(calc(100% - 2 * var(--space-xl)), 54rem);
   padding: var(--space-sm);
   border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   outline: 2px solid transparent;
   outline-offset: 1px;
   background: var(--color-paper);
-  box-shadow: 0 var(--space-md) var(--space-2xl) var(--color-shadow);
+  box-shadow: none;
   transform: translateX(50%);
 }
 
+.guide-chat__dock::before {
+  position: absolute;
+  top: -1px;
+  left: var(--space-lg);
+  width: 4.5rem;
+  border-top: var(--rule-strong) solid var(--color-accent);
+  content: "";
+}
+
 .guide-chat__dock:focus-within {
-  outline-color: var(--color-focus);
+  border-color: var(--color-accent);
+  outline-color: transparent;
 }
 
 /* Hallmark · component: guide tool chips · genre: playful · theme: existing field guide
@@ -3087,7 +3170,7 @@ body {
 }
 
 .guide-tool-chips button.is-active {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-border);
   background: var(--color-accent-soft);
   color: var(--color-accent);
 }
@@ -3389,14 +3472,37 @@ body {
 
   .search-dialog__panel {
     width: 100%;
-    min-height: 100%;
-    max-height: none;
+    min-height: 0;
+    max-height: min(82dvh, 44rem);
     margin: 0;
-    border-radius: 0;
+    padding-top: var(--space-sm);
+    border-width: var(--rule-hair) 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation-name: mobile-dialog-enter;
+  }
+
+  .search-dialog[open] {
+    display: grid;
+    align-items: end;
+  }
+
+  .search-dialog__panel::before {
+    width: 2.75rem;
+    height: 0.25rem;
+    display: block;
+    margin: 0 auto var(--space-xs);
+    border-radius: var(--radius-round);
+    background: var(--color-rule-strong);
+    content: "";
+  }
+
+  @keyframes mobile-dialog-enter {
+    from { opacity: 0; transform: translateY(1.5rem); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .search-dialog__results {
-    max-height: calc(100vh - 8rem);
+    max-height: calc(82dvh - 6rem);
   }
 
   .search-dialog__foot {
@@ -3413,6 +3519,10 @@ body {
 
   .detail-dialog__header {
     padding: var(--space-lg) var(--space-md);
+  }
+
+  .detail-dialog__panel {
+    border-left: 0;
   }
 
   .detail-dialog__header h2 {
@@ -3483,6 +3593,32 @@ body {
   .guide-chat__hitl,
   .route-options {
     grid-template-columns: 1fr;
+  }
+
+  .guide-chat__hitl {
+    width: 100%;
+    max-width: 100%;
+    padding: var(--space-sm);
+    overflow: hidden;
+  }
+
+  .guide-chat__hitl label,
+  .guide-chat__select,
+  .guide-chat__hitl input,
+  .guide-chat__hitl select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .guide-chat__hitl input,
+  .guide-chat__hitl select {
+    font-size: 1rem;
+  }
+
+  .guide-chat__hitl > button {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .route-options > button {
@@ -3558,7 +3694,7 @@ body {
   max-width: 15ch;
   margin: 0;
   font-size: clamp(2.8rem, 6vw, 5.5rem);
-  letter-spacing: -0.05em;
+  letter-spacing: -0.025em;
 }
 
 .animals-page__heading p {
@@ -3641,7 +3777,7 @@ body {
   border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: var(--radius-md);
   background: var(--color-paper-3);
-  box-shadow: 0 var(--space-md) var(--space-2xl) var(--color-shadow);
+  box-shadow: none;
   transform: translateX(50%);
 }
 

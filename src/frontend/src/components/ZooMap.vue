@@ -28,14 +28,13 @@ const props = defineProps<{
 
 type MapPointLike = { longitude: number; latitude: number };
 
-// AMap requires hexadecimal overlay colors. These match the design tokens but
-// avoid passing unsupported oklch() values to different browser renderers.
+// AMap requires literal hexadecimal overlay colors instead of CSS variables.
 const AMAP_COLORS = {
-  paper: "#f8f2df",
-  accent: "#2b641d",
-  walking: "#d45f36",
-  shuttle: "#157f86",
-  activeShuttle: "#008f99",
+  paper: "#fffdf7",
+  accent: "#285c48",
+  walking: "#c65f42",
+  shuttle: "#167d8d",
+  activeShuttle: "#0c6876",
 } as const;
 
 const emit = defineEmits<{

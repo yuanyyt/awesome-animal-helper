@@ -158,7 +158,9 @@ function completeSelection(): void {
             autocomplete="off"
             @keydown="handleKeys"
           />
-          <button type="button" class="search-dialog__esc" @click="emit('close')">Esc</button>
+          <button type="button" class="search-dialog__esc" aria-label="关闭搜索" @click="emit('close')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg>
+          </button>
         </div>
 
         <div class="search-dialog__results" aria-live="polite">

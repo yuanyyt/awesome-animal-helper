@@ -88,7 +88,7 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
     border-top: var(--rule-hair) solid var(--color-rule-strong);
     background: var(--color-paper-3);
     color: var(--color-ink);
-    box-shadow: 0 calc(-1 * var(--space-xs)) var(--space-xl) var(--color-shadow);
+    box-shadow: none;
   }
 
   .mobile-bottom-nav__inner {
@@ -105,13 +105,13 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
     min-width: 0;
     min-height: 4.25rem;
     display: grid;
-    grid-template-rows: 2.5rem auto;
+    grid-template-rows: 2.75rem auto;
     place-items: center;
     align-content: center;
     gap: var(--space-2xs);
     padding: var(--space-2xs) var(--space-xs);
     border: 0;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--color-muted);
     transition: transform var(--dur-short) var(--ease-out), opacity var(--dur-short) var(--ease-out);
@@ -119,8 +119,8 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
   }
 
   .mobile-bottom-nav__icon {
-    width: 2.35rem;
-    height: 2.35rem;
+    width: 2.75rem;
+    height: 2.75rem;
     display: grid;
     place-items: center;
     border: var(--rule-hair) solid transparent;
@@ -128,8 +128,8 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
   }
 
   svg {
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 2rem;
+    height: 2rem;
     overflow: visible;
     fill: none;
     stroke: currentColor;
@@ -168,18 +168,11 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
     color: var(--color-accent);
   }
 
-  button.is-primary {
-    grid-template-rows: 3rem auto;
-  }
-
   button.is-primary .mobile-bottom-nav__icon {
-    width: 3rem;
-    height: 3rem;
-    transform: translateY(calc(-1 * var(--space-xs)));
-    border-color: var(--color-accent);
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
-    box-shadow: 0 var(--space-2xs) var(--space-md) var(--color-shadow);
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: none;
+    box-shadow: none;
   }
 
   button.is-primary svg {

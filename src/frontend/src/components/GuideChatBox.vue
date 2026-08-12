@@ -444,12 +444,18 @@ function scrollToLatest(): void {
         <p class="guide-chat__hitl-title">补充这些信息，就可以继续规划</p>
         <label v-for="field in requiredInputs" :key="field.name">
           <span>{{ field.description }}</span>
-          <select v-if="isEnergyField(field)" v-model="inputValues[field.name]">
-            <option value="轻松">轻松</option><option value="一般">一般</option><option value="充沛">充沛</option>
-          </select>
-          <select v-else-if="isTransportField(field)" v-model="inputValues[field.name]">
-            <option value="纯步行">纯步行</option><option value="可乘观光车">可乘观光车</option>
-          </select>
+          <span v-if="isEnergyField(field)" class="guide-chat__select">
+            <select v-model="inputValues[field.name]">
+              <option value="轻松">轻松</option><option value="一般">一般</option><option value="充沛">充沛</option>
+            </select>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+          </span>
+          <span v-else-if="isTransportField(field)" class="guide-chat__select">
+            <select v-model="inputValues[field.name]">
+              <option value="纯步行">纯步行</option><option value="可乘观光车">可乘观光车</option>
+            </select>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+          </span>
           <input v-else-if="isNumberField(field)" v-model.number="inputValues[field.name]" type="number" min="1" />
           <input v-else v-model="inputValues[field.name]" type="text" />
         </label>

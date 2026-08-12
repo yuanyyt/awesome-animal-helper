@@ -31,6 +31,18 @@ _REQUIRED_COLUMNS = {
     "状态",
 }
 
+_CONSERVATION_LEVEL_PATTERNS = (
+    ("野外灭绝", re.compile(r"野外灭绝|Extinct\s+in\s+the\s+Wild|\bEW\b", re.I)),
+    ("灭绝", re.compile(r"灭绝|Extinct|\bEX\b", re.I)),
+    ("极危", re.compile(r"极危|極危|极度濒危|Critically\s+Endangered|\bCR\b", re.I)),
+    ("濒危", re.compile(r"濒危|瀕危|(?<!Critically\s)Endangered|\bEN\b", re.I)),
+    ("易危", re.compile(r"易危|Vulnerable|\bVU\b", re.I)),
+    ("近危", re.compile(r"近危|Near\s+Threatened|\bNT\b", re.I)),
+    ("无危", re.compile(r"无危|無危|Least\s+Concern|\bLC\b", re.I)),
+    ("数据缺乏", re.compile(r"数据缺乏|資料缺乏|Data\s+Deficient|\bDD\b", re.I)),
+    ("未评估", re.compile(r"未评估|未評估|Not\s+Evaluated|\bNE\b", re.I)),
+)
+
 
 class AnimalRepository:
     """Immutable in-memory view of the two source files."""
@@ -131,7 +143,7 @@ def _read_animals(
                     diet=_optional(row["食性"]),
                     behavior=_optional(row["行为"]),
                     reproduction=_optional(row["繁殖"]),
-                    conservation_status=_optional(row["保护状态"]),
+                    conservation_status=_normalize_conservation_status(row["保护状态"]),
                     fun_facts=_split_facts(row["趣味事实"]),
                     source_url=_optional(row["来源URL"]),
                     language=_optional(row["语言"]),
@@ -156,6 +168,22 @@ def _clean_filter(value: str | None) -> str:
 def _optional(value: str | None) -> str | None:
     cleaned = (value or "").strip()
     return cleaned or None
+
+
+def _normalize_conservation_status(value: str | None) -> str | None:
+    """Return only the first explicit standardized endangered level."""
+
+    text = (value or "").strip()
+    text = re.sub(r"(?:国际自然保护联盟)?濒危物种红色名录", "红色名录", text)
+    text = re.sub(r"濒危野生动植物(?:物种|种)?国际贸易公约", "国际贸易公约", text)
+    text = text.replace("中国濒危动物红皮书等级", "中国动物红皮书等级")
+    matches = (
+        (match.start(), index, level)
+        for index, (level, pattern) in enumerate(_CONSERVATION_LEVEL_PATTERNS)
+        if (match := pattern.search(text))
+    )
+    first = min(matches, default=None)
+    return first[2] if first else None
 
 
 def _split_facts(value: str | None) -> list[str]:

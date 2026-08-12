@@ -35,7 +35,7 @@ const fields: Array<{ key: ProfileFieldKey; label: string }> = [
   { key: "diet", label: "食性" },
   { key: "behavior", label: "行为" },
   { key: "reproduction", label: "繁殖" },
-  { key: "conservation_status", label: "保护状态" },
+  { key: "conservation_status", label: "濒危等级" },
 ];
 const compactFieldLength = 32;
 
@@ -100,7 +100,9 @@ function scrollToStories(): void {
             <h2 id="detail-title">{{ animal.name }}</h2>
             <span v-if="animal.scientific_name?.trim()">{{ animal.scientific_name.trim() }}</span>
           </div>
-          <button class="detail-dialog__close" type="button" aria-label="关闭动物介绍" @click="emit('close')">×</button>
+          <button class="detail-dialog__close" type="button" aria-label="关闭动物介绍" @click="emit('close')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg>
+          </button>
         </header>
 
         <figure class="detail-dialog__illustration">
