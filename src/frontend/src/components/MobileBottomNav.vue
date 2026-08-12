@@ -90,7 +90,7 @@ function navigate(page: NavPage): void {
     left: 0;
     display: block;
     padding: var(--space-xs) max(var(--space-sm), env(safe-area-inset-right)) max(var(--space-xs), env(safe-area-inset-bottom)) max(var(--space-sm), env(safe-area-inset-left));
-    border-top: var(--rule-hair) solid var(--color-rule-strong);
+    border-top: 0;
     background: var(--color-paper-3);
     color: var(--color-ink);
     box-shadow: none;

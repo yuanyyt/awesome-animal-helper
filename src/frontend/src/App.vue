@@ -318,7 +318,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     <div class="site-nav__inner">
       <a class="site-nav__brand" href="#home" aria-label="返回红山动物指南首页" @click.prevent="showPage('intro')">
         <img
-          src="/logo/logo.png"
+          src="/logo/logo-forest.png"
           alt=""
           width="1579"
           height="382"
@@ -352,20 +352,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       aria-labelledby="intro-title"
     >
       <div class="guide-hero__copy">
-        <div class="guide-hero__identity" aria-label="南京红山森林动物园">
-          <span class="guide-hero__mark" aria-hidden="true">
-            <svg viewBox="0 0 40 40">
-              <path d="M6 28.5 15.5 17l6 6.5L27 14l7 14.5H6Z" />
-              <path d="M20 10.5c4.7-4.8 9-4.9 12.7-1.1-3.4 4.7-7.7 5.1-12.7 1.1Z" />
-              <path d="M20 10.5c1.2 4 1.1 7.7-.3 11.2" />
-            </svg>
-          </span>
-          <span>
-            <strong>南京 · 红山森林动物园</strong>
-            <small>城市里的森林动物园</small>
-          </span>
-        </div>
-        <h1 id="intro-title">在城市的森林里，认识每一位邻居。</h1>
+        <h1 id="intro-title">在城市的森林里，<br />认识每一位邻居。</h1>
         <p class="guide-hero__lede">
           从动物故事到实时导览，陪你更轻松地逛红山森林动物园。
         </p>

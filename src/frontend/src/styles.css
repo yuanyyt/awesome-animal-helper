@@ -109,6 +109,10 @@ h3 {
   background: var(--color-paper);
 }
 
+.site-nav.is-intro {
+  border-bottom-color: transparent;
+}
+
 .site-nav__inner {
   display: flex;
   align-items: center;
@@ -246,79 +250,19 @@ main {
   align-items: center;
   gap: var(--space-3xl);
   padding-block: var(--space-3xl) var(--space-4xl);
-  border-bottom: var(--rule-hair) solid var(--color-rule);
 }
 
 .guide-hero__copy {
   min-width: 0;
 }
 
-/* Hallmark · macrostructure: Split Studio · genre: playful · theme: existing field guide
- * audience: zoo visitors and families · use: enter guide or animal catalogue · tone: warm and natural
- * enrichment: Tier-B local SVG · nav: existing field tabs · footer: mobile bottom navigation
- * critique: P5 H5 E5 S5 R5 V5 · contrast: pass
- */
-.guide-hero__identity {
-  width: fit-content;
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
-  color: var(--color-ink-2);
-}
-
-.guide-hero__mark {
-  width: 2.75rem;
-  height: 2.75rem;
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-round);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-}
-
-.guide-hero__mark svg {
-  width: 2rem;
-  height: 2rem;
-  overflow: visible;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.guide-hero__identity > span:last-child {
-  min-width: 0;
-  display: grid;
-  line-height: 1.2;
-}
-
-.guide-hero__identity strong,
-.guide-hero__identity small {
-  white-space: nowrap;
-}
-
-.guide-hero__identity strong {
-  color: var(--color-ink);
-  font-size: var(--text-sm);
-}
-
-.guide-hero__identity small {
-  margin-top: var(--space-2xs);
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-}
-
 .guide-hero h1 {
-  max-width: 7.25em;
+  max-width: 9.25em;
   margin-bottom: var(--space-xl);
-  font-size: var(--text-display);
+  font-size: clamp(3.25rem, 5.3vw, 4.75rem);
   font-weight: 700;
   letter-spacing: -0.025em;
-  line-height: 0.98;
+  line-height: 1.02;
 }
 
 .guide-hero__lede {
@@ -356,6 +300,12 @@ main {
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-accent-ink);
+}
+
+.button-link:not(.is-primary) {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 .button-link:hover {
@@ -2302,9 +2252,9 @@ body {
   align-items: center;
   gap: var(--space-2xs);
   padding: var(--space-2xs);
-  border: var(--rule-hair) solid var(--color-rule);
+  border: 0;
   border-radius: var(--radius-sm);
-  background: var(--color-paper-2);
+  background: transparent;
 }
 
 .page-tabs a {
@@ -2330,8 +2280,8 @@ body {
 }
 
 .page-tabs a[aria-current="page"] {
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 .app-pages {
@@ -2655,6 +2605,28 @@ body {
   .app-pages.is-intro .guide-hero {
     height: 100%;
     min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+    gap: 0;
+    padding-block: clamp(var(--space-lg), 4dvh, 2.75rem) var(--space-sm);
+  }
+
+  .app-pages.is-intro .guide-hero h1 {
+    margin-bottom: var(--space-sm);
+    font-size: clamp(2.1rem, 9vw, 2.8rem);
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+  }
+
+  .app-pages.is-intro .guide-hero__lede {
+    margin-bottom: var(--space-md);
+    line-height: 1.55;
+  }
+
+  .app-pages.is-intro .guide-hero__art {
+    width: min(100%, 31rem);
+    align-self: center;
   }
 
   .guide-workspace {
@@ -3410,21 +3382,6 @@ body {
     align-content: center;
   }
 
-  .guide-hero__identity {
-    gap: var(--space-xs);
-    margin-bottom: var(--space-sm);
-  }
-
-  .guide-hero__mark {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-
-  .guide-hero__mark svg {
-    width: 1.6rem;
-    height: 1.6rem;
-  }
-
   .guide-hero h1 {
     max-width: 100%;
     margin-bottom: var(--space-sm);
@@ -3452,7 +3409,7 @@ body {
   }
 
   .guide-hero__art {
-    width: min(100%, 19rem);
+    width: min(108%, 20.5rem);
     max-height: 100%;
     justify-self: center;
     overflow: clip;
@@ -3698,14 +3655,6 @@ body {
     padding-block: var(--space-xs);
   }
 
-  .guide-hero__identity {
-    margin-bottom: var(--space-xs);
-  }
-
-  .guide-hero__identity small {
-    display: none;
-  }
-
   .guide-hero h1 {
     font-size: clamp(1.95rem, 10vw, 2.65rem);
   }
@@ -3716,7 +3665,7 @@ body {
   }
 
   .guide-hero__art {
-    width: min(45%, 8rem);
+    width: min(56%, 9.5rem);
   }
 }
 
@@ -4531,14 +4480,6 @@ body {
     overflow: visible;
   }
 
-  .guide-hero__identity {
-    margin-bottom: var(--space-xs);
-  }
-
-  .guide-hero__identity small {
-    display: none;
-  }
-
   .guide-hero h1 {
     margin-bottom: var(--space-xs);
     font-size: clamp(1.8rem, 6vw, 2.5rem);
@@ -4574,5 +4515,25 @@ body {
 
   .guide-chat__latest {
     bottom: 7rem;
+  }
+}
+
+@media (max-width: 40rem) and (max-height: 42rem) and (orientation: portrait) {
+  .app-pages.is-intro .guide-hero {
+    gap: var(--space-xs);
+    padding-block: var(--space-xs);
+  }
+
+  .app-pages.is-intro .guide-hero h1 {
+    font-size: clamp(2rem, 9.5vw, 2.4rem);
+  }
+
+  .app-pages.is-intro .guide-hero__lede {
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-sm);
+  }
+
+  .app-pages.is-intro .guide-hero__art {
+    width: min(70%, 13rem);
   }
 }
