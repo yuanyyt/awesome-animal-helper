@@ -8,6 +8,28 @@ import type {
   WikiPage,
 } from "./types";
 
+export const API_BALANCE_ERROR_CODE = "API_BALANCE_EXHAUSTED";
+
+interface ApiErrorDetail {
+  code?: string;
+  message?: string;
+}
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
+export function isApiBalanceError(reason: unknown): boolean {
+  return reason instanceof ApiRequestError && reason.code === API_BALANCE_ERROR_CODE;
+}
+
 export interface AnimalQuery {
   q?: string;
   site?: string;
@@ -102,8 +124,15 @@ async function guideRequest(path: string, body: object): Promise<GuideChatRespon
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(payload.detail || `导览请求失败（${response.status}）`);
+    const payload = (await response.json().catch(() => ({}))) as {
+      detail?: string | ApiErrorDetail;
+    };
+    const detail = payload.detail;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : detail?.message || `导览请求失败（${response.status}）`;
+    throw new ApiRequestError(message, response.status, typeof detail === "object" ? detail.code : undefined);
   }
   return response.json() as Promise<GuideChatResponse>;
 }

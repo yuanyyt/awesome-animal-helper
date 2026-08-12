@@ -9,6 +9,10 @@ from src.backend.domain.models import (
     GuideChatResponse,
     GuideContinueRequest,
 )
+from src.backend.integrations.provider_errors import (
+    api_balance_detail,
+    is_api_balance_exhausted,
+)
 
 router = APIRouter(prefix="/api/guide", tags=["guide"])
 
@@ -25,8 +29,12 @@ async def chat_with_guide(request: GuideChatRequest) -> GuideChatResponse:
             request.enabled_capabilities,
         )
     except GuideAgentError as exc:
+        if is_api_balance_exhausted(exc):
+            raise HTTPException(status_code=402, detail=api_balance_detail()) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        if is_api_balance_exhausted(exc):
+            raise HTTPException(status_code=402, detail=api_balance_detail()) from exc
         raise HTTPException(status_code=503, detail="导览员暂时无法回答，请稍后重试") from exc
 
 
@@ -44,6 +52,10 @@ async def continue_guide_chat(
             request.values,
         )
     except GuideAgentError as exc:
+        if is_api_balance_exhausted(exc):
+            raise HTTPException(status_code=402, detail=api_balance_detail()) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        if is_api_balance_exhausted(exc):
+            raise HTTPException(status_code=402, detail=api_balance_detail()) from exc
         raise HTTPException(status_code=503, detail="导览会话暂时无法继续，请稍后重试") from exc

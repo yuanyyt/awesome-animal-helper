@@ -5,6 +5,7 @@ import { fetchAnimals, fetchMapGuide } from "./api";
 import AnimalDetailDialog from "./components/AnimalDetailDialog.vue";
 import AnimalCard from "./components/AnimalCard.vue";
 import AnimalRouteDock from "./components/AnimalRouteDock.vue";
+import ApiErrorPage from "./components/ApiErrorPage.vue";
 import GuideChatBox from "./components/GuideChatBox.vue";
 import GuideIllustration from "./components/GuideIllustration.vue";
 import MobileBottomNav from "./components/MobileBottomNav.vue";
@@ -34,6 +35,7 @@ const error = ref("");
 const mapGuide = ref<MapGuide>();
 const mapLoading = ref(true);
 const mapError = ref("");
+const fatalApiError = ref(false);
 const selectedRouteSites = ref<string[]>([]);
 const routeOrigin = ref<MapNamedLocation | null>(null);
 const activeRoute = ref<RouteOption | null>(null);
@@ -256,6 +258,10 @@ function selectRoute(route: RouteOption): void {
   activeRoute.value = route;
 }
 
+function showFatalApiError(): void {
+  fatalApiError.value = true;
+}
+
 function openAnimal(
   animal: AnimalDetail,
   event?: MouseEvent,
@@ -313,6 +319,8 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
 </script>
 
 <template>
+  <ApiErrorPage v-if="fatalApiError" />
+  <template v-else>
   <a class="skip-link" href="#page-content">跳到主要内容</a>
   <header class="site-nav" :class="`is-${activePage}`">
     <div class="site-nav__inner">
@@ -437,6 +445,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
         @animal-select="openAnimal"
         @animal-remove="removeAnimal"
         @animals-retry="loadAnimals()"
+        @fatal-error="showFatalApiError"
       >
         <template #map="{ expanded }">
           <ZooMap
@@ -491,4 +500,5 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     :focus-request="detailFocusRequest"
     @close="closeAnimal"
   />
+  </template>
 </template>

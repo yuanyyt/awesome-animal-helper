@@ -20,11 +20,12 @@ interface VoiceHandlers {
   onTranscript: (text: string, final: boolean) => void;
   onSpeechEnd?: () => void;
   onNotice?: (message: string) => void;
-  onError: (message: string) => void;
+  onError: (message: string, code?: string) => void;
 }
 
 interface ServerEvent {
   type: string;
+  code?: string;
   state?: VoiceState;
   text?: string;
   message?: string;
@@ -269,7 +270,7 @@ export class VoiceGuideClient {
     } else if (payload.type === "speech.done") {
       this.handlers.onSpeechEnd?.();
     } else if (payload.type === "error" || payload.type === "tool.error") {
-      this.handlers.onError(payload.message || "实时语音请求失败");
+      this.handlers.onError(payload.message || "实时语音请求失败", payload.code);
     }
   }
 

@@ -16,6 +16,11 @@ from pydantic import ValidationError
 from websockets.asyncio.client import ClientConnection, connect
 
 from src.backend.domain.models import GuideMapContext
+from src.backend.integrations.provider_errors import (
+    API_BALANCE_ERROR_CODE,
+    API_BALANCE_ERROR_MESSAGE,
+    is_api_balance_exhausted,
+)
 
 MAX_AUDIO_FRAME_BYTES = 64 * 1024
 INPUT_SAMPLE_RATE = 16_000
@@ -112,7 +117,11 @@ class AudioRealtimeService:
         except (AudioRealtimeError, ValidationError, ValueError) as exc:
             await _safe_send_json(browser, {"type": "error", "message": str(exc)})
             await _safe_close(browser, 1008)
-        except Exception:
+        except Exception as exc:
+            if is_api_balance_exhausted(exc):
+                await _safe_send_json(browser, _api_balance_event())
+                await _safe_close(browser, 1011)
+                return
             await _safe_send_json(
                 browser,
                 {"type": "error", "message": "实时语音服务暂不可用，请稍后重试"},
@@ -241,14 +250,20 @@ class _AudioBridge:
                 self.awaiting_transcript = False
                 self.awaiting_speech = False
                 error = event.get("error") or {}
-                message = str(error.get("message") or "实时语音请求失败")
-                if _is_audio_buffer_overflow(message):
+                message = (
+                    str(error.get("message") or "实时语音请求失败")
+                    if isinstance(error, dict)
+                    else str(error)
+                )
+                if is_api_balance_exhausted(error):
+                    await self.browser.send_json(_api_balance_event())
+                elif _is_audio_buffer_overflow(message):
                     self.buffered_audio_bytes = 0
                     await self._send_upstream({"type": "input_audio_buffer.clear"})
                     message = "本次录音时间过长，缓冲区已清空，请重新录音"
-                await self.browser.send_json(
-                    {"type": "error", "message": message}
-                )
+                    await self.browser.send_json({"type": "error", "message": message})
+                else:
+                    await self.browser.send_json({"type": "error", "message": message})
                 await self.browser.send_json({"type": "state", "state": "idle"})
             elif event_type == "response.audio.delta" and self.awaiting_speech:
                 if audio := str(event.get("delta", "")):
@@ -346,6 +361,14 @@ def _optional_text(value: object) -> str | None:
 def _is_audio_buffer_overflow(message: str) -> bool:
     normalized = message.casefold()
     return "input audio buffer" in normalized and "maximum duration" in normalized
+
+
+def _api_balance_event() -> dict[str, str]:
+    return {
+        "type": "error",
+        "code": API_BALANCE_ERROR_CODE,
+        "message": API_BALANCE_ERROR_MESSAGE,
+    }
 
 
 def _realtime_base_url(source_url: str) -> str:

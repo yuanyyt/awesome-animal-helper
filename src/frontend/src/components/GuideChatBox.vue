@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 
-import { continueGuideRun, sendGuideMessage } from "../api";
+import {
+  API_BALANCE_ERROR_CODE,
+  continueGuideRun,
+  isApiBalanceError,
+  sendGuideMessage,
+} from "../api";
 import { markdownToText, renderMarkdown } from "../markdown";
 import type {
   AnimalDetail,
@@ -34,6 +39,7 @@ const emit = defineEmits<{
   animalSelect: [animal: AnimalDetail, event: MouseEvent];
   animalRemove: [name: string];
   animalsRetry: [];
+  fatalError: [code: typeof API_BALANCE_ERROR_CODE];
 }>();
 
 type TimelineItem =
@@ -87,8 +93,12 @@ const voiceClient = new VoiceGuideClient(
     onNotice: (message) => {
       voiceNotice.value = message;
     },
-    onError: (message) => {
+    onError: (message, code) => {
       voiceNotice.value = "";
+      if (code === API_BALANCE_ERROR_CODE) {
+        emit("fatalError", API_BALANCE_ERROR_CODE);
+        return;
+      }
       error.value = message;
     },
   },
@@ -182,7 +192,8 @@ async function submit(): Promise<void> {
       await sendMessage(message, replyWithVoice);
     }
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
+    if (isApiBalanceError(reason)) emit("fatalError", API_BALANCE_ERROR_CODE);
+    else error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
   } finally {
     loading.value = false;
     scrollToLatest();
@@ -197,7 +208,8 @@ async function submitMessage(message: string): Promise<void> {
   try {
     await sendMessage(message.trim());
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
+    if (isApiBalanceError(reason)) emit("fatalError", API_BALANCE_ERROR_CODE);
+    else error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
   } finally {
     loading.value = false;
     scrollToLatest();
