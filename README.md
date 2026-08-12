@@ -1,3 +1,17 @@
+---
+domain: multi-modal
+tags:
+- 动物园导览
+- 智能体
+- 地图导航
+datasets:
+  evaluation:
+  test:
+  train:
+models:
+license: Apache License 2.0
+---
+
 # Awesome Animal Helper
 
 从 Excel 读取动物名称，优先查询中文 Wikipedia，并结合 Wikidata
@@ -166,3 +180,8 @@ uv run python -m src.crawler --proxy-file proxies.txt --delay 2 --jitter 1
 
 没有代理文件时，请求仍使用本机唯一出口 IP；轮换 User-Agent 不能替代代理池。
 遇到 `429` 时程序会遵循 `Retry-After` 并指数退避。
+## 从 ModelScope 克隆
+
+```bash
+git clone https://www.modelscope.cn/studios/yuanyyt/awesome_animal_helper.git
+```
