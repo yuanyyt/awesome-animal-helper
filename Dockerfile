@@ -9,6 +9,7 @@ ARG NPM_REGISTRY=https://registry.npmjs.org
 RUN npm config set registry "${NPM_REGISTRY}"
 COPY src/frontend/package.json src/frontend/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
+COPY tokens.css /build/tokens.css
 COPY src/frontend/ ./
 RUN npm run build
 
