@@ -113,6 +113,8 @@ export interface FacilityPoint extends MapLocation {
   name: string;
   category: FacilityCategory;
   address: string;
+  aliases: string[];
+  nearby: string | null;
 }
 
 export interface ShuttleStation extends MapLocation {

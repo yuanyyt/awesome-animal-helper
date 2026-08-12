@@ -26,6 +26,8 @@ class FacilitySeed:
     latitude: float
     address: str = "红山森林动物园内"
     source: str = "screenshot"
+    aliases: tuple[str, ...] = ()
+    nearby: str | None = None
 
     def public(self) -> FacilityPoint:
         return FacilityPoint(
@@ -35,6 +37,8 @@ class FacilitySeed:
             longitude=self.longitude,
             latitude=self.latitude,
             address=self.address,
+            aliases=list(self.aliases),
+            nearby=self.nearby,
         )
 
 
@@ -78,15 +82,87 @@ FACILITY_SEEDS: tuple[FacilitySeed, ...] = (
     FacilitySeed("monkey-shuttle", "猴山观光车站", "tour_bus_station", 118.803403, 32.091482),
     FacilitySeed("north-rental", "北门伴游车租赁", "mobility_rental", 118.799730, 32.093620),
     FacilitySeed("central-police", "园区警务室", "police", 118.804180, 32.090420),
-    FacilitySeed("north-shop", "北门商店", "shopping", 118.799760, 32.093700),
-    FacilitySeed("panda-shop", "熊猫馆商店", "shopping", 118.801490, 32.092820),
-    FacilitySeed("central-shop", "中心广场商店", "shopping", 118.804270, 32.090300),
-    FacilitySeed("south-shop", "南门商店", "shopping", 118.801420, 32.089840),
-    FacilitySeed("north-restaurant", "北门餐厅", "restaurant", 118.799900, 32.093590),
-    FacilitySeed("panda-restaurant", "熊猫馆餐厅", "restaurant", 118.801550, 32.092760),
-    FacilitySeed("central-restaurant", "中心广场餐厅", "restaurant", 118.804143, 32.089780),
-    FacilitySeed("south-restaurant", "南门餐厅", "restaurant", 118.801500, 32.089760),
-    FacilitySeed("central-coffee", "中心广场咖啡", "coffee", 118.804073, 32.091780),
+    FacilitySeed(
+        "north-theme-shop",
+        "红山主题文创店（北门店）",
+        "shopping",
+        118.799760,
+        32.093700,
+        aliases=("红山主题文创店", "北门商店"),
+        nearby="北门",
+    ),
+    FacilitySeed(
+        "native-cottage",
+        "本土小屋",
+        "shopping",
+        118.801764,
+        32.092079,
+        aliases=("本土物种保育区商店",),
+        nearby="本土物种保育区",
+    ),
+    FacilitySeed(
+        "koala-theme-shop",
+        "红山主题文创店（考拉店）",
+        "shopping",
+        118.804073,
+        32.091780,
+        aliases=("红山主题文创店", "考拉文创店"),
+        nearby="考拉",
+    ),
+    FacilitySeed(
+        "central-theme-shop",
+        "红山主题文创店（中心广场店）",
+        "shopping",
+        118.804270,
+        32.090300,
+        aliases=("红山主题文创店", "中心广场商店"),
+        nearby="中心广场",
+    ),
+    FacilitySeed(
+        "great-ape-shop",
+        "大猿小铺",
+        "shopping",
+        118.801420,
+        32.089840,
+        aliases=("大猿商店",),
+        nearby="非洲之歌",
+    ),
+    FacilitySeed(
+        "tana-market",
+        "塔娜市集",
+        "shopping",
+        118.801589,
+        32.088527,
+        aliases=("塔娜商店",),
+        nearby="非洲之歌",
+    ),
+    FacilitySeed(
+        "woodtopia-coffee",
+        "Woodtopia咖啡",
+        "coffee",
+        118.801255,
+        32.091162,
+        aliases=("森灵野集咖啡",),
+        nearby="唐家河",
+    ),
+    FacilitySeed(
+        "woodtopia-restaurant",
+        "Woodtopia餐厅",
+        "restaurant",
+        118.801375,
+        32.091175,
+        aliases=("森灵野集主题餐厅", "森灵野集餐厅"),
+        nearby="唐家河",
+    ),
+    FacilitySeed(
+        "woodtopia-bakery",
+        "Woodtopia烘焙工坊",
+        "restaurant",
+        118.802283,
+        32.091099,
+        aliases=("森灵野集烘焙工坊", "烘焙工坊"),
+        nearby="细尾獴",
+    ),
     FacilitySeed("north-toilet", "北门卫生间", "toilet", 118.799780, 32.093600),
     FacilitySeed("bird-toilet", "珍禽园卫生间", "toilet", 118.800537, 32.091858),
     FacilitySeed("panda-toilet", "熊猫馆卫生间", "toilet", 118.801216, 32.091868),
@@ -192,8 +268,8 @@ _CATEGORY_KEYWORDS: tuple[tuple[FacilityCategory, tuple[str, ...]], ...] = (
     ("mobility_rental", ("伴游车", "轮椅", "童车租赁")),
     ("police", ("警务", "派出所")),
     ("coffee", ("咖啡",)),
-    ("restaurant", ("餐厅", "餐饮", "小吃", "美食", "饭店")),
-    ("shopping", ("商店", "便利店", "文创")),
+    ("restaurant", ("餐厅", "餐饮", "小吃", "美食", "饭店", "烘焙")),
+    ("shopping", ("商店", "便利店", "文创", "市集", "小铺")),
     ("parking", ("停车场",)),
     ("entrance", ("入口", "出口", "北门", "南门", "东门")),
     ("metro", ("地铁",)),
@@ -219,20 +295,33 @@ def public_facilities(pois: Iterable[PoiLike]) -> list[FacilityPoint]:
             address=poi.address or "红山森林动物园内",
             source="amap",
         )
-        duplicate = next(
-            (
-                index
-                for index, seed in enumerate(merged)
-                if seed.category == category
-                and (_normalized(seed.name) == _normalized(poi.name) or _near(seed, replacement))
-            ),
-            None,
+        duplicates = [
+            index
+            for index, seed in enumerate(merged)
+            if seed.category == category and _same_facility(seed, replacement)
+        ]
+        duplicate = min(
+            duplicates,
+            key=lambda index: _distance_squared(merged[index], replacement),
+            default=None,
         )
         if duplicate is None:
             merged.append(replacement)
         else:
-            stable_id = merged[duplicate].id
-            merged[duplicate] = FacilitySeed(**{**replacement.__dict__, "id": stable_id})
+            existing = merged[duplicate]
+            if existing.source == "screenshot":
+                merged[duplicate] = FacilitySeed(
+                    **{
+                        **existing.__dict__,
+                        "longitude": replacement.longitude,
+                        "latitude": replacement.latitude,
+                        "address": replacement.address,
+                    }
+                )
+            else:
+                merged[duplicate] = FacilitySeed(
+                    **{**replacement.__dict__, "id": existing.id}
+                )
     return [seed.public() for seed in merged]
 
 
@@ -241,6 +330,8 @@ def facility_category(name: str, typecode: str = "") -> FacilityCategory | None:
     for category, keywords in _CATEGORY_KEYWORDS:
         if any(_normalized(keyword) in normalized for keyword in keywords):
             return category
+    if normalized.endswith(("馆", "展区", "动物园", "园区")):
+        return None
     if typecode.startswith("050"):
         return "restaurant"
     if typecode.startswith("060"):
@@ -297,9 +388,27 @@ def shuttle_service() -> ShuttleService:
 
 
 def _near(first: FacilitySeed, second: FacilitySeed) -> bool:
+    return _distance_squared(first, second) <= 25**2
+
+
+def _distance_squared(first: FacilitySeed, second: FacilitySeed) -> float:
     longitude_meters = (first.longitude - second.longitude) * 94_000
     latitude_meters = (first.latitude - second.latitude) * 111_000
-    return longitude_meters**2 + latitude_meters**2 <= 25**2
+    return longitude_meters**2 + latitude_meters**2
+
+
+def _same_facility(first: FacilitySeed, second: FacilitySeed) -> bool:
+    first_names = {_normalized(first.name), *map(_normalized, first.aliases)}
+    second_names = {_normalized(second.name), *map(_normalized, second.aliases)}
+    if any(
+        left == right or left in right or right in left
+        for left in first_names
+        for right in second_names
+    ):
+        return True
+    if first.category in {"shopping", "restaurant", "coffee"}:
+        return False
+    return _near(first, second)
 
 
 def _normalized(value: str) -> str:

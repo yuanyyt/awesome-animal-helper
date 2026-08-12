@@ -146,6 +146,8 @@ class FacilityPoint(MapLocation):
     name: str
     category: FacilityCategory
     address: str = "园内"
+    aliases: list[str] = Field(default_factory=list)
+    nearby: str | None = None
 
 
 class ShuttleStation(MapLocation):

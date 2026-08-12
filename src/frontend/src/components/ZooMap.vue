@@ -1173,7 +1173,10 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             </span>
             <div class="zoo-map__sheet-place">
               <strong>{{ selectedFacility?.name || selectedPoint?.poi_name }}</strong>
-              <span v-if="selectedFacility">{{ facilityLabel(selectedFacility.category) }} · {{ selectedFacility.address }}</span>
+              <span v-if="selectedFacility">
+                {{ facilityLabel(selectedFacility.category) }} ·
+                {{ selectedFacility.nearby ? `${selectedFacility.nearby}附近 · ` : "" }}{{ selectedFacility.address }}
+              </span>
               <span v-else-if="selectedPoint">{{ selectedPoint.address }} · {{ selectedPoint.animal_count }} 种动物</span>
             </div>
             <button
