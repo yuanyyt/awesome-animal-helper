@@ -399,7 +399,15 @@ class ZooGuideTools:
         origin_latitude: float | str | None = None,
         weight_kg: float | str | None = None,
     ) -> dict[str, Any]:
-        """Return the single best route after all required visitor input is known."""
+        """Return the single best route after all required visitor input is known.
+
+        Args:
+            available_minutes: Total visit duration stated by the visitor.
+            energy_level: One of 轻松, 一般, 充沛.
+            transport_preference: One of 纯步行, 可乘观光车.
+            origin_name: Explicit named start from the current message, such as 北门.
+                Omit it when the visitor did not name a start; map context is automatic.
+        """
 
         dependencies = run_context.dependencies or {}
         selected = (
@@ -416,14 +424,20 @@ class ZooGuideTools:
         map_context = GuideMapContext.model_validate(
             dependencies.get("map_context") or {}
         )
-        if map_context.origin is not None:
-            origin_name = origin_name or map_context.origin.name
-            origin_longitude = _optional_float(origin_longitude)
-            origin_latitude = _optional_float(origin_latitude)
-            if origin_longitude is None:
-                origin_longitude = map_context.origin.longitude
-            if origin_latitude is None:
-                origin_latitude = map_context.origin.latitude
+        longitude = _optional_float(origin_longitude)
+        latitude = _optional_float(origin_latitude)
+        explicit_origin = (origin_name or "").strip()
+        if explicit_origin and longitude is None and latitude is None:
+            named_origin = self._resolve_named_origin(explicit_origin)
+            origin_name = named_origin.name
+            origin_longitude = named_origin.longitude
+            origin_latitude = named_origin.latitude
+        elif (longitude is None) != (latitude is None):
+            raise RoutePlanningError("路线起点必须同时提供经度和纬度")
+        elif longitude is None and map_context.origin is not None:
+            origin_name = map_context.origin.name
+            origin_longitude = map_context.origin.longitude
+            origin_latitude = map_context.origin.latitude
         return self.plan_zoo_routes(
             available_minutes=available_minutes,
             energy_level=energy_level,
@@ -438,6 +452,52 @@ class ZooGuideTools:
             weight_kg=weight_kg,
             transport_preference=transport_preference,
             single_route=True,
+        )
+
+    def _resolve_named_origin(self, name: str) -> MapNamedLocation:
+        """Resolve an agent-supplied zoo place name without guessing coordinates."""
+
+        guide = self.amap.build_guide(self.repository.site_summaries())
+        normalized = _place_name(name)
+        resolved_sites, _ = self.resolver.resolve_site_terms([name])
+        candidates: list[tuple[str, float, float]] = [
+            (point.site, point.longitude, point.latitude) for point in guide.points
+        ]
+        candidates.extend(
+            (point.poi_name, point.longitude, point.latitude) for point in guide.points
+        )
+        candidates.extend(
+            (facility.name, facility.longitude, facility.latitude)
+            for facility in guide.facilities
+        )
+        if guide.shuttle is not None:
+            candidates.extend(
+                (station.name, station.longitude, station.latitude)
+                for station in guide.shuttle.stations
+            )
+
+        exact = next(
+            (
+                candidate
+                for candidate in candidates
+                if _place_name(candidate[0]) == normalized
+                or candidate[0] in resolved_sites
+            ),
+            None,
+        )
+        if exact is None:
+            matches = [
+                candidate
+                for candidate in candidates
+                if normalized and normalized in _place_name(candidate[0])
+            ]
+            exact = matches[0] if len(matches) == 1 else None
+        if exact is None:
+            raise RoutePlanningError(f"无法解析路线起点：{name}")
+        return MapNamedLocation(
+            name=exact[0],
+            longitude=exact[1],
+            latitude=exact[2],
         )
 
     def plan_with_context(
@@ -459,7 +519,15 @@ class ZooGuideTools:
                 }
                 for name in animals
             ]
-        if context.origin is not None:
+        explicit_origin = str(values.get("origin_name") or "").strip()
+        longitude = _optional_float(values.get("origin_longitude"))
+        latitude = _optional_float(values.get("origin_latitude"))
+        if explicit_origin and longitude is None and latitude is None:
+            named_origin = self._resolve_named_origin(explicit_origin)
+            values["origin_name"] = named_origin.name
+            values["origin_longitude"] = named_origin.longitude
+            values["origin_latitude"] = named_origin.latitude
+        elif context.origin is not None:
             values.setdefault("origin_name", context.origin.name)
             values.setdefault("origin_longitude", context.origin.longitude)
             values.setdefault("origin_latitude", context.origin.latitude)
@@ -483,6 +551,10 @@ def normalize_site_list(value: list[str] | str | None) -> list[str]:
         if isinstance(parsed, list):
             return [str(item).strip() for item in parsed if str(item).strip()]
     return [item.strip() for item in re.split(r"[,，、；;]", text) if item.strip()]
+
+
+def _place_name(value: str) -> str:
+    return re.sub(r"[^\w\u4e00-\u9fff]", "", value).casefold()
 
 
 _FACILITY_ALIASES = {

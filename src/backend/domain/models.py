@@ -287,6 +287,7 @@ class GuideChatRequest(BaseModel):
         default_factory=lambda: ["route"],
         min_length=1,
         max_length=3,
+        description="Preferred guide capabilities; all tools remain available to the agent.",
     )
     map_context: GuideMapContext = Field(default_factory=GuideMapContext)
 
