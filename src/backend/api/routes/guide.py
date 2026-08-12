@@ -1,6 +1,7 @@
 """Conversational guide endpoints."""
 
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
@@ -19,6 +20,7 @@ from src.backend.integrations.provider_errors import (
 )
 
 router = APIRouter(prefix="/api/guide", tags=["guide"])
+logger = logging.getLogger(__name__)
 
 
 def _stream_response(events: AsyncIterator[str | GuideChatResponse]) -> StreamingResponse:
@@ -38,6 +40,7 @@ def _stream_response(events: AsyncIterator[str | GuideChatResponse]) -> Streamin
                 ensure_ascii=False,
             ) + "\n"
         except Exception as exc:
+            logger.exception("导览流式响应失败")
             code = "API_BALANCE_EXHAUSTED" if is_api_balance_exhausted(exc) else None
             message = "API 余额不足，请检查模型服务配置" if code else "导览员暂时无法回答，请稍后重试"
             yield json.dumps(

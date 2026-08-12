@@ -216,7 +216,7 @@ class GuideAgentService:
         session, turn, dependencies, context = self._start_turn(
             message, session_id, map_context, enabled_capabilities
         )
-        events = await self.agent.arun(
+        events = self.agent.arun(
             json.dumps(context, ensure_ascii=False),
             stream=True,
             yield_run_output=True,
@@ -315,7 +315,7 @@ class GuideAgentService:
         session, output, dependencies, metadata = await self._prepare_continuation(
             run_id, session_id, values
         )
-        events = await self.agent.acontinue_run(
+        events = self.agent.acontinue_run(
             run_id=output.run_id,
             requirements=output.requirements,
             stream=True,
