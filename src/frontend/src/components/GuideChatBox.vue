@@ -351,6 +351,12 @@ async function toggleVoice(): Promise<void> {
   }
 }
 
+function stopVoicePlayback(): void {
+  if (voiceState.value !== "speaking") return;
+  voiceClient.stopSpeaking();
+  voiceNotice.value = "语音播报已停止";
+}
+
 function calories(route: RouteOption): string {
   if (route.calories_kcal !== null) return `约 ${route.calories_kcal} 千卡`;
   if (route.calories_range_kcal) {
@@ -705,5 +711,21 @@ function handleComposerKeydown(event: KeyboardEvent): void {
         {{ error || voiceNotice || (voiceBusy ? voiceStatus : voiceDraftReady ? "听写完成，发送后将自动语音回复" : "") }}
       </p>
     </footer>
+
+    <Transition name="back-to-top">
+      <button
+        v-if="voiceState === 'speaking'"
+        class="back-to-top voice-stop-float"
+        type="button"
+        aria-label="停止语音播报"
+        title="停止语音播报"
+        @click="stopVoicePlayback"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />
+        </svg>
+        <span>停止</span>
+      </button>
+    </Transition>
   </section>
 </template>

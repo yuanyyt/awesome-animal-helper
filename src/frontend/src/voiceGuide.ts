@@ -45,6 +45,7 @@ export class VoiceGuideClient {
   private transcriptDraft = "";
   private playbackTime = 0;
   private playbackSources = new Set<AudioBufferSourceNode>();
+  private speechResponseDone = true;
   private workletLoaded = false;
   private readyPromise: Promise<void> | null = null;
   private resolveReady: (() => void) | null = null;
@@ -168,11 +169,13 @@ export class VoiceGuideClient {
     await this.ensureConnected();
     await this.ensureAudioContext();
     this.stopPlayback();
+    this.speechResponseDone = false;
     this.sendJson({ type: "speak", text: text.trim() });
     this.setState("speaking");
   }
 
   stopSpeaking(): void {
+    this.speechResponseDone = true;
     this.stopPlayback();
     this.sendJson({ type: "speech.cancel" });
     this.setState("idle");
@@ -257,6 +260,13 @@ export class VoiceGuideClient {
       this.rejectReady = null;
     } else if (payload.type === "state" && payload.state) {
       if (payload.state !== "recording" && this.recorder) this.releaseRecorder();
+      if (
+        payload.state === "idle" &&
+        this.state === "speaking" &&
+        (!this.speechResponseDone || this.playbackSources.size > 0)
+      ) {
+        return;
+      }
       this.setState(payload.state);
     } else if (payload.type === "notice" && payload.message) {
       this.handlers.onNotice?.(payload.message);
@@ -268,7 +278,9 @@ export class VoiceGuideClient {
       if (text) this.handlers.onTranscript(text, true);
       this.transcriptDraft = text;
     } else if (payload.type === "speech.done") {
+      this.speechResponseDone = true;
       this.handlers.onSpeechEnd?.();
+      this.finishSpeechPlayback();
     } else if (payload.type === "error" || payload.type === "tool.error") {
       this.handlers.onError(payload.message || "实时语音请求失败", payload.code);
     }
@@ -329,7 +341,10 @@ export class VoiceGuideClient {
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(context.destination);
-    source.onended = () => this.playbackSources.delete(source);
+    source.onended = () => {
+      this.playbackSources.delete(source);
+      this.finishSpeechPlayback();
+    };
     this.playbackSources.add(source);
     this.playbackTime = Math.max(context.currentTime + 0.03, this.playbackTime);
     source.start(this.playbackTime);
@@ -340,6 +355,16 @@ export class VoiceGuideClient {
     for (const source of this.playbackSources) source.stop();
     this.playbackSources.clear();
     this.playbackTime = 0;
+  }
+
+  private finishSpeechPlayback(): void {
+    if (
+      this.state === "speaking" &&
+      this.speechResponseDone &&
+      this.playbackSources.size === 0
+    ) {
+      this.setState("idle");
+    }
   }
 
   private mapContextPayload(): object {

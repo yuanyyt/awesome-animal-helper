@@ -3874,6 +3874,17 @@ body {
   bottom: 8rem;
 }
 
+.voice-stop-float {
+  bottom: 9rem;
+  border-color: color-mix(in srgb, var(--color-danger) 38%, transparent);
+  color: var(--color-danger);
+}
+
+.voice-stop-float svg {
+  fill: currentColor;
+  stroke: none;
+}
+
 .back-to-top-enter-active,
 .back-to-top-leave-active {
   transition: opacity var(--dur-medium) var(--ease-out),
@@ -4045,6 +4056,10 @@ body {
   .back-to-top.is-above-route {
     top: calc(var(--size-nav) + var(--space-sm));
     bottom: auto;
+  }
+
+  .voice-stop-float {
+    bottom: calc(var(--size-mobile-nav) + 9rem + env(safe-area-inset-bottom));
   }
 
   .guide-chat__dock {
