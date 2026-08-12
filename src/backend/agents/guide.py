@@ -35,7 +35,12 @@ from src.backend.repositories.animals import AnimalRepository
 from src.backend.repositories.wiki import WikiRepository
 from src.backend.services.guide_intent import GuideTurnResolver, TurnResolution
 
-RUNTIME_DIR = Path(__file__).resolve().parents[2] / "data" / "runtime"
+RUNTIME_DIR = Path(
+    os.getenv(
+        "APP_RUNTIME_DIR",
+        Path(__file__).resolve().parents[2] / "data" / "runtime",
+    )
+).expanduser()
 _SESSION_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,100}")
 _ROUTE_LIST = TypeAdapter(list[RouteOption])
 _ROUTE_FIELDS = {

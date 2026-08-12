@@ -185,3 +185,58 @@ uv run python -m src.crawler --proxy-file proxies.txt --delay 2 --jitter 1
 ```bash
 git clone https://www.modelscope.cn/studios/yuanyyt/awesome_animal_helper.git
 ```
+
+## Docker 与 ModelScope Studio
+
+ModelScope Studio 使用仓库根目录的 `Dockerfile` 构建，容器统一在
+`0.0.0.0:7860` 提供 Vue 页面、FastAPI 接口和 WebSocket。运行时数据库写入
+`/mnt/workspace/awesome-animal-helper/runtime`，在 Studio 后台将 API Key 配置为秘钥，
+不要通过 `Dockerfile`、构建参数或 `.env` 写入镜像。
+
+当前受限开发环境没有 root 权限，无法安装 Docker daemon。Ubuntu 主机可执行：
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker "$USER"
+```
+
+重新登录后验证：
+
+```bash
+docker version
+docker compose version
+```
+
+如果 Docker 官方软件源无法访问，可以改用镜像站安装：
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo DOWNLOAD_URL=https://mirrors.aliyun.com/docker-ce sh get-docker.sh
+sudo usermod -aG docker "$USER"
+```
+
+正常网络下构建和运行：
+
+```bash
+docker build -t awesome-animal-helper:local .
+docker run --rm -p 7860:7860 --env-file .env \
+  -v awesome-animal-runtime:/mnt/workspace/awesome-animal-helper/runtime \
+  awesome-animal-helper:local
+```
+
+拉取基础镜像或依赖较慢时，可在构建时切换镜像站，不必修改 `Dockerfile`：
+
+```bash
+docker build -t awesome-animal-helper:local \
+  --build-arg NODE_IMAGE=docker.m.daocloud.io/library/node:22-bookworm-slim \
+  --build-arg PYTHON_IMAGE=docker.m.daocloud.io/library/python:3.12-slim-bookworm \
+  --build-arg NPM_REGISTRY=https://registry.npmmirror.com \
+  --build-arg PYPI_INDEX_URL=https://mirrors.aliyun.com/pypi/simple \
+  .
+```
+
+镜像采用多阶段构建：源代码只进入临时构建阶段，最终镜像仅复制 Vue 构建产物、
+后端字节码、运行依赖和必需数据，不包含项目 Python 源文件、Git 历史、公众号原始
+抓取结果或 `.env`。这能阻止从最终镜像层直接还原源码，但字节码仍可能被专业工具
+逆向；浏览器端 JavaScript 和接口返回的公开知识内容也无法对访问者保密。

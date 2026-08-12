@@ -1,9 +1,14 @@
 """FastAPI application entry point."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from src.backend.api.dependencies import lifespan
 from src.backend.api.router import api_router
+
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
 
 def create_app() -> FastAPI:
@@ -16,6 +21,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     application.include_router(api_router)
+    if FRONTEND_DIST.is_dir():
+        application.mount(
+            "/",
+            StaticFiles(directory=FRONTEND_DIST, html=True),
+            name="frontend",
+        )
     return application
 
 

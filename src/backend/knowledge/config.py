@@ -9,7 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-RUNTIME_DIR = DATA_DIR / "runtime"
+RUNTIME_DIR = Path(os.getenv("APP_RUNTIME_DIR", DATA_DIR / "runtime")).expanduser()
 
 
 @dataclass(frozen=True)
