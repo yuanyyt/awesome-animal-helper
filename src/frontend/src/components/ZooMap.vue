@@ -8,7 +8,9 @@ import type {
   FacilityCategory,
   FacilityPoint,
   MapGuide,
+  MapLocationState,
   MapNamedLocation,
+  MapOriginSource,
   MapPoint,
   RouteOption,
 } from "../types";
@@ -21,7 +23,10 @@ const props = defineProps<{
   selectedSite: string;
   routeSites: string[];
   origin: MapNamedLocation | null;
+  originSource: MapOriginSource;
+  originPickRequest: number;
   activeRoute: RouteOption | null;
+  active: boolean;
   focused: boolean;
   loading: boolean;
   error: string;
@@ -41,7 +46,8 @@ const AMAP_COLORS = {
 const emit = defineEmits<{
   select: [site: string];
   routeToggle: [site: string];
-  originChange: [origin: MapNamedLocation];
+  originChange: [origin: MapNamedLocation, source: MapOriginSource];
+  locationStateChange: [state: MapLocationState];
   retry: [];
 }>();
 
@@ -49,8 +55,8 @@ const imageFailed = ref(false);
 const interactiveFailed = ref(false);
 const interactiveReady = ref(false);
 const settingOrigin = ref(false);
-type LocationState = "idle" | "locating" | "inside" | "outside" | "failed" | "manual";
-const locationState = ref<LocationState>("idle");
+const locationState = ref<MapLocationState>("idle");
+watch(locationState, (state) => emit("locationStateChange", state), { immediate: true });
 const mapContainer = ref<HTMLElement>();
 let map: AmapMap | undefined;
 let amapMarkers: AmapMarker[] = [];
@@ -64,6 +70,7 @@ let mapLimitBounds: AmapBounds | undefined;
 let readinessTimer: number | undefined;
 let mapResizeObserver: ResizeObserver | undefined;
 let mapResizeFrame: number | undefined;
+let mapResizeSettleTimer: number | undefined;
 let observedMapSize = "";
 let locationAttempt = 0;
 let automaticLocationAttempted = false;
@@ -71,10 +78,12 @@ const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
 );
 const selectedFacility = ref<FacilityPoint | null>(null);
-type FacilityGroup = "common" | "refreshment" | "family" | "transport" | "none";
-type MapPanel = "place" | "services" | "route" | null;
+type FacilityGroup = "common" | "refreshment" | "shopping" | "family" | "transport" | "none";
+type FacilityVisualGroup = Exclude<FacilityGroup, "none">;
+type MapPanel = "place" | "services" | "route" | "origin" | null;
 const activeFacilityGroup = ref<FacilityGroup>("none");
 const activePanel = ref<MapPanel>(null);
+const pendingOrigin = ref<MapNamedLocation | null>(null);
 const facilityGroups: {
   id: FacilityGroup;
   label: string;
@@ -82,13 +91,18 @@ const facilityGroups: {
 }[] = [
   {
     id: "common",
-    label: "常用服务",
-    categories: ["entrance", "visitor_center", "tour_bus_station"],
+    label: "游客服务",
+    categories: ["entrance", "visitor_center", "ticket_office", "bag_storage"],
   },
   {
     id: "refreshment",
     label: "休息补给",
-    categories: ["drinking_water", "restaurant", "coffee", "shopping"],
+    categories: ["drinking_water", "restaurant", "coffee"],
+  },
+  {
+    id: "shopping",
+    label: "文创购物",
+    categories: ["shopping"],
   },
   {
     id: "family",
@@ -99,8 +113,8 @@ const facilityGroups: {
     id: "transport",
     label: "出行保障",
     categories: [
-      "metro", "bus_terminal", "train_station", "parking", "ticket_office",
-      "bag_storage", "mobility_rental", "police", "smoking_area",
+      "metro", "bus_terminal", "train_station", "parking", "tour_bus_station",
+      "mobility_rental", "police", "smoking_area",
     ],
   },
 ];
@@ -123,10 +137,12 @@ const durationLabel = computed(() =>
 );
 const locationStatus = computed(() => {
   if (settingOrigin.value) return "请在园区地图内点击新的起点";
-  const labels: Record<LocationState, string> = {
+  const labels: Record<MapLocationState, string> = {
     idle: props.origin ? `路线起点：${props.origin.name}` : "等待确认路线起点",
     locating: "正在确认你在园里的位置…",
-    inside: "已定位到园内，将从当前位置出发",
+    inside: props.origin?.name === "当前位置"
+      ? "已定位到园内，将从当前位置出发"
+      : `路线起点：${props.origin?.name ?? "园区入口"}`,
     outside: "你在园外，将从南门新区出发",
     failed: "未取得定位，将从南门新区出发",
     manual: "已使用地图选定起点",
@@ -196,11 +212,21 @@ const staticBoundaryStyle = computed<Record<string, string>>(() => {
 });
 
 watch(
-  () => props.guide,
-  (guide) => {
-    if (guide) void initializeInteractiveMap();
+  [() => props.guide, () => props.active],
+  ([guide, active]) => {
+    if (guide && active && !map && !interactiveFailed.value) {
+      void initializeInteractiveMap();
+    }
   },
   { immediate: true },
+);
+
+watch(
+  () => props.originPickRequest,
+  (request, previous) => {
+    if (!request || request === previous) return;
+    beginOriginSelection();
+  },
 );
 
 watch(
@@ -227,6 +253,17 @@ watch(
   { deep: true },
 );
 
+watch(
+  () => props.originSource,
+  (source) => {
+    if (source !== "explicit") return;
+    locationAttempt += 1;
+    settingOrigin.value = false;
+    pendingOrigin.value = null;
+    locationState.value = "manual";
+  },
+);
+
 watch(activePanel, (panel) => {
   if (panel !== "route" || !props.activeRoute) return;
   void nextTick(() => {
@@ -247,15 +284,7 @@ watch(
 
 watch(
   () => props.focused,
-  () => {
-    void nextTick(() => {
-      window.requestAnimationFrame(() => {
-        map?.resize();
-        if (props.activeRoute) updateRouteOverlay();
-        else if (mapBounds) map?.setBounds(mapBounds, true, [32, 32, 96, 32]);
-      });
-    });
-  },
+  () => scheduleMapViewportSync(),
 );
 
 onBeforeUnmount(() => destroyInteractiveMap());
@@ -342,12 +371,10 @@ async function initializeInteractiveMap(): Promise<void> {
 function markInteractiveMapReady(): void {
   if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
   readinessTimer = undefined;
-  if (map && mapBounds) {
-    map.setBounds(mapBounds, true, [24, 24, 24, 24]);
-    if (mapLimitBounds) map.setLimitBounds(mapLimitBounds);
-  }
   interactiveReady.value = true;
+  if (map && mapLimitBounds) map.setLimitBounds(mapLimitBounds);
   updateRouteOverlay();
+  scheduleMapViewportSync();
 }
 
 function observeMapContainer(): void {
@@ -364,10 +391,39 @@ function observeMapContainer(): void {
     mapResizeFrame = window.requestAnimationFrame(() => {
       mapResizeFrame = undefined;
       map?.resize();
-      if (props.activeRoute) fitRouteOverlays();
+      fitCurrentViewport();
     });
   });
   mapResizeObserver.observe(container);
+}
+
+function scheduleMapViewportSync(): void {
+  if (mapResizeFrame !== undefined) window.cancelAnimationFrame(mapResizeFrame);
+  if (mapResizeSettleTimer !== undefined) window.clearTimeout(mapResizeSettleTimer);
+  void nextTick(() => {
+    mapResizeFrame = window.requestAnimationFrame(() => {
+      mapResizeFrame = undefined;
+      map?.resize();
+      fitCurrentViewport();
+      // Teleport and mobile browser chrome can settle after the first layout frame.
+      mapResizeSettleTimer = window.setTimeout(() => {
+        mapResizeSettleTimer = undefined;
+        map?.resize();
+        fitCurrentViewport();
+      }, 160);
+    });
+  });
+}
+
+function fitCurrentViewport(): void {
+  if (props.activeRoute) {
+    fitRouteOverlays();
+    return;
+  }
+  if (!map || !mapBounds) return;
+  const compact = (mapContainer.value?.clientHeight ?? 0) <= 260;
+  const edgePadding = compact ? 12 : 32;
+  map.setBounds(mapBounds, true, [edgePadding, edgePadding, edgePadding, edgePadding]);
 }
 
 function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
@@ -383,6 +439,11 @@ function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
 }
 
 function selectVenue(site: string): void {
+  if (settingOrigin.value) {
+    const point = props.guide?.points.find((candidate) => candidate.site === site);
+    if (point) setPendingOrigin(point.longitude, point.latitude);
+    return;
+  }
   selectedFacility.value = null;
   emit("select", site);
   activePanel.value = "place";
@@ -395,6 +456,7 @@ function createFacilityMarkers(): void {
     const content = document.createElement("button");
     content.type = "button";
     content.className = "zoo-map__facility-marker";
+    content.dataset.group = facilityVisualGroup(facility.category);
     content.append(createFacilityIcon(facility.category));
     content.title = facility.name;
     content.setAttribute("aria-label", `${facility.name}，${facilityLabel(facility.category)}`);
@@ -483,6 +545,10 @@ function selectFacilityGroup(group: FacilityGroup): void {
 }
 
 function selectFacility(facility: FacilityPoint): void {
+  if (settingOrigin.value) {
+    setPendingOrigin(facility.longitude, facility.latitude);
+    return;
+  }
   selectedFacility.value = facility;
   activePanel.value = "place";
 }
@@ -523,7 +589,7 @@ function facilityIconPath(category: FacilityCategory): string {
   const icons: Record<FacilityCategory, string> = {
     metro: "M5 18h14M7 15l1.5-9h7L17 15M9 10h6M8 15h8",
     bus_terminal: "M6 17h12V7c0-2-2-3-6-3S6 5 6 7v10Zm0-5h12M8 20h.01M16 20h.01",
-    train_station: "M7 16h10V5c0-1-2-5-2S7 4 7 5v11Zm0-5h10M9 20l3-4 3 4",
+    train_station: "M7 16h10V6c0-2-2-3-5-3S7 4 7 6v10Zm0-5h10M9 20l3-4 3 4",
     visitor_center: "M12 10v7M12 7h.01M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0Z",
     entrance: "M5 21V4h11v17M9 12h.01M16 8h3v13",
     bag_storage: "M5 8h14l-1 12H6L5 8Zm4 0V6c0-2 6-2 6 0v2",
@@ -566,6 +632,18 @@ function facilityLabel(category: FacilityCategory): string {
     nursing_room: "母婴室", family_toilet: "家庭卫生间",
   };
   return labels[category];
+}
+
+function facilityVisualGroup(category: FacilityCategory): FacilityVisualGroup {
+  if (["visitor_center", "entrance", "bag_storage", "ticket_office"].includes(category)) {
+    return "common";
+  }
+  if (["drinking_water", "restaurant", "coffee"].includes(category)) {
+    return "refreshment";
+  }
+  if (category === "shopping") return "shopping";
+  if (["toilet", "family_toilet", "nursing_room"].includes(category)) return "family";
+  return "transport";
 }
 
 function updateInteractiveMarkers(site: string): void {
@@ -659,6 +737,8 @@ function destroyInteractiveMap(): void {
   mapResizeObserver = undefined;
   if (mapResizeFrame !== undefined) window.cancelAnimationFrame(mapResizeFrame);
   mapResizeFrame = undefined;
+  if (mapResizeSettleTimer !== undefined) window.clearTimeout(mapResizeSettleTimer);
+  mapResizeSettleTimer = undefined;
   observedMapSize = "";
   amapMarkers = [];
   facilityMarkers = [];
@@ -678,19 +758,45 @@ function handleMapClick(event: AmapMapClickEvent): void {
     closePanel();
     return;
   }
+  setPendingOrigin(event.lnglat.getLng(), event.lnglat.getLat());
+}
+
+function setPendingOrigin(longitude: number, latitude: number): void {
+  const selectedOrigin = { name: "地图选定起点", longitude, latitude };
+  if (!isPointInPolygon(selectedOrigin, boundaryPath.value)) return;
   locationAttempt += 1;
-  locationState.value = "manual";
-  emit("originChange", {
-    name: "地图选定起点",
-    longitude: event.lnglat.getLng(),
-    latitude: event.lnglat.getLat(),
-  });
-  settingOrigin.value = false;
+  pendingOrigin.value = selectedOrigin;
+  updateOriginMarker();
 }
 
 function toggleManualOrigin(): void {
+  if (settingOrigin.value) cancelManualOrigin();
+  else beginOriginSelection();
+}
+
+function beginOriginSelection(): void {
+  locationAttempt += 1;
+  if (locationState.value === "locating") locationState.value = "idle";
+  pendingOrigin.value = null;
+  settingOrigin.value = true;
+  activePanel.value = "origin";
+}
+
+function confirmManualOrigin(): void {
+  if (!pendingOrigin.value) return;
+  const origin = pendingOrigin.value;
+  locationState.value = "manual";
+  pendingOrigin.value = null;
+  settingOrigin.value = false;
   activePanel.value = null;
-  settingOrigin.value = !settingOrigin.value;
+  emit("originChange", origin, "map");
+}
+
+function cancelManualOrigin(): void {
+  pendingOrigin.value = null;
+  settingOrigin.value = false;
+  activePanel.value = null;
+  updateOriginMarker();
 }
 
 async function locateVisitor(): Promise<void> {
@@ -703,6 +809,7 @@ async function locateVisitor(): Promise<void> {
 
   const attempt = ++locationAttempt;
   settingOrigin.value = false;
+  pendingOrigin.value = null;
   locationState.value = "locating";
   try {
     await loadAmapPlugin(AMap, "AMap.Geolocation");
@@ -731,7 +838,7 @@ async function locateVisitor(): Promise<void> {
         return;
       }
       locationState.value = "inside";
-      emit("originChange", { name: "当前位置", ...current });
+      emit("originChange", { name: "当前位置", ...current }, "geolocation");
       map?.panTo([current.longitude, current.latitude]);
     });
   } catch {
@@ -740,28 +847,32 @@ async function locateVisitor(): Promise<void> {
 }
 
 function useDefaultOrigin(
-  state: Extract<LocationState, "outside" | "failed">,
+  state: Extract<MapLocationState, "outside" | "failed">,
   attempt = locationAttempt,
 ): void {
   if (attempt !== locationAttempt) return;
   locationState.value = state;
-  if (props.guide?.default_origin) emit("originChange", props.guide.default_origin);
+  if (props.guide?.default_origin) {
+    emit("originChange", props.guide.default_origin, "default");
+  }
 }
 
 function updateOriginMarker(): void {
   if (!map || !window.AMap) return;
   if (originMarker) map.remove(originMarker);
   originMarker = undefined;
-  if (!props.origin) return;
+  const displayedOrigin = pendingOrigin.value ?? props.origin;
+  if (!displayedOrigin) return;
   const content = document.createElement("span");
   content.className = "zoo-map__origin-marker";
-  content.classList.toggle("is-current", props.origin.name === "当前位置");
-  content.textContent = props.origin.name === "当前位置" ? "我" : "起";
+  content.classList.toggle("is-current", displayedOrigin.name === "当前位置");
+  content.classList.toggle("is-preview", pendingOrigin.value !== null);
+  content.textContent = displayedOrigin.name === "当前位置" ? "我" : "起";
   originMarker = new window.AMap.Marker({
-    position: [props.origin.longitude, props.origin.latitude],
+    position: [displayedOrigin.longitude, displayedOrigin.latitude],
     content,
     offset: new window.AMap.Pixel(-18, -18),
-    title: props.origin.name,
+    title: displayedOrigin.name,
   });
   map.add(originMarker);
 }
@@ -1102,6 +1213,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             :key="facility.id"
             class="zoo-map__facility-marker is-static"
             :class="{ 'is-route-stop': isFacilityRouteStop(facility) }"
+            :data-group="facilityVisualGroup(facility.category)"
             :style="facilityMarkerStyle(facility)"
             type="button"
             :title="facility.name"
@@ -1184,8 +1296,8 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           </button>
         </div>
 
-        <section v-if="activePanel" class="zoo-map__sheet" :aria-label="activePanel === 'services' ? '选择园区服务' : activePanel === 'route' ? '路线详情' : '地点详情'">
-          <button class="zoo-map__sheet-close" type="button" aria-label="关闭地图信息" @click="closePanel">
+        <section v-if="activePanel" class="zoo-map__sheet" :aria-label="activePanel === 'services' ? '选择园区服务' : activePanel === 'route' ? '路线详情' : activePanel === 'origin' ? '选择路线起点' : '地点详情'">
+          <button class="zoo-map__sheet-close" type="button" aria-label="关闭地图信息" @click="activePanel === 'origin' ? cancelManualOrigin() : closePanel()">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
           </button>
 
@@ -1199,6 +1311,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
                 v-for="group in facilityGroups"
                 :key="group.id"
                 type="button"
+                :data-group="group.id"
                 :class="{ 'is-active': activeFacilityGroup === group.id }"
                 :aria-pressed="activeFacilityGroup === group.id"
                 @click="selectFacilityGroup(group.id)"
@@ -1213,6 +1326,17 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
               >
                 关闭服务点
               </button>
+            </div>
+          </template>
+
+          <template v-else-if="activePanel === 'origin'">
+            <div class="zoo-map__sheet-heading">
+              <strong>{{ pendingOrigin ? "已选好起点" : "点击地图选择起点" }}</strong>
+              <span>{{ pendingOrigin ? "确认后将从这里重新规划路线。" : "请在园区范围内点按你所在的位置。" }}</span>
+            </div>
+            <div class="zoo-map__origin-actions">
+              <button type="button" @click="locateVisitor">使用自动定位</button>
+              <button type="button" :disabled="!pendingOrigin" @click="confirmManualOrigin">从这里出发</button>
             </div>
           </template>
 
@@ -1231,7 +1355,12 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           </template>
 
           <template v-else>
-            <span v-if="selectedFacility" class="zoo-map__sheet-icon" aria-hidden="true">
+            <span
+              v-if="selectedFacility"
+              class="zoo-map__sheet-icon"
+              :data-group="facilityVisualGroup(selectedFacility.category)"
+              aria-hidden="true"
+            >
               <svg viewBox="0 0 24 24"><path :d="facilityIconPath(selectedFacility.category)" /></svg>
             </span>
             <div class="zoo-map__sheet-place">
@@ -1243,7 +1372,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
               <span v-else-if="selectedPoint">{{ selectedPoint.address }} · {{ selectedPoint.animal_count }} 种动物</span>
             </div>
             <button
-              v-if="selectedPoint"
+              v-if="selectedPoint && !selectedFacility && !settingOrigin"
               class="zoo-map__route-action"
               type="button"
               :class="{ 'is-selected': selectedPointInRoute }"

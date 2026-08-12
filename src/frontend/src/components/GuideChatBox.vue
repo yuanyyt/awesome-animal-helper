@@ -14,7 +14,9 @@ import type {
   GuideAutoRequest,
   GuideCapability,
   GuideInputField,
+  MapLocationState,
   MapNamedLocation,
+  MapOriginSource,
   RouteOption,
 } from "../types";
 import { VoiceGuideClient, type VoiceState } from "../voiceGuide";
@@ -29,6 +31,9 @@ const props = defineProps<{
   animalsLoading: boolean;
   animalsError: string;
   origin: MapNamedLocation | null;
+  originSource: MapOriginSource;
+  locationState: MapLocationState;
+  originRevision: number;
   activeRoute: RouteOption | null;
   autoRequest: GuideAutoRequest | null;
 }>();
@@ -38,6 +43,7 @@ const emit = defineEmits<{
   routeSelect: [route: RouteOption];
   animalSelect: [animal: AnimalDetail, event: MouseEvent];
   animalRemove: [name: string];
+  originPick: [];
   animalsRetry: [];
   fatalError: [code: typeof API_BALANCE_ERROR_CODE];
 }>();
@@ -54,7 +60,7 @@ const capabilityOptions: { id: GuideCapability; label: string; ariaLabel: string
 ];
 
 const question = ref("");
-const timeline = ref<TimelineItem[]>([]);
+const timeline = ref<TimelineItem[]>([{ id: 1, kind: "map" }]);
 const requiredInputs = ref<GuideInputField[]>([]);
 const runId = ref("");
 const loading = ref(false);
@@ -70,9 +76,11 @@ const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "
 const voiceDraftReady = ref(false);
 const selectedCapabilities = ref<GuideCapability[]>(["route"]);
 let voiceQuestionPrefix = "";
-let nextItemId = 1;
+let nextItemId = 2;
 let followLatest = true;
 let mapReturnFocus: HTMLElement | null = null;
+let lastRouteRequest = "";
+let latestRequestMessage = "";
 
 const voiceClient = new VoiceGuideClient(
   {
@@ -171,6 +179,30 @@ const canSubmit = computed(
     !voiceBusy.value &&
     (requiredInputs.value.length > 0 || question.value.trim().length > 0),
 );
+const originLabel = computed(() => {
+  if (props.locationState === "locating") return "正在确认你在园里的位置…";
+  if (!props.origin) return "尚未设置出发位置";
+  const sourceLabels: Record<MapOriginSource, string> = {
+    explicit: "对话指定",
+    map: "地图选定",
+    geolocation: "自动定位",
+    default: props.locationState === "outside" ? "园外默认入口" : "默认入口",
+  };
+  return `${props.origin.name} · ${sourceLabels[props.originSource]}`;
+});
+
+watch(
+  () => props.originRevision,
+  (revision, previous) => {
+    if (!revision || revision === previous || !lastRouteRequest || loading.value) return;
+    const originName = props.origin?.name ?? "新起点";
+    void submitMessage(
+      `起点已改为${originName}。请严格沿用我上一条路线需求重新规划，只更新路线，不要重复动物介绍。上一条需求：${lastRouteRequest}`,
+      true,
+      `从${originName}重新规划刚才的路线`,
+    );
+  },
+);
 
 async function submit(): Promise<void> {
   if (!canSubmit.value) return;
@@ -200,13 +232,17 @@ async function submit(): Promise<void> {
   }
 }
 
-async function submitMessage(message: string): Promise<void> {
+async function submitMessage(
+  message: string,
+  preserveRouteRequest = false,
+  displayedMessage = message,
+): Promise<void> {
   if (loading.value || !message.trim()) return;
   error.value = "";
   loading.value = true;
-  pushMessage("visitor", message.trim());
+  pushMessage("visitor", displayedMessage.trim());
   try {
-    await sendMessage(message.trim());
+    await sendMessage(message.trim(), false, preserveRouteRequest);
   } catch (reason) {
     if (isApiBalanceError(reason)) emit("fatalError", API_BALANCE_ERROR_CODE);
     else error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
@@ -216,7 +252,12 @@ async function submitMessage(message: string): Promise<void> {
   }
 }
 
-async function sendMessage(message: string, replyWithVoice = false): Promise<void> {
+async function sendMessage(
+  message: string,
+  replyWithVoice = false,
+  preserveRouteRequest = false,
+): Promise<void> {
+  latestRequestMessage = preserveRouteRequest ? "" : message;
   const response = await sendGuideMessage(
     message,
     sessionId.value || null,
@@ -247,12 +288,19 @@ function handleResponse(response: GuideChatResponse): void {
     response,
   });
   if (response.route_options.length) {
+    lastRouteRequest = latestRequestMessage || lastRouteRequest;
     emit("routes", response.route_options);
     emit("routeSelect", response.route_options[1] ?? response.route_options[0]);
     showMap(true);
     moveAnimalsToEnd();
   }
   scrollToLatest(requiredInputs.value.length > 0);
+}
+
+function chooseOrigin(): void {
+  showMap(true);
+  emit("originPick");
+  void nextTick(() => openMap());
 }
 
 function pushMessage(role: "visitor" | "guide", text: string): void {
@@ -638,6 +686,19 @@ function handleComposerKeydown(event: KeyboardEvent): void {
     </button>
 
     <footer class="guide-chat__dock">
+      <button
+        class="guide-chat__origin"
+        :class="{ 'is-locating': locationState === 'locating' }"
+        type="button"
+        :aria-label="`${originLabel}，点击在地图上更改起点`"
+        @click="chooseOrigin"
+      >
+        <span class="guide-chat__origin-pin" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 21s6-5 6-11a6 6 0 1 0-12 0c0 6 6 11 6 11Z" /><circle cx="12" cy="10" r="2" /></svg>
+        </span>
+        <span><small>出发位置</small><strong>{{ originLabel }}</strong></span>
+        <em>{{ locationState === "locating" ? "定位中" : "更改" }}</em>
+      </button>
       <div class="guide-tool-chips" role="group" aria-label="选择导览偏好">
         <button
           v-for="capability in capabilityOptions"

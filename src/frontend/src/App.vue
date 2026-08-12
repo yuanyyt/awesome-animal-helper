@@ -18,7 +18,9 @@ import type {
   AnimalListResponse,
   GuideAutoRequest,
   MapGuide,
+  MapLocationState,
   MapNamedLocation,
+  MapOriginSource,
   RouteOption,
 } from "./types";
 
@@ -38,6 +40,10 @@ const mapError = ref("");
 const fatalApiError = ref(false);
 const selectedRouteSites = ref<string[]>([]);
 const routeOrigin = ref<MapNamedLocation | null>(null);
+const routeOriginSource = ref<MapOriginSource>("default");
+const mapLocationState = ref<MapLocationState>("idle");
+const originPickRequest = ref(0);
+const originRevision = ref(0);
 const activeRoute = ref<RouteOption | null>(null);
 const autoRequest = ref<GuideAutoRequest | null>(null);
 const galleryAnimals = computed(() => {
@@ -181,7 +187,10 @@ async function loadMap(): Promise<void> {
   mapError.value = "";
   try {
     mapGuide.value = await fetchMapGuide(mapController.signal);
-    routeOrigin.value ??= mapGuide.value.default_origin;
+    if (!routeOrigin.value && mapGuide.value.default_origin) {
+      routeOrigin.value = mapGuide.value.default_origin;
+      routeOriginSource.value = "default";
+    }
   } catch (reason) {
     if ((reason as Error).name !== "AbortError") {
       mapError.value = "园区地图暂时没有打开，请稍后重试。";
@@ -241,20 +250,37 @@ function toggleRouteSite(site: string): void {
   activeRoute.value = null;
 }
 
-function setRouteOrigin(origin: MapNamedLocation): void {
+function setRouteOrigin(origin: MapNamedLocation, source: MapOriginSource = "map"): void {
   const current = routeOrigin.value;
-  if (
+  const unchanged =
     current?.name === origin.name &&
     Math.abs(current.longitude - origin.longitude) < 1e-8 &&
-    Math.abs(current.latitude - origin.latitude) < 1e-8
-  ) {
-    return;
-  }
+    Math.abs(current.latitude - origin.latitude) < 1e-8;
+  if (unchanged && routeOriginSource.value === source) return;
+  const shouldReplan = activeRoute.value !== null && !unchanged;
   routeOrigin.value = origin;
-  activeRoute.value = null;
+  routeOriginSource.value = source;
+  if (shouldReplan) {
+    activeRoute.value = null;
+    originRevision.value += 1;
+  }
+}
+
+function requestOriginPick(): void {
+  originPickRequest.value += 1;
 }
 
 function selectRoute(route: RouteOption): void {
+  const firstLeg = route.legs[0];
+  const firstPoint = firstLeg?.polyline[0];
+  if (firstLeg && firstPoint && firstLeg.from_name !== routeOrigin.value?.name) {
+    routeOrigin.value = {
+      name: firstLeg.from_name,
+      longitude: firstPoint.longitude,
+      latitude: firstPoint.latitude,
+    };
+    routeOriginSource.value = "explicit";
+  }
   activeRoute.value = route;
 }
 
@@ -439,11 +465,15 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
         :animals-loading="loading"
         :animals-error="error"
         :origin="routeOrigin"
+        :origin-source="routeOriginSource"
+        :location-state="mapLocationState"
+        :origin-revision="originRevision"
         :active-route="activeRoute"
         :auto-request="autoRequest"
         @route-select="selectRoute"
         @animal-select="openAnimal"
         @animal-remove="removeAnimal"
+        @origin-pick="requestOriginPick"
         @animals-retry="loadAnimals()"
         @fatal-error="showFatalApiError"
       >
@@ -455,13 +485,17 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
             :selected-site="selectedSite"
             :route-sites="selectedRouteSites"
             :origin="routeOrigin"
+            :origin-source="routeOriginSource"
+            :origin-pick-request="originPickRequest"
             :active-route="activeRoute"
+            :active="activePage === 'guide'"
             :focused="expanded"
             :loading="mapLoading"
             :error="mapError"
             @select="changeSite"
             @route-toggle="toggleRouteSite"
             @origin-change="setRouteOrigin"
+            @location-state-change="mapLocationState = $event"
             @retry="loadMap"
           />
         </template>

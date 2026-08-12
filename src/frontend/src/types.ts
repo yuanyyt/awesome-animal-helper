@@ -175,6 +175,16 @@ export interface MapNamedLocation extends MapLocation {
   name: string;
 }
 
+export type MapOriginSource = "explicit" | "map" | "geolocation" | "default";
+
+export type MapLocationState =
+  | "idle"
+  | "locating"
+  | "inside"
+  | "outside"
+  | "failed"
+  | "manual";
+
 export interface RouteStep {
   instruction: string;
   distance_meters: number;
