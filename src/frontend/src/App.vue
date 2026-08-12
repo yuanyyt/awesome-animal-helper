@@ -52,6 +52,7 @@ const siteAnimals = computed(() => {
 });
 type AppPage = "intro" | "animals" | "guide";
 const activePage = ref<AppPage>(pageFromLocation());
+const showBackToTop = ref(false);
 let controller: AbortController | undefined;
 let mapController: AbortController | undefined;
 let lastTrigger: HTMLElement | null = null;
@@ -63,6 +64,8 @@ onMounted(() => {
   void loadMap();
   window.addEventListener("keydown", handleGlobalShortcut);
   window.addEventListener("popstate", syncPageFromLocation);
+  window.addEventListener("scroll", updateBackToTop, { passive: true });
+  updateBackToTop();
 });
 
 onBeforeUnmount(() => {
@@ -70,6 +73,7 @@ onBeforeUnmount(() => {
   mapController?.abort();
   window.removeEventListener("keydown", handleGlobalShortcut);
   window.removeEventListener("popstate", syncPageFromLocation);
+  window.removeEventListener("scroll", updateBackToTop);
 });
 
 function pageFromLocation(): AppPage {
@@ -83,6 +87,7 @@ function syncPageFromLocation(): void {
   normalizeLegacyWikiHash();
   activePage.value = pageFromLocation();
   syncAnimalFromLocation();
+  updateBackToTop();
 }
 
 function showPage(page: AppPage): void {
@@ -94,6 +99,22 @@ function showPage(page: AppPage): void {
     guide: "#guide",
   };
   window.history.pushState(null, "", hashes[page]);
+  updateBackToTop();
+}
+
+function updateBackToTop(): void {
+  showBackToTop.value =
+    activePage.value === "animals" &&
+    window.scrollY > Math.max(480, window.innerHeight * 0.75);
+}
+
+function scrollToTop(): void {
+  window.scrollTo({
+    top: 0,
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth",
+  });
 }
 
 function normalizeLegacyWikiHash(): void {
@@ -321,7 +342,10 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     <section
       id="animals"
       class="page-panel animals-page"
-      :class="{ 'is-active': activePage === 'animals' }"
+      :class="{
+        'is-active': activePage === 'animals',
+        'has-route-dock': selectedAnimals.length > 0,
+      }"
       :aria-hidden="activePage !== 'animals'"
       :inert="activePage !== 'animals'"
       aria-labelledby="animals-title"
@@ -357,6 +381,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       </div>
 
       <AnimalRouteDock
+        v-if="selectedAnimals.length"
         :animals="selectedAnimals"
         @remove="removeAnimal"
         @plan="planSelectedAnimals"
@@ -406,6 +431,23 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       </GuideChatBox>
     </section>
   </main>
+
+  <Transition name="back-to-top">
+    <button
+      v-if="showBackToTop"
+      class="back-to-top"
+      :class="{ 'is-above-route': selectedAnimals.length > 0 }"
+      type="button"
+      aria-label="返回动物邻居页面顶部"
+      title="返回顶部"
+      @click="scrollToTop"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m6 11 6-6 6 6M12 5v14" />
+      </svg>
+      <span>顶部</span>
+    </button>
+  </Transition>
 
   <MobileBottomNav :active-page="activePage" @navigate="showPage" />
 

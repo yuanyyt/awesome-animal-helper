@@ -2319,7 +2319,6 @@ body {
 }
 
 .guide-workspace {
-  display: block;
   padding-block: var(--space-xl) calc(var(--space-3xl) + 7rem);
 }
 
@@ -2607,7 +2606,6 @@ body {
   }
 
   .guide-workspace {
-    display: block;
     padding-block: var(--space-md) calc(var(--space-3xl) + 7rem);
   }
 
@@ -3217,10 +3215,6 @@ body {
 }
 
 @media (max-width: 59.99rem) {
-  .guide-workspace {
-    display: block;
-  }
-
   .guide-workspace > .guide-chat {
     min-height: auto;
   }
@@ -3674,7 +3668,11 @@ body {
 .animals-page {
   align-content: start;
   gap: var(--space-2xl);
-  padding-block: var(--space-3xl) 10rem;
+  padding-block: var(--space-3xl) var(--space-3xl);
+}
+
+.animals-page.has-route-dock {
+  padding-bottom: 8rem;
 }
 
 .page-panel.animals-page.is-active {
@@ -3816,6 +3814,56 @@ body {
   white-space: nowrap;
 }
 
+.back-to-top {
+  position: fixed;
+  z-index: 95;
+  right: max(var(--space-lg), env(safe-area-inset-right));
+  bottom: max(var(--space-lg), env(safe-area-inset-bottom));
+  min-width: 3.25rem;
+  min-height: 3.25rem;
+  display: grid;
+  place-items: center;
+  gap: 0.1rem;
+  padding: var(--space-xs);
+  border: var(--rule-hair) solid var(--color-accent-border);
+  border-radius: var(--radius-round);
+  background: var(--color-paper-3);
+  color: var(--color-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.back-to-top svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.back-to-top:active {
+  transform: translateY(1px);
+}
+
+.back-to-top.is-above-route {
+  bottom: 8rem;
+}
+
+.back-to-top-enter-active,
+.back-to-top-leave-active {
+  transition: opacity var(--dur-medium) var(--ease-out),
+    transform var(--dur-medium) var(--ease-out);
+}
+
+.back-to-top-enter-from,
+.back-to-top-leave-to {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+}
+
 .animal-selection-chips {
   min-width: 0;
   display: flex;
@@ -3889,7 +3937,11 @@ body {
 
   .animals-page {
     gap: var(--space-xl);
-    padding-block-start: var(--space-2xl);
+    padding-block: var(--space-2xl) var(--space-xl);
+  }
+
+  .animals-page.has-route-dock {
+    padding-bottom: 8.5rem;
   }
 
   .animals-page__heading {
@@ -3961,6 +4013,16 @@ body {
 
   .animal-route-dock > button {
     justify-content: center;
+  }
+
+  .back-to-top {
+    right: max(var(--space-md), env(safe-area-inset-right));
+    bottom: calc(var(--size-mobile-nav) + max(var(--space-md), env(safe-area-inset-bottom)));
+  }
+
+  .back-to-top.is-above-route {
+    top: calc(var(--size-nav) + var(--space-sm));
+    bottom: auto;
   }
 
   .guide-chat__dock {

@@ -42,9 +42,9 @@ type TimelineItem =
   | { id: number; kind: "animals" };
 
 const capabilityOptions: { id: GuideCapability; label: string; ariaLabel: string }[] = [
-  { id: "route", label: "路线", ariaLabel: "使用路线规划工具" },
-  { id: "animal", label: "动物", ariaLabel: "使用动物讲解工具" },
-  { id: "service", label: "服务", ariaLabel: "使用园区服务工具" },
+  { id: "route", label: "路线优先", ariaLabel: "优先路线规划" },
+  { id: "animal", label: "动物优先", ariaLabel: "优先动物讲解" },
+  { id: "service", label: "服务优先", ariaLabel: "优先园区服务" },
 ];
 
 const question = ref("");
@@ -466,7 +466,7 @@ function scrollToLatest(): void {
     </div>
 
     <footer class="guide-chat__dock">
-      <div class="guide-tool-chips" role="group" aria-label="选择导览工具">
+      <div class="guide-tool-chips" role="group" aria-label="选择导览偏好">
         <button
           v-for="capability in capabilityOptions"
           :key="capability.id"
