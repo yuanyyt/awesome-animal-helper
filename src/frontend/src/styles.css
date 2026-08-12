@@ -485,6 +485,7 @@ main {
 .zoo-map__canvas {
   position: relative;
   aspect-ratio: 8 / 5;
+  container-type: size;
   overflow: hidden;
   border-bottom: var(--rule-hair) solid var(--color-rule-strong);
   background: var(--color-leaf-soft);
@@ -499,11 +500,20 @@ main {
   pointer-events: none;
 }
 
-.zoo-map__canvas > img {
+.zoo-map__static-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(100cqw, calc(100cqh * 8 / 5));
+  height: min(100cqh, calc(100cqw * 5 / 8));
+  transform: translate(-50%, -50%);
+}
+
+.zoo-map__static-stage > img {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   filter: saturate(0.68) sepia(0.12);
 }
 
@@ -4951,6 +4961,11 @@ body.has-expanded-map {
     height: 100%;
     min-height: 0;
     pointer-events: none;
+  }
+
+  .chat-artifact.is-map:not(.is-expanded) .zoo-map__canvas {
+    height: 100%;
+    min-height: 0;
   }
 
   .chat-artifact.is-map:not(.is-expanded) :is(.zoo-map__status, .zoo-map__locate, .zoo-map__quick-actions, .zoo-map__sheet) {

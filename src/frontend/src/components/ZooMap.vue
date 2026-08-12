@@ -224,6 +224,13 @@ watch(
   { deep: true },
 );
 
+watch(activePanel, (panel) => {
+  if (panel !== "route" || !props.activeRoute) return;
+  void nextTick(() => {
+    window.requestAnimationFrame(() => fitRouteOverlays());
+  });
+});
+
 watch(
   () => props.selectedSite,
   (site) => {
@@ -765,8 +772,18 @@ function updateRouteOverlay(): void {
     map.add(line);
   }
 
+  fitRouteOverlays();
+}
+
+function fitRouteOverlays(): void {
+  if (!map) return;
   const visibleLines = routeOverlays.filter((_, index) => index % 2 === 1);
-  if (visibleLines.length) map.setFitView(visibleLines, false, [84, 84, 84, 84]);
+  if (!visibleLines.length) return;
+  const mapHeight = mapContainer.value?.clientHeight ?? 0;
+  const bottomPadding = activePanel.value === "route"
+    ? Math.max(84, Math.round(mapHeight * 0.55) + 16)
+    : 84;
+  map.setFitView(visibleLines, false, [84, 84, bottomPadding, 84]);
 }
 
 function removeRouteOverlays(): void {
@@ -1016,6 +1033,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
           ></div>
         </template>
         <template v-else>
+          <div class="zoo-map__static-stage">
           <img
             class="zoo-map__boundary-image"
             :src="guide.image_url"
@@ -1091,6 +1109,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
               />
             </span>
           </button>
+          </div>
         </template>
 
         <div class="zoo-map__status" aria-live="polite">
