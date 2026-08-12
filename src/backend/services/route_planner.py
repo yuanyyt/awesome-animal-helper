@@ -490,13 +490,14 @@ class RoutePlanner:
             route = self.amap.walking_route(origin, destination)
         except AmapServiceError as exc:
             raise RoutePlanningError(f"无法规划到「{destination_name}」的步行路线") from exc
+        polyline = _connect_polyline(route.polyline, origin, destination)
         return RouteLeg(
             from_name=origin_name,
             to_name=destination_name,
             distance_meters=route.distance_meters,
             duration_seconds=route.duration_seconds,
             steps=list(route.steps),
-            polyline=list(route.polyline),
+            polyline=polyline,
         )
 
 
@@ -512,7 +513,11 @@ def _shuttle_leg(
     while path[-1].id != end_id:
         index = (index + 1) % len(stations)
         path.append(stations[index])
-    polyline = _shuttle_polyline(shuttle, path[0], path[-1])
+    polyline = _connect_polyline(
+        _shuttle_polyline(shuttle, path[0], path[-1]),
+        path[0],
+        path[-1],
+    )
     distance = round(
         sum(_distance(polyline[index], polyline[index + 1]) for index in range(len(polyline) - 1))
     )
@@ -690,6 +695,27 @@ def _distance(first: MapLocation, second: MapLocation) -> float:
     x = math.radians(second.longitude - first.longitude) * math.cos(latitude)
     y = math.radians(second.latitude - first.latitude)
     return math.hypot(x, y) * 6_371_000
+
+
+def _connect_polyline(
+    points: list[MapLocation] | tuple[MapLocation, ...],
+    start: MapLocation,
+    end: MapLocation,
+) -> list[MapLocation]:
+    """Anchor routed geometry to its named endpoints so adjacent legs meet."""
+
+    connected = list(points)
+    if not connected:
+        return [start, end]
+    if _same_location(connected[0], start):
+        connected[0] = start
+    else:
+        connected.insert(0, start)
+    if _same_location(connected[-1], end):
+        connected[-1] = end
+    else:
+        connected.append(end)
+    return connected
 
 
 def _same_location(first: MapLocation, second: MapLocation) -> bool:

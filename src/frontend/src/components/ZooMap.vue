@@ -244,8 +244,7 @@ watch(
 
 watch(
   () => props.focused,
-  (focused) => {
-    if (!focused) return;
+  () => {
     void nextTick(() => {
       window.requestAnimationFrame(() => {
         map?.resize();
@@ -780,10 +779,16 @@ function fitRouteOverlays(): void {
   const visibleLines = routeOverlays.filter((_, index) => index % 2 === 1);
   if (!visibleLines.length) return;
   const mapHeight = mapContainer.value?.clientHeight ?? 0;
-  const bottomPadding = activePanel.value === "route"
+  const compact = mapHeight > 0 && mapHeight <= 260;
+  const edgePadding = compact ? 24 : 84;
+  const bottomPadding = !compact && activePanel.value === "route"
     ? Math.max(84, Math.round(mapHeight * 0.55) + 16)
-    : 84;
-  map.setFitView(visibleLines, false, [84, 84, bottomPadding, 84]);
+    : edgePadding;
+  map.setFitView(
+    visibleLines,
+    false,
+    [edgePadding, edgePadding, bottomPadding, edgePadding],
+  );
 }
 
 function removeRouteOverlays(): void {
