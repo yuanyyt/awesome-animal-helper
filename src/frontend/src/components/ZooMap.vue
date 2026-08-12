@@ -62,6 +62,9 @@ let boundaryLine: AmapOverlay | undefined;
 let mapBounds: AmapBounds | undefined;
 let mapLimitBounds: AmapBounds | undefined;
 let readinessTimer: number | undefined;
+let mapResizeObserver: ResizeObserver | undefined;
+let mapResizeFrame: number | undefined;
+let observedMapSize = "";
 let locationAttempt = 0;
 let automaticLocationAttempted = false;
 const selectedPoint = computed(() =>
@@ -280,6 +283,7 @@ async function initializeInteractiveMap(): Promise<void> {
       doubleClickZoom: true,
       keyboardEnable: true,
     });
+    observeMapContainer();
     const bounds = createAmapBounds(AMap, path);
     mapBounds = bounds;
     mapLimitBounds = createAmapBounds(AMap, path, 0.45);
@@ -344,6 +348,26 @@ function markInteractiveMapReady(): void {
   }
   interactiveReady.value = true;
   updateRouteOverlay();
+}
+
+function observeMapContainer(): void {
+  const container = mapContainer.value;
+  if (!container || typeof ResizeObserver === "undefined") return;
+  mapResizeObserver?.disconnect();
+  observedMapSize = "";
+  mapResizeObserver = new ResizeObserver(([entry]) => {
+    if (!entry) return;
+    const size = `${Math.round(entry.contentRect.width)}x${Math.round(entry.contentRect.height)}`;
+    if (size === observedMapSize) return;
+    observedMapSize = size;
+    if (mapResizeFrame !== undefined) window.cancelAnimationFrame(mapResizeFrame);
+    mapResizeFrame = window.requestAnimationFrame(() => {
+      mapResizeFrame = undefined;
+      map?.resize();
+      if (props.activeRoute) fitRouteOverlays();
+    });
+  });
+  mapResizeObserver.observe(container);
 }
 
 function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
@@ -631,6 +655,11 @@ function destroyInteractiveMap(): void {
   locationAttempt += 1;
   if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
   readinessTimer = undefined;
+  mapResizeObserver?.disconnect();
+  mapResizeObserver = undefined;
+  if (mapResizeFrame !== undefined) window.cancelAnimationFrame(mapResizeFrame);
+  mapResizeFrame = undefined;
+  observedMapSize = "";
   amapMarkers = [];
   facilityMarkers = [];
   routeOverlays = [];
