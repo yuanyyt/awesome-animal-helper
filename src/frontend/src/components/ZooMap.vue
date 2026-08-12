@@ -22,6 +22,7 @@ const props = defineProps<{
   routeSites: string[];
   origin: MapNamedLocation | null;
   activeRoute: RouteOption | null;
+  focused: boolean;
   loading: boolean;
   error: string;
 }>();
@@ -68,7 +69,9 @@ const selectedPoint = computed(() =>
 );
 const selectedFacility = ref<FacilityPoint | null>(null);
 type FacilityGroup = "common" | "refreshment" | "family" | "transport" | "none";
-const activeFacilityGroup = ref<FacilityGroup>("common");
+type MapPanel = "place" | "services" | "route" | null;
+const activeFacilityGroup = ref<FacilityGroup>("none");
+const activePanel = ref<MapPanel>(null);
 const facilityGroups: {
   id: FacilityGroup;
   label: string;
@@ -97,7 +100,6 @@ const facilityGroups: {
       "bag_storage", "mobility_rental", "police", "smoking_area",
     ],
   },
-  { id: "none", label: "隐藏服务", categories: [] },
 ];
 const activeFacilityCategories = computed(
   () => new Set(
@@ -110,6 +112,9 @@ const visibleFacilities = computed(() =>
   ),
 );
 const displayedRouteSites = computed(() => props.activeRoute?.sites ?? props.routeSites);
+const selectedPointInRoute = computed(() =>
+  selectedPoint.value ? displayedRouteSites.value.includes(selectedPoint.value.site) : false,
+);
 const durationLabel = computed(() =>
   props.activeRoute ? `约 ${props.activeRoute.total_minutes} 分钟` : "",
 );
@@ -204,7 +209,10 @@ watch(
 watch(
   () => props.activeRoute,
   () => {
+    if (props.activeRoute) activeFacilityGroup.value = "none";
     updateInteractiveMarkers(props.selectedSite);
+    updateFacilityVisibility();
+    updateShuttleVisibility();
     updateRouteOverlay();
   },
   { deep: true },
@@ -221,8 +229,23 @@ watch(
   (site) => {
     const point = props.guide?.points.find((candidate) => candidate.site === site);
     if (site) selectedFacility.value = null;
+    if (site) activePanel.value = "place";
     updateInteractiveMarkers(site);
     if (point && map) map.panTo([point.longitude, point.latitude]);
+  },
+);
+
+watch(
+  () => props.focused,
+  (focused) => {
+    if (!focused) return;
+    void nextTick(() => {
+      window.requestAnimationFrame(() => {
+        map?.resize();
+        if (props.activeRoute) updateRouteOverlay();
+        else if (mapBounds) map?.setBounds(mapBounds, true, [32, 32, 96, 32]);
+      });
+    });
   },
 );
 
@@ -332,7 +355,7 @@ function createMarkerButton(point: MapPoint, index: number): HTMLButtonElement {
 function selectVenue(site: string): void {
   selectedFacility.value = null;
   emit("select", site);
-  emit("routeToggle", site);
+  activePanel.value = "place";
 }
 
 function createFacilityMarkers(): void {
@@ -342,12 +365,12 @@ function createFacilityMarkers(): void {
     const content = document.createElement("button");
     content.type = "button";
     content.className = "zoo-map__facility-marker";
-    content.textContent = facilityIcon(facility.category);
+    content.append(createFacilityIcon(facility.category));
     content.title = facility.name;
     content.setAttribute("aria-label", `${facility.name}，${facilityLabel(facility.category)}`);
     content.addEventListener("click", (event) => {
       event.stopPropagation();
-      selectedFacility.value = facility;
+      selectFacility(facility);
     });
     const marker = new AMap.Marker({
       position: [facility.longitude, facility.latitude],
@@ -379,6 +402,14 @@ function createShuttleOverlay(): void {
     zIndex: 120,
   });
   map.add(shuttleOverlay);
+  updateShuttleVisibility();
+}
+
+function updateShuttleVisibility(): void {
+  if (!shuttleOverlay) return;
+  const visible = activeFacilityGroup.value === "transport" || props.activeRoute?.uses_shuttle;
+  if (visible) shuttleOverlay.show?.();
+  else shuttleOverlay.hide?.();
 }
 
 function pathInsideBoundary(points: MapPointLike[]): MapPointLike[] {
@@ -418,6 +449,29 @@ function selectFacilityGroup(group: FacilityGroup): void {
   activeFacilityGroup.value = group;
   selectedFacility.value = null;
   updateFacilityVisibility();
+  updateShuttleVisibility();
+}
+
+function selectFacility(facility: FacilityPoint): void {
+  selectedFacility.value = facility;
+  activePanel.value = "place";
+}
+
+function toggleServicesPanel(): void {
+  activePanel.value = activePanel.value === "services" ? null : "services";
+}
+
+function toggleRoutePanel(): void {
+  activePanel.value = activePanel.value === "route" ? null : "route";
+}
+
+function closePanel(): void {
+  activePanel.value = null;
+  selectedFacility.value = null;
+}
+
+function toggleSelectedPointRoute(): void {
+  if (selectedPoint.value) emit("routeToggle", selectedPoint.value.site);
 }
 
 function updateFacilityVisibility(): void {
@@ -426,15 +480,40 @@ function updateFacilityVisibility(): void {
   }
 }
 
-function facilityIcon(category: FacilityCategory): string {
+function facilityIconPath(category: FacilityCategory): string {
   const icons: Record<FacilityCategory, string> = {
-    metro: "地", bus_terminal: "巴", train_station: "站", visitor_center: "服",
-    entrance: "门", bag_storage: "存", ticket_office: "票", parking: "P",
-    smoking_area: "烟", drinking_water: "水", tour_bus_station: "车",
-    mobility_rental: "借", police: "警", shopping: "店", restaurant: "餐",
-    coffee: "咖", toilet: "卫", nursing_room: "婴", family_toilet: "亲",
+    metro: "M5 18h14M7 15l1.5-9h7L17 15M9 10h6M8 15h8",
+    bus_terminal: "M6 17h12V7c0-2-2-3-6-3S6 5 6 7v10Zm0-5h12M8 20h.01M16 20h.01",
+    train_station: "M7 16h10V5c0-1-2-5-2S7 4 7 5v11Zm0-5h10M9 20l3-4 3 4",
+    visitor_center: "M12 10v7M12 7h.01M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0Z",
+    entrance: "M5 21V4h11v17M9 12h.01M16 8h3v13",
+    bag_storage: "M5 8h14l-1 12H6L5 8Zm4 0V6c0-2 6-2 6 0v2",
+    ticket_office: "M4 8h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4V8Zm8 2v6",
+    parking: "M7 20V4h6a5 5 0 0 1 0 10H7M7 14h6",
+    smoking_area: "M4 15h13M5 18h12M18 15h2v3h-2M9 11c0-2 4-1 3-5M14 11c0-2 4-1 3-5",
+    drinking_water: "M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11Z",
+    tour_bus_station: "M5 16h14V8c0-2-2-3-7-3S5 6 5 8v8Zm0-5h14M8 19h.01M16 19h.01",
+    mobility_rental: "M5 17a3 3 0 1 0 0 .01M19 17a3 3 0 1 0 0 .01M8 17l3-7h4l4 7M9 13h7M12 10l-2-3",
+    police: "M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Zm0 5v8M8 12h8",
+    shopping: "M5 8h14l-1 12H6L5 8Zm4 0a3 3 0 0 1 6 0",
+    restaurant: "M7 3v8M4 3v5c0 2 6 2 6 0V3M7 11v10M16 3v18M16 3c4 2 4 8 0 10",
+    coffee: "M5 8h12v7a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8Zm12 2h2a3 3 0 0 1 0 6h-2M8 4v2M12 4v2",
+    toilet: "M8 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm8 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM5 21v-7H3l2-6h6l2 6h-2v7M15 21v-5h-2l2-8h2l2 8h-2v5",
+    nursing_room: "M12 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm-3 14v-6H7l2-6h5l3 4M13 16a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z",
+    family_toilet: "M7 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 15v-6H5l2-7h2l2 7H9v6M16 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm0 11v-4h-2l2-5 2 5h-2",
   };
   return icons[category];
+}
+
+function createFacilityIcon(category: FacilityCategory): SVGSVGElement {
+  const namespace = "http://www.w3.org/2000/svg";
+  const icon = document.createElementNS(namespace, "svg");
+  const path = document.createElementNS(namespace, "path");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("aria-hidden", "true");
+  path.setAttribute("d", facilityIconPath(category));
+  icon.append(path);
+  return icon;
 }
 
 function facilityLabel(category: FacilityCategory): string {
@@ -459,7 +538,7 @@ function updateInteractiveMarkers(site: string): void {
     const routeSite = routeIndex >= 0;
     button.classList.toggle("is-active", active);
     button.classList.toggle("is-route-stop", routeSite);
-    button.classList.toggle("is-label-visible", (map?.getZoom() ?? 0) >= 17);
+    button.classList.remove("is-label-visible");
     button.classList.toggle(
       "is-label-left",
       (routeSite ? routeIndex : Number(button.dataset.defaultIndex ?? 1) - 1) % 2 === 1,
@@ -474,9 +553,8 @@ function updateInteractiveMarkers(site: string): void {
 }
 
 function updateMarkerZoomState(): void {
-  const labelsVisible = (map?.getZoom() ?? 0) >= 17;
   for (const marker of amapMarkers) {
-    marker.getContent().classList.toggle("is-label-visible", labelsVisible);
+    marker.getContent().classList.remove("is-label-visible");
   }
 }
 
@@ -552,7 +630,10 @@ function destroyInteractiveMap(): void {
 }
 
 function handleMapClick(event: AmapMapClickEvent): void {
-  if (!settingOrigin.value) return;
+  if (!settingOrigin.value) {
+    closePanel();
+    return;
+  }
   locationAttempt += 1;
   locationState.value = "manual";
   emit("originChange", {
@@ -564,10 +645,12 @@ function handleMapClick(event: AmapMapClickEvent): void {
 }
 
 function toggleManualOrigin(): void {
+  activePanel.value = null;
   settingOrigin.value = !settingOrigin.value;
 }
 
 async function locateVisitor(): Promise<void> {
+  activePanel.value = null;
   const AMap = window.AMap;
   if (!AMap || !map || !props.guide) {
     useDefaultOrigin("failed");
@@ -798,7 +881,10 @@ interface AmapMarker {
   getContent(): HTMLButtonElement;
 }
 
-interface AmapOverlay {}
+interface AmapOverlay {
+  show?(): void;
+  hide?(): void;
+}
 interface AmapBounds {}
 
 interface AmapMapClickEvent {
@@ -827,6 +913,7 @@ interface AmapMap {
   setBounds(bounds: AmapBounds, immediately: boolean, padding: number[]): void;
   setFitView(overlays: AmapOverlay[], immediately: boolean, padding: number[]): void;
   setLimitBounds(bounds: AmapBounds): void;
+  resize(): void;
 }
 
 interface AmapGlobal {
@@ -903,45 +990,12 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
     </div>
 
     <template v-else>
-      <div class="zoo-map__planner-tools">
-        <div class="zoo-map__planner-copy">
-          <p v-if="activeRoute"><strong>{{ activeRoute.name }}</strong> · {{ durationLabel }} · {{ activeRoute.sites.length }} 站</p>
-          <p v-else><strong>{{ routeSites.length }}</strong> 个场馆已加入路线</p>
-          <small aria-live="polite">{{ locationStatus }}</small>
-        </div>
-        <div class="zoo-map__origin-actions">
-          <button
-            type="button"
-            :disabled="!guide.js_api || interactiveFailed || locationState === 'locating'"
-            @click="locateVisitor"
-          >
-            {{ locationState === "locating" ? "定位中…" : "重新定位" }}
-          </button>
-          <button
-            type="button"
-            :class="{ 'is-active': settingOrigin }"
-            :disabled="!guide.js_api || interactiveFailed"
-            @click="toggleManualOrigin"
-          >
-            {{ settingOrigin ? "取消设置起点" : "在地图上设置起点" }}
-          </button>
-        </div>
-        <div class="zoo-map__facility-filters" aria-label="地图设施图层">
-          <button
-            v-for="group in facilityGroups"
-            :key="group.id"
-            type="button"
-            :class="{ 'is-active': activeFacilityGroup === group.id }"
-            :aria-pressed="activeFacilityGroup === group.id"
-            @click="selectFacilityGroup(group.id)"
-          >
-            {{ group.label }}
-          </button>
-        </div>
-      </div>
       <div
         class="zoo-map__canvas"
-        :class="{ 'has-active-route': activeRoute }"
+        :class="{
+          'has-active-route': activeRoute,
+          'has-service-layer': activeFacilityGroup !== 'none',
+        }"
         :style="staticBoundaryStyle"
       >
         <template v-if="guide.js_api && !interactiveFailed">
@@ -962,7 +1016,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             @error="imageFailed = true"
           />
           <svg
-            v-if="guide.shuttle"
+            v-if="guide.shuttle && (activeFacilityGroup === 'transport' || activeRoute?.uses_shuttle)"
             class="zoo-map__static-shuttle"
             viewBox="0 0 1024 640"
             preserveAspectRatio="none"
@@ -990,9 +1044,11 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             type="button"
             :title="facility.name"
             :aria-label="`${facility.name}，${facilityLabel(facility.category)}`"
-            @click="selectedFacility = facility"
+            @click="selectFacility(facility)"
           >
-            {{ facilityIcon(facility.category) }}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="facilityIconPath(facility.category)" />
+            </svg>
           </button>
           <button
             v-for="(point, index) in guide.points"
@@ -1026,39 +1082,113 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             </span>
           </button>
         </template>
-      </div>
 
-      <ol v-if="routeLegs.length" class="zoo-map__leg-summary" aria-label="路线分段用时">
-        <li v-for="(leg, index) in routeLegs" :key="`summary-${leg.id}`">
-          <span>{{ index + 1 }}</span>
-          <p><strong>{{ leg.from_name }} → {{ leg.to_name }}</strong><small>{{ Math.round(leg.distance_meters / 10) * 10 }} 米</small></p>
-          <em>{{ leg.mode === "shuttle" ? "观光车约" : "步行约" }} {{ leg.minutes }} 分钟{{ leg.estimated ? "（估算）" : "" }}</em>
-        </li>
-      </ol>
-
-      <div class="zoo-map__caption" aria-live="polite">
-        <span v-if="selectedFacility" class="zoo-map__caption-icon" aria-hidden="true">
-          {{ facilityIcon(selectedFacility.category) }}
-        </span>
-        <div>
-          <p>{{ selectedFacility?.name || selectedPoint?.poi_name || "点按场馆或服务点查看详情" }}</p>
-          <span v-if="selectedFacility">
-            {{ facilityLabel(selectedFacility.category) }} · {{ selectedFacility.address }}
-          </span>
-          <span v-else-if="selectedPoint">
-            {{ selectedPoint.address }} · {{ selectedPoint.animal_count }} 种动物
-          </span>
-          <span v-else>琥珀色圆点为场馆，方形标记为当前服务分类</span>
+        <div class="zoo-map__status" aria-live="polite">
+          <strong v-if="activeRoute">{{ activeRoute.name }}</strong>
+          <strong v-else>{{ routeSites.length ? `${routeSites.length} 个场馆待规划` : "浏览园区" }}</strong>
+          <span>{{ activeRoute ? `${durationLabel} · ${activeRoute.sites.length} 站` : locationStatus }}</span>
         </div>
+
         <button
-          v-if="selectedFacility"
-          class="zoo-map__caption-close"
+          class="zoo-map__locate"
           type="button"
-          aria-label="关闭设施信息"
-          @click="selectedFacility = null"
-        >×</button>
-        <strong v-else-if="selectedPoint">下方查看馆内动物 ↓</strong>
-        <small v-else>
+          :disabled="!guide.js_api || interactiveFailed || locationState === 'locating'"
+          :aria-label="locationState === 'locating' ? '正在定位' : '重新定位'"
+          @click="locateVisitor"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          </svg>
+        </button>
+
+        <div v-if="!activePanel" class="zoo-map__quick-actions" aria-label="地图操作">
+          <button type="button" @click="toggleServicesPanel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h8M16 17h4M14 5v4M7 10v4M12 15v4" /></svg>
+            附近服务
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': settingOrigin }"
+            :disabled="!guide.js_api || interactiveFailed"
+            @click="toggleManualOrigin"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5 6-11a6 6 0 1 0-12 0c0 6 6 11 6 11Z" /><circle cx="12" cy="10" r="2" /></svg>
+            {{ settingOrigin ? "取消选起点" : "设置起点" }}
+          </button>
+          <button v-if="activeRoute" type="button" @click="toggleRoutePanel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9" /></svg>
+            路线详情
+          </button>
+        </div>
+
+        <section v-if="activePanel" class="zoo-map__sheet" :aria-label="activePanel === 'services' ? '选择园区服务' : activePanel === 'route' ? '路线详情' : '地点详情'">
+          <button class="zoo-map__sheet-close" type="button" aria-label="关闭地图信息" @click="closePanel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+
+          <template v-if="activePanel === 'services'">
+            <div class="zoo-map__sheet-heading">
+              <strong>在地图上找服务</strong>
+              <span>一次显示一类，地图更容易看清。</span>
+            </div>
+            <div class="zoo-map__service-options">
+              <button
+                v-for="group in facilityGroups"
+                :key="group.id"
+                type="button"
+                :class="{ 'is-active': activeFacilityGroup === group.id }"
+                :aria-pressed="activeFacilityGroup === group.id"
+                @click="selectFacilityGroup(group.id)"
+              >
+                {{ group.label }}
+              </button>
+              <button
+                type="button"
+                :class="{ 'is-active': activeFacilityGroup === 'none' }"
+                :aria-pressed="activeFacilityGroup === 'none'"
+                @click="selectFacilityGroup('none')"
+              >
+                关闭服务点
+              </button>
+            </div>
+          </template>
+
+          <template v-else-if="activePanel === 'route'">
+            <div class="zoo-map__sheet-heading">
+              <strong>{{ activeRoute?.name }}</strong>
+              <span>{{ durationLabel }} · {{ activeRoute?.sites.length }} 站</span>
+            </div>
+            <ol class="zoo-map__sheet-route" aria-label="路线分段用时">
+              <li v-for="(leg, index) in routeLegs" :key="`summary-${leg.id}`">
+                <span>{{ index + 1 }}</span>
+                <p><strong>{{ leg.from_name }} → {{ leg.to_name }}</strong><small>{{ Math.round(leg.distance_meters / 10) * 10 }} 米</small></p>
+                <em>{{ leg.mode === "shuttle" ? "观光车" : "步行" }} {{ leg.minutes }} 分钟</em>
+              </li>
+            </ol>
+          </template>
+
+          <template v-else>
+            <span v-if="selectedFacility" class="zoo-map__sheet-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path :d="facilityIconPath(selectedFacility.category)" /></svg>
+            </span>
+            <div class="zoo-map__sheet-place">
+              <strong>{{ selectedFacility?.name || selectedPoint?.poi_name }}</strong>
+              <span v-if="selectedFacility">{{ facilityLabel(selectedFacility.category) }} · {{ selectedFacility.address }}</span>
+              <span v-else-if="selectedPoint">{{ selectedPoint.address }} · {{ selectedPoint.animal_count }} 种动物</span>
+            </div>
+            <button
+              v-if="selectedPoint"
+              class="zoo-map__route-action"
+              type="button"
+              :class="{ 'is-selected': selectedPointInRoute }"
+              @click="toggleSelectedPointRoute"
+            >
+              {{ selectedPointInRoute ? "移出路线" : "加入路线" }}
+            </button>
+          </template>
+        </section>
+
+        <small v-if="!guide.js_api" class="zoo-map__attribution">
           地图来自 {{ guide.provider }} ·
           <a :href="guide.boundary.source_url" target="_blank" rel="noreferrer">{{ guide.boundary.attribution }}</a>
         </small>

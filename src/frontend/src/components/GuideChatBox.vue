@@ -58,6 +58,7 @@ const voiceState = ref<VoiceState>("disconnected");
 const scrollArea = ref<HTMLElement | null>(null);
 const questionInput = ref<HTMLTextAreaElement | null>(null);
 const showLatestButton = ref(false);
+const mapExpanded = ref(false);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
 const voiceDraftReady = ref(false);
@@ -65,6 +66,7 @@ const selectedCapabilities = ref<GuideCapability[]>(["route"]);
 let voiceQuestionPrefix = "";
 let nextItemId = 1;
 let followLatest = true;
+let mapReturnFocus: HTMLElement | null = null;
 
 const voiceClient = new VoiceGuideClient(
   {
@@ -129,7 +131,12 @@ watch(
   },
 );
 
-onBeforeUnmount(() => voiceClient.close());
+onBeforeUnmount(() => {
+  voiceClient.close();
+  document.body.classList.remove("has-expanded-map");
+  setBackgroundInert(false);
+  window.removeEventListener("keydown", handleMapEscape);
+});
 
 const voiceBusy = computed(() => !["disconnected", "idle"].includes(voiceState.value));
 const voiceStatus = computed(() => {
@@ -353,6 +360,38 @@ function goToLatest(): void {
   scrollToLatest(true);
 }
 
+function openMap(): void {
+  if (mapExpanded.value) return;
+  mapReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  mapExpanded.value = true;
+  document.body.classList.add("has-expanded-map");
+  setBackgroundInert(true);
+  window.addEventListener("keydown", handleMapEscape);
+  void nextTick(() => {
+    document.querySelector<HTMLElement>(".chat-artifact.is-map.is-expanded .chat-artifact__map-toggle")?.focus();
+  });
+}
+
+function closeMap(): void {
+  if (!mapExpanded.value) return;
+  mapExpanded.value = false;
+  document.body.classList.remove("has-expanded-map");
+  setBackgroundInert(false);
+  window.removeEventListener("keydown", handleMapEscape);
+  void nextTick(() => mapReturnFocus?.focus());
+}
+
+function handleMapEscape(event: KeyboardEvent): void {
+  if (event.key === "Escape") closeMap();
+}
+
+function setBackgroundInert(inert: boolean): void {
+  for (const selector of [".site-nav", ".app-pages", ".mobile-bottom-nav"]) {
+    const element = document.querySelector<HTMLElement>(selector);
+    if (element) element.inert = inert;
+  }
+}
+
 function scrollToLatest(force = false): void {
   void nextTick(() => {
     window.requestAnimationFrame(() => {
@@ -466,13 +505,39 @@ function handleComposerKeydown(event: KeyboardEvent): void {
           </div>
         </article>
 
-        <article v-else-if="item.kind === 'map'" class="chat-artifact is-map">
-          <header>
-            <span>{{ activeRoute ? `${activeRoute.name}路线图` : "园区地图" }}</span>
-            <p>{{ activeRoute ? activeRoute.sites.join(" → ") : "点按场馆，加入今天的路线。" }}</p>
-          </header>
-          <slot name="map"></slot>
-        </article>
+        <Teleport v-else-if="item.kind === 'map'" to="body" :disabled="!mapExpanded">
+          <article
+            class="chat-artifact is-map"
+            :class="{ 'is-expanded': mapExpanded }"
+            :role="mapExpanded ? 'dialog' : undefined"
+            :aria-modal="mapExpanded ? 'true' : undefined"
+            :aria-label="mapExpanded ? '园区地图专注视图' : undefined"
+          >
+            <header>
+              <div>
+                <span>{{ activeRoute ? `${activeRoute.name}路线图` : "园区地图" }}</span>
+                <p>{{ activeRoute ? activeRoute.sites.join(" → ") : "点按场馆查看，再决定是否加入路线。" }}</p>
+              </div>
+              <button
+                class="chat-artifact__map-toggle"
+                type="button"
+                :aria-label="mapExpanded ? '关闭园区地图' : '打开园区地图'"
+                @click="mapExpanded ? closeMap() : openMap()"
+              >
+                <svg v-if="mapExpanded" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m6 6 12 12M18 6 6 18" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5" />
+                </svg>
+                <span>{{ mapExpanded ? "关闭地图" : "打开地图" }}</span>
+              </button>
+            </header>
+            <div class="chat-artifact__map-shell">
+              <slot name="map" :expanded="mapExpanded"></slot>
+            </div>
+          </article>
+        </Teleport>
 
         <article v-else class="chat-artifact is-animals">
           <header><span>{{ selectedSite }}</span><p>住在这座场馆的动物邻居</p></header>

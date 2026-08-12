@@ -438,7 +438,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
         @animal-remove="removeAnimal"
         @animals-retry="loadAnimals()"
       >
-        <template #map>
+        <template #map="{ expanded }">
           <ZooMap
             :guide="mapGuide"
             :animals="data?.items ?? []"
@@ -447,6 +447,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
             :route-sites="selectedRouteSites"
             :origin="routeOrigin"
             :active-route="activeRoute"
+            :focused="expanded"
             :loading="mapLoading"
             :error="mapError"
             @select="changeSite"
