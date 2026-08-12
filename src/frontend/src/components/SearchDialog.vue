@@ -20,6 +20,7 @@ interface SearchResult {
 
 const dialog = ref<HTMLDialogElement>();
 const input = ref<HTMLInputElement>();
+const touchDevice = navigator.maxTouchPoints > 0;
 const query = ref("");
 const results = ref<SearchResult[]>([]);
 const activeIndex = ref(0);
@@ -34,8 +35,12 @@ watch(
   async (open) => {
     if (open) {
       dialog.value?.showModal();
+      if (touchDevice) dialog.value?.focus({ preventScroll: true });
       await nextTick();
-      if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      if (
+        navigator.maxTouchPoints === 0 &&
+        window.matchMedia("(hover: hover) and (pointer: fine)").matches
+      ) {
         input.value?.focus();
       }
       await search();
@@ -139,6 +144,8 @@ function completeSelection(): void {
     <dialog
       ref="dialog"
       class="search-dialog"
+      :autofocus="touchDevice"
+      tabindex="-1"
       aria-labelledby="search-title"
       @cancel.prevent="emit('close')"
       @close="completeSelection"

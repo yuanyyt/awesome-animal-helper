@@ -56,12 +56,15 @@ const error = ref("");
 const voiceNotice = ref("");
 const voiceState = ref<VoiceState>("disconnected");
 const scrollArea = ref<HTMLElement | null>(null);
+const questionInput = ref<HTMLTextAreaElement | null>(null);
+const showLatestButton = ref(false);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
 const voiceDraftReady = ref(false);
 const selectedCapabilities = ref<GuideCapability[]>(["route"]);
 let voiceQuestionPrefix = "";
 let nextItemId = 1;
+let followLatest = true;
 
 const voiceClient = new VoiceGuideClient(
   {
@@ -100,6 +103,8 @@ watch(
     }),
   { deep: true },
 );
+
+watch(question, () => resizeQuestionInput());
 
 let handledAutoRequest = 0;
 watch(
@@ -228,12 +233,12 @@ function handleResponse(response: GuideChatResponse): void {
     showMap(true);
     moveAnimalsToEnd();
   }
-  scrollToLatest();
+  scrollToLatest(requiredInputs.value.length > 0);
 }
 
 function pushMessage(role: "visitor" | "guide", text: string): void {
   timeline.value.push({ id: nextItemId++, kind: "message", role, text });
-  scrollToLatest();
+  scrollToLatest(role === "visitor");
 }
 
 function showMap(moveToEnd = false): void {
@@ -281,6 +286,10 @@ function summarizeInputs(): string {
   return requiredInputs.value
     .map((field) => `${field.description}：${String(inputValues[field.name] ?? "")}`)
     .join("；");
+}
+
+function fieldInputId(field: GuideInputField): string {
+  return `guide-input-${field.name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
 function toggleCapability(capability: GuideCapability): void {
@@ -331,17 +340,60 @@ function calories(route: RouteOption): string {
   return "卡路里待估算";
 }
 
-function scrollToLatest(): void {
+function handleScroll(): void {
+  const area = scrollArea.value;
+  if (!area) return;
+  followLatest = area.scrollHeight - area.scrollTop - area.clientHeight < 96;
+  if (followLatest) showLatestButton.value = false;
+}
+
+function goToLatest(): void {
+  followLatest = true;
+  showLatestButton.value = false;
+  scrollToLatest(true);
+}
+
+function scrollToLatest(force = false): void {
   void nextTick(() => {
-    const latest = scrollArea.value?.lastElementChild;
-    if (!(latest instanceof HTMLElement)) return;
-    const bottom = latest.getBoundingClientRect().bottom + window.scrollY;
-    window.scrollTo({
-      top: Math.max(0, bottom - window.innerHeight + 24),
-      left: 0,
-      behavior: "smooth",
+    window.requestAnimationFrame(() => {
+      const area = scrollArea.value;
+      if (!area) return;
+      if (!force && !followLatest) {
+        showLatestButton.value = true;
+        return;
+      }
+      if (area.scrollHeight > area.clientHeight + 1) {
+        area.scrollTo({
+          top: area.scrollHeight,
+          behavior: force ? "auto" : "smooth",
+        });
+        return;
+      }
+      const latest = area.lastElementChild;
+      if (!(latest instanceof HTMLElement)) return;
+      window.scrollTo({
+        top: Math.max(0, latest.getBoundingClientRect().bottom + window.scrollY - window.innerHeight + 24),
+        left: 0,
+        behavior: "smooth",
+      });
     });
   });
+}
+
+function resizeQuestionInput(): void {
+  void nextTick(() => {
+    const textarea = questionInput.value;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 96)}px`;
+  });
+}
+
+function handleComposerKeydown(event: KeyboardEvent): void {
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  if (window.matchMedia("(pointer: coarse)").matches) return;
+  event.preventDefault();
+  void submit();
 }
 </script>
 
@@ -356,7 +408,12 @@ function scrollToLatest(): void {
       </div>
     </header>
 
-    <div ref="scrollArea" class="guide-chat__scroll" aria-live="polite">
+    <div
+      ref="scrollArea"
+      class="guide-chat__scroll"
+      aria-live="polite"
+      @scroll.passive="handleScroll"
+    >
       <article class="chat-turn is-guide is-welcome">
         <span class="chat-turn__speaker">导览员</span>
         <div class="chat-turn__bubble">
@@ -442,28 +499,60 @@ function scrollToLatest(): void {
 
       <form v-if="requiredInputs.length" class="guide-chat__hitl" @submit.prevent="submit">
         <p class="guide-chat__hitl-title">补充这些信息，就可以继续规划</p>
-        <label v-for="field in requiredInputs" :key="field.name">
+        <label v-for="field in requiredInputs" :key="field.name" :for="fieldInputId(field)">
           <span>{{ field.description }}</span>
           <span v-if="isEnergyField(field)" class="guide-chat__select">
-            <select v-model="inputValues[field.name]">
+            <select
+              :id="fieldInputId(field)"
+              v-model="inputValues[field.name]"
+              :name="field.name"
+            >
               <option value="轻松">轻松</option><option value="一般">一般</option><option value="充沛">充沛</option>
             </select>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
           </span>
           <span v-else-if="isTransportField(field)" class="guide-chat__select">
-            <select v-model="inputValues[field.name]">
+            <select
+              :id="fieldInputId(field)"
+              v-model="inputValues[field.name]"
+              :name="field.name"
+            >
               <option value="纯步行">纯步行</option><option value="可乘观光车">可乘观光车</option>
             </select>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
           </span>
-          <input v-else-if="isNumberField(field)" v-model.number="inputValues[field.name]" type="number" min="1" />
-          <input v-else v-model="inputValues[field.name]" type="text" />
+          <input
+            v-else-if="isNumberField(field)"
+            :id="fieldInputId(field)"
+            v-model.number="inputValues[field.name]"
+            :name="field.name"
+            type="number"
+            min="1"
+            inputmode="numeric"
+          />
+          <input
+            v-else
+            :id="fieldInputId(field)"
+            v-model="inputValues[field.name]"
+            :name="field.name"
+            type="text"
+          />
         </label>
         <button type="submit" :disabled="!canSubmit">继续规划</button>
       </form>
 
       <p v-if="loading" class="chat-thinking"><span></span><span></span><span></span>导览员正在查看资料</p>
     </div>
+
+    <button
+      v-if="showLatestButton"
+      class="guide-chat__latest"
+      type="button"
+      @click="goToLatest"
+    >
+      查看新消息
+      <span aria-hidden="true">↓</span>
+    </button>
 
     <footer class="guide-chat__dock">
       <div class="guide-tool-chips" role="group" aria-label="选择导览偏好">
@@ -516,11 +605,15 @@ function scrollToLatest(): void {
         </button>
         <textarea
           id="guide-question"
+          ref="questionInput"
           v-model="question"
           :readonly="requiredInputs.length > 0 || voiceBusy"
-          rows="2"
-          :placeholder="requiredInputs.length ? '请先填写上面的信息…' : '问路线，或深入了解一种动物…'"
-          @keydown.enter.exact.prevent="submit"
+          name="guide-question"
+          rows="1"
+          enterkeyhint="enter"
+          :placeholder="requiredInputs.length ? '请先补充信息…' : '问路线或动物…'"
+          @input="resizeQuestionInput"
+          @keydown="handleComposerKeydown"
         ></textarea>
         <button class="guide-chat__send" type="button" :disabled="!canSubmit" aria-label="发送导览问题" @click="submit">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-5 14-2.5-5.5L5 12Z" /></svg>

@@ -42,6 +42,7 @@ textarea {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 button {
@@ -136,6 +137,29 @@ h3 {
   display: flex;
   align-items: center;
   gap: var(--space-xl);
+}
+
+.site-nav__mobile-title {
+  display: none;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  transform: translateY(-200%);
+  border: var(--rule-hair) solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-3);
+  color: var(--color-accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 .site-nav__links > a {
@@ -1300,6 +1324,25 @@ main {
   font-weight: 700;
 }
 
+.guide-chat__latest {
+  position: fixed;
+  z-index: 91;
+  right: 50%;
+  bottom: 11rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-inline: var(--space-md);
+  transform: translateX(50%);
+  border: var(--rule-hair) solid var(--color-accent-border);
+  border-radius: var(--radius-round);
+  background: var(--color-paper-3);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: 750;
+}
+
 .guide-chat__messages {
   max-height: 18rem;
   display: grid;
@@ -1818,6 +1861,8 @@ main {
 
 .search-dialog,
 .detail-dialog {
+  position: fixed;
+  inset: 0;
   width: 100%;
   max-width: none;
   height: 100%;
@@ -2257,7 +2302,7 @@ body {
   background: var(--color-paper-2);
 }
 
-.page-tabs button {
+.page-tabs a {
   min-height: 2.25rem;
   padding-inline: var(--space-md);
   border: 0;
@@ -2266,18 +2311,20 @@ body {
   font-size: var(--text-sm);
   font-weight: 750;
   white-space: nowrap;
+  color: inherit;
+  text-decoration: none;
   transition: transform var(--dur-short) var(--ease-out);
 }
 
-.page-tabs button:hover {
+.page-tabs a:hover {
   transform: translateY(-1px);
 }
 
-.page-tabs button:active {
+.page-tabs a:active {
   transform: translateY(1px);
 }
 
-.page-tabs button[aria-current="page"] {
+.page-tabs a[aria-current="page"] {
   background: var(--color-accent);
   color: var(--color-accent-ink);
 }
@@ -2681,7 +2728,7 @@ body {
     gap: var(--space-2xs);
   }
 
-  .page-tabs button {
+  .page-tabs a {
     padding-inline: var(--space-xs);
     font-size: var(--text-xs);
   }
@@ -2782,6 +2829,10 @@ body {
   gap: var(--space-lg);
   padding: var(--space-xl) 0;
   overflow: visible;
+}
+
+.guide-workspace > .guide-chat .guide-chat__scroll > * {
+  flex: 0 0 auto;
 }
 
 .chat-turn {
@@ -4089,5 +4140,447 @@ body {
   .animal-selection-chip {
     min-width: 0;
     max-width: 100%;
+  }
+}
+
+/* Mobile interaction shell: stable viewport, reachable controls, and one-hand use. */
+.animal-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 24rem;
+}
+
+.zoo-map__marker::before,
+.zoo-map__amap-marker::before,
+.zoo-map__facility-marker::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2.75rem;
+  height: 2.75rem;
+  transform: translate(-50%, -50%);
+  content: "";
+}
+
+.zoo-map__amap-marker,
+.zoo-map__facility-marker {
+  position: relative;
+}
+
+.zoo-map__facility-marker.is-static {
+  position: absolute;
+}
+
+.zoo-map__facility-filters button,
+.zoo-map__planner-tools button,
+.zoo-map__caption-close,
+.animal-card__route {
+  min-height: 2.75rem;
+}
+
+.zoo-map__caption-close {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.search-dialog,
+.search-dialog__results,
+.guide-chat__scroll {
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 48rem), (pointer: coarse) and (max-height: 32rem) {
+  :root {
+    --mobile-app-bar: 4rem;
+  }
+
+  body {
+    overflow-x: clip;
+  }
+
+  html:has(.app-pages.is-guide),
+  body:has(.app-pages.is-guide) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .site-nav {
+    min-height: var(--mobile-app-bar);
+    padding-top: 0;
+  }
+
+  .site-nav__inner {
+    width: calc(100% - 2 * var(--space-md));
+    min-height: var(--mobile-app-bar);
+    gap: var(--space-xs);
+  }
+
+  .site-nav:not(.is-intro) .site-nav__brand {
+    display: none;
+  }
+
+  .site-nav__mobile-title {
+    min-width: 0;
+    display: block;
+    overflow: hidden;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .site-nav.is-intro .site-nav__mobile-title {
+    display: none;
+  }
+
+  .site-nav__brand {
+    min-width: 0;
+    max-width: none;
+    font-size: 1.45rem;
+  }
+
+  .search-pill {
+    width: 2.75rem;
+    height: 2.75rem;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .search-pill > span,
+  .search-pill kbd,
+  .page-tabs {
+    display: none;
+  }
+
+  .app-pages {
+    width: calc(100% - 2 * var(--space-md));
+    min-height: calc(100dvh - var(--mobile-app-bar));
+    padding-bottom: calc(var(--size-mobile-nav) + env(safe-area-inset-bottom));
+    scroll-margin-top: var(--mobile-app-bar);
+  }
+
+  .app-pages.is-intro {
+    height: calc(100dvh - var(--mobile-app-bar) - var(--size-mobile-nav));
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: clip;
+  }
+
+  .app-pages.is-intro .guide-hero {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .app-pages.is-guide {
+    height: calc(100dvh - var(--mobile-app-bar) - var(--size-mobile-nav));
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  .page-panel.guide-workspace.is-active {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .guide-workspace > .guide-chat {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    margin: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .guide-workspace > .guide-chat .guide-chat__intro {
+    min-height: 3.25rem;
+    margin: 0;
+    padding: var(--space-xs) var(--space-sm);
+    border-bottom: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .guide-workspace > .guide-chat .guide-chat__intro > span {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .guide-workspace > .guide-chat .guide-chat__intro h2 {
+    margin: 0;
+    font-size: var(--text-lg);
+  }
+
+  .guide-workspace > .guide-chat .guide-chat__scroll {
+    min-height: 0;
+    padding: var(--space-md) var(--space-2xs);
+    overflow-y: auto;
+    scroll-padding-block: var(--space-md);
+    scrollbar-width: thin;
+  }
+
+  .guide-chat__dock {
+    position: relative;
+    z-index: 4;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    max-width: none;
+    margin: 0 0 var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    transform: none;
+    border-radius: var(--radius-md);
+    background: var(--color-paper-3);
+  }
+
+  .guide-chat__dock::before {
+    left: var(--space-md);
+    width: 3rem;
+  }
+
+  .guide-tool-chips {
+    gap: var(--space-2xs);
+    margin-bottom: var(--space-xs);
+  }
+
+  .guide-tool-chips button {
+    min-height: 2.75rem;
+    gap: var(--space-2xs);
+    padding-inline: var(--space-xs);
+    font-size: var(--text-xs);
+  }
+
+  .guide-chat__dock > .animal-selection-chips {
+    flex-wrap: nowrap;
+    margin: 0 0 var(--space-xs);
+    padding-bottom: var(--space-2xs);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .animal-selection-chip {
+    min-height: 2.75rem;
+    flex: 0 0 auto;
+  }
+
+  .animal-selection-chip button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .guide-chat__dock .guide-chat__composer {
+    min-height: 3.25rem;
+    align-items: flex-end;
+  }
+
+  .guide-chat__dock .guide-chat__composer textarea {
+    min-height: 2.75rem;
+    max-height: 6rem;
+    padding-block: 0.65rem;
+    overflow-y: auto;
+  }
+
+  .guide-chat__dock .guide-chat__helper {
+    min-height: 0;
+    margin-top: var(--space-2xs);
+    overflow: hidden;
+    text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .guide-chat__latest {
+    position: absolute;
+    right: 50%;
+    bottom: 10.5rem;
+    transform: translateX(50%);
+  }
+
+  .guide-chat__hitl {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-md);
+    overflow: hidden;
+  }
+
+  .guide-chat__hitl label,
+  .guide-chat__select,
+  .guide-chat__hitl input,
+  .guide-chat__hitl select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .guide-chat__hitl input,
+  .guide-chat__hitl select,
+  .guide-chat__hitl > button {
+    min-height: 3rem;
+    font-size: 1rem;
+  }
+
+  .guide-chat__hitl > button {
+    width: 100%;
+  }
+
+  .animals-page {
+    gap: var(--space-xl);
+    padding-block: var(--space-xl);
+  }
+
+  .animals-page__heading h1 {
+    font-size: clamp(2rem, 9vw, 2.85rem);
+  }
+
+  .site-filter {
+    position: sticky;
+    z-index: 20;
+    top: var(--mobile-app-bar);
+    flex-wrap: nowrap;
+    margin-inline: calc(-1 * var(--space-md));
+    padding: var(--space-sm) var(--space-md);
+    overflow-x: auto;
+    border-block: var(--rule-hair) solid var(--color-rule);
+    background: var(--color-paper);
+    scrollbar-width: thin;
+  }
+
+  .site-filter__chip {
+    min-height: 2.75rem;
+    flex: 0 0 auto;
+  }
+
+  .animal-card__route {
+    min-height: 2.75rem;
+  }
+
+  .animal-route-dock {
+    bottom: calc(var(--size-mobile-nav) + max(var(--space-sm), env(safe-area-inset-bottom)));
+  }
+
+  .search-dialog[open] {
+    display: grid;
+    align-items: end;
+  }
+
+  .search-dialog__panel {
+    width: 100%;
+    max-height: calc(100dvh - max(var(--space-lg), env(safe-area-inset-top)));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    margin: 0;
+    padding-top: var(--space-sm);
+    overflow: hidden;
+    border-width: var(--rule-hair) 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .search-dialog__panel::before {
+    width: 2.75rem;
+    height: 0.25rem;
+    display: block;
+    grid-column: 1;
+    margin: 0 auto var(--space-xs);
+    border-radius: var(--radius-round);
+    background: var(--color-rule-strong);
+    content: "";
+  }
+
+  .search-dialog__field,
+  .search-dialog__results {
+    width: 100%;
+    min-width: 0;
+    grid-column: 1;
+  }
+
+  .search-dialog__field {
+    min-height: 4rem;
+  }
+
+  .search-dialog__results {
+    min-height: 0;
+    max-height: none;
+    padding-bottom: max(var(--space-md), env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  .search-dialog__foot {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) and (max-height: 32rem) {
+  :root {
+    --mobile-app-bar: 3.25rem;
+    --size-mobile-nav: 4.25rem;
+  }
+
+  .app-pages.is-intro {
+    height: auto;
+    min-height: calc(100dvh - var(--mobile-app-bar));
+    padding-bottom: var(--size-mobile-nav);
+    overflow: visible;
+  }
+
+  .app-pages.is-intro .guide-hero {
+    height: auto;
+    min-height: calc(100dvh - var(--mobile-app-bar) - var(--size-mobile-nav));
+    grid-template-columns: minmax(0, 1.15fr) minmax(10rem, 0.85fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--space-md);
+    padding-block: var(--space-md);
+    overflow: visible;
+  }
+
+  .guide-hero__identity {
+    margin-bottom: var(--space-xs);
+  }
+
+  .guide-hero__identity small {
+    display: none;
+  }
+
+  .guide-hero h1 {
+    margin-bottom: var(--space-xs);
+    font-size: clamp(1.8rem, 6vw, 2.5rem);
+  }
+
+  .guide-hero__lede {
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+  }
+
+  .guide-hero__art {
+    width: 100%;
+    max-height: 13rem;
+  }
+
+  .guide-chat__dock {
+    display: grid;
+    grid-template-columns: minmax(15rem, 0.9fr) minmax(18rem, 1.1fr);
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: 0;
+  }
+
+  .guide-tool-chips {
+    margin: 0;
+  }
+
+  .guide-chat__dock > .animal-selection-chips,
+  .guide-chat__helper {
+    grid-column: 1 / -1;
+  }
+
+  .guide-chat__latest {
+    bottom: 7rem;
   }
 }

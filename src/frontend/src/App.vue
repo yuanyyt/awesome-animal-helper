@@ -52,12 +52,28 @@ const siteAnimals = computed(() => {
 });
 type AppPage = "intro" | "animals" | "guide";
 const activePage = ref<AppPage>(pageFromLocation());
+const activePageLabel = computed(() => {
+  const labels: Record<AppPage, string> = {
+    intro: "首页",
+    animals: "动物邻居",
+    guide: "园区导览",
+  };
+  return labels[activePage.value];
+});
 const showBackToTop = ref(false);
+const pageScrollPositions: Record<AppPage, number> = {
+  intro: 0,
+  animals: 0,
+  guide: 0,
+};
 let controller: AbortController | undefined;
 let mapController: AbortController | undefined;
 let lastTrigger: HTMLElement | null = null;
+let previousScrollRestoration: ScrollRestoration | undefined;
 
 onMounted(() => {
+  previousScrollRestoration = window.history.scrollRestoration;
+  window.history.scrollRestoration = "manual";
   normalizeLegacyWikiHash();
   activePage.value = pageFromLocation();
   void loadAnimals();
@@ -65,6 +81,7 @@ onMounted(() => {
   window.addEventListener("keydown", handleGlobalShortcut);
   window.addEventListener("popstate", syncPageFromLocation);
   window.addEventListener("scroll", updateBackToTop, { passive: true });
+  restorePageScroll(activePage.value);
   updateBackToTop();
 });
 
@@ -74,6 +91,9 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleGlobalShortcut);
   window.removeEventListener("popstate", syncPageFromLocation);
   window.removeEventListener("scroll", updateBackToTop);
+  if (previousScrollRestoration) {
+    window.history.scrollRestoration = previousScrollRestoration;
+  }
 });
 
 function pageFromLocation(): AppPage {
@@ -84,14 +104,17 @@ function pageFromLocation(): AppPage {
 }
 
 function syncPageFromLocation(): void {
+  pageScrollPositions[activePage.value] = window.scrollY;
   normalizeLegacyWikiHash();
   activePage.value = pageFromLocation();
   syncAnimalFromLocation();
+  restorePageScroll(activePage.value);
   updateBackToTop();
 }
 
 function showPage(page: AppPage): void {
   if (activePage.value === page) return;
+  pageScrollPositions[activePage.value] = window.scrollY;
   activePage.value = page;
   const hashes: Record<AppPage, string> = {
     intro: "#home",
@@ -99,7 +122,21 @@ function showPage(page: AppPage): void {
     guide: "#guide",
   };
   window.history.pushState(null, "", hashes[page]);
+  restorePageScroll(page);
   updateBackToTop();
+}
+
+function restorePageScroll(page: AppPage): void {
+  void nextTick(() => {
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: page === "intro" ? 0 : pageScrollPositions[page],
+        left: 0,
+        behavior: "auto",
+      });
+      updateBackToTop();
+    });
+  });
 }
 
 function updateBackToTop(): void {
@@ -284,16 +321,18 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <header class="site-nav" :class="{ 'is-guide': activePage === 'guide' }">
+  <a class="skip-link" href="#page-content">跳到主要内容</a>
+  <header class="site-nav" :class="`is-${activePage}`">
     <div class="site-nav__inner">
-      <button class="site-nav__brand" type="button" aria-label="返回红山动物指南首页" @click="showPage('intro')">
+      <a class="site-nav__brand" href="#home" aria-label="返回红山动物指南首页" @click.prevent="showPage('intro')">
         <strong>红山动物志</strong>
-      </button>
+      </a>
+      <strong class="site-nav__mobile-title">{{ activePageLabel }}</strong>
       <nav class="site-nav__links" aria-label="主要导航">
         <div class="page-tabs" aria-label="页面切换">
-          <button type="button" :aria-current="activePage === 'intro' ? 'page' : undefined" @click="showPage('intro')">首页</button>
-          <button type="button" :aria-current="activePage === 'animals' ? 'page' : undefined" @click="showPage('animals')">动物邻居</button>
-          <button type="button" :aria-current="activePage === 'guide' ? 'page' : undefined" @click="showPage('guide')">园区导览</button>
+          <a href="#home" :aria-current="activePage === 'intro' ? 'page' : undefined" @click.prevent="showPage('intro')">首页</a>
+          <a href="#animals" :aria-current="activePage === 'animals' ? 'page' : undefined" @click.prevent="showPage('animals')">动物邻居</a>
+          <a href="#guide" :aria-current="activePage === 'guide' ? 'page' : undefined" @click.prevent="showPage('guide')">园区导览</a>
         </div>
         <button class="search-pill" type="button" aria-label="搜索动物和园内趣事，快捷键 Control 或 Command K" @click="openSearch">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
@@ -303,7 +342,11 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     </div>
   </header>
 
-  <main id="top" class="app-pages" :class="{ 'is-intro': activePage === 'intro' }">
+  <main
+    id="page-content"
+    class="app-pages"
+    :class="[`is-${activePage}`, { 'is-intro': activePage === 'intro' }]"
+  >
     <section
       class="page-panel guide-hero"
       :class="{ 'is-active': activePage === 'intro' }"

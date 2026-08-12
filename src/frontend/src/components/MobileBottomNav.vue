@@ -22,22 +22,27 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
   { page: "guide", label: "园区导览", primary: true },
   { page: "animals", label: "动物" },
 ];
+
+function navigate(page: NavPage): void {
+  if (!props.disabledPages.includes(page)) emit("navigate", page);
+}
 </script>
 
 <template>
   <nav class="mobile-bottom-nav" aria-label="移动端主要导航">
     <div class="mobile-bottom-nav__inner">
-      <button
+      <a
         v-for="item in items"
         :key="item.page"
-        type="button"
+        :href="item.page === 'intro' ? '#home' : `#${item.page}`"
         :class="{ 'is-primary': item.primary }"
         :data-state="props.stateByPage[item.page] ?? 'default'"
         :aria-current="props.activePage === item.page ? 'page' : undefined"
         :aria-busy="props.stateByPage[item.page] === 'loading' || undefined"
         :aria-invalid="props.stateByPage[item.page] === 'error' || undefined"
-        :disabled="props.disabledPages.includes(item.page)"
-        @click="emit('navigate', item.page)"
+        :aria-disabled="props.disabledPages.includes(item.page) || undefined"
+        :tabindex="props.disabledPages.includes(item.page) ? -1 : undefined"
+        @click.prevent="navigate(item.page)"
       >
         <span class="mobile-bottom-nav__icon" aria-hidden="true">
           <svg v-if="item.page === 'intro'" viewBox="0 0 32 32">
@@ -62,7 +67,7 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
         <span class="mobile-bottom-nav__label">{{ item.label }}</span>
         <span v-if="props.stateByPage[item.page] === 'error'" class="visually-hidden">加载失败</span>
         <span v-if="props.stateByPage[item.page] === 'success'" class="visually-hidden">已打开</span>
-      </button>
+      </a>
     </div>
   </nav>
 </template>
@@ -76,7 +81,7 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
   display: none;
 }
 
-@media (max-width: 48rem) {
+@media (max-width: 48rem), (pointer: coarse) and (max-height: 32rem) {
   .mobile-bottom-nav {
     position: fixed;
     z-index: var(--z-sticky);
@@ -100,7 +105,7 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
     margin-inline: auto;
   }
 
-  button {
+  a {
     position: relative;
     min-width: 0;
     min-height: 4.25rem;
@@ -116,6 +121,8 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
     color: var(--color-muted);
     transition: transform var(--dur-short) var(--ease-out), opacity var(--dur-short) var(--ease-out);
     white-space: nowrap;
+    text-decoration: none;
+    touch-action: manipulation;
   }
 
   .mobile-bottom-nav__icon {
@@ -158,80 +165,108 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
     white-space: nowrap;
   }
 
-  button[aria-current="page"] {
+  a[aria-current="page"] {
     color: var(--color-accent);
   }
 
-  button[aria-current="page"] .mobile-bottom-nav__icon {
+  a[aria-current="page"] .mobile-bottom-nav__icon {
     border-color: var(--color-accent);
     background: var(--color-accent-soft);
     color: var(--color-accent);
   }
 
-  button.is-primary .mobile-bottom-nav__icon {
+  a.is-primary .mobile-bottom-nav__icon {
     width: 2.75rem;
     height: 2.75rem;
     transform: none;
     box-shadow: none;
   }
 
-  button.is-primary svg {
+  a.is-primary svg {
     width: 2rem;
     height: 2rem;
   }
 
-  button:focus-visible {
+  a:focus-visible {
     outline: 3px solid var(--color-focus);
     outline-offset: 1px;
   }
 
-  button:active,
-  button.is-active {
+  a:active,
+  a.is-active {
     transform: translateY(1px) scale(0.98);
   }
 
-  button:disabled,
-  button.is-disabled {
+  a[aria-disabled="true"],
+  a.is-disabled {
     cursor: not-allowed;
     opacity: 0.5;
   }
 
-  button[data-state="loading"],
-  button.is-loading {
+  a[data-state="loading"],
+  a.is-loading {
     opacity: 0.62;
     pointer-events: none;
   }
 
-  button[data-state="loading"] .mobile-bottom-nav__icon,
-  button.is-loading .mobile-bottom-nav__icon {
+  a[data-state="loading"] .mobile-bottom-nav__icon,
+  a.is-loading .mobile-bottom-nav__icon {
     animation: mobile-nav-loading 900ms var(--ease-in-out) infinite alternate;
   }
 
-  button[data-state="error"],
-  button.is-error {
+  a[data-state="error"],
+  a.is-error {
     color: var(--color-danger);
   }
 
-  button[data-state="error"] .mobile-bottom-nav__icon,
-  button.is-error .mobile-bottom-nav__icon {
+  a[data-state="error"] .mobile-bottom-nav__icon,
+  a.is-error .mobile-bottom-nav__icon {
     border-color: var(--color-danger);
   }
 
-  button[data-state="success"],
-  button.is-success {
+  a[data-state="success"],
+  a.is-success {
     color: var(--color-success);
   }
 
-  button[data-state="success"] .mobile-bottom-nav__icon,
-  button.is-success .mobile-bottom-nav__icon {
+  a[data-state="success"] .mobile-bottom-nav__icon,
+  a.is-success .mobile-bottom-nav__icon {
     border-color: var(--color-success);
   }
 }
 
 @media (hover: hover) and (pointer: fine) and (max-width: 48rem) {
-  button:hover,
-  button.is-hover {
+  a:hover,
+  a.is-hover {
     transform: translateY(-1px);
+  }
+}
+
+@media (pointer: coarse) and (max-height: 32rem) {
+  .mobile-bottom-nav {
+    padding-block: var(--space-2xs) max(var(--space-2xs), env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav__inner,
+  a {
+    min-height: 3.5rem;
+  }
+
+  a {
+    grid-template-rows: 2rem auto;
+    gap: 0;
+  }
+
+  .mobile-bottom-nav__icon,
+  a.is-primary .mobile-bottom-nav__icon {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  svg,
+  a.is-primary svg {
+    width: 1.55rem;
+    height: 1.55rem;
   }
 }
 
@@ -241,12 +276,12 @@ const items: { page: NavPage; label: string; primary?: boolean }[] = [
 }
 
 @media (prefers-reduced-motion: reduce) {
-  button {
+  a {
     transition-duration: 0ms;
   }
 
-  button[data-state="loading"] .mobile-bottom-nav__icon,
-  button.is-loading .mobile-bottom-nav__icon {
+  a[data-state="loading"] .mobile-bottom-nav__icon,
+  a.is-loading .mobile-bottom-nav__icon {
     animation-duration: 150ms;
     animation-iteration-count: 1;
   }
