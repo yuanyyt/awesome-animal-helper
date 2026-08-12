@@ -3,9 +3,9 @@ import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import {
   API_BALANCE_ERROR_CODE,
-  continueGuideRun,
   isApiBalanceError,
-  sendGuideMessage,
+  streamContinuedGuideRun,
+  streamGuideMessage,
 } from "../api";
 import { markdownToText, renderMarkdown } from "../markdown";
 import type {
@@ -75,6 +75,7 @@ const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
 const voiceDraftReady = ref(false);
 const selectedCapabilities = ref<GuideCapability[]>(["route"]);
+const streamingMessageId = ref<number | null>(null);
 let voiceQuestionPrefix = "";
 let nextItemId = 2;
 let followLatest = true;
@@ -214,7 +215,17 @@ async function submit(): Promise<void> {
         requiredInputs.value.map((field) => [field.name, inputValues[field.name] ?? ""]),
       );
       pushMessage("visitor", summarizeInputs());
-      handleResponse(await continueGuideRun(runId.value, sessionId.value, values));
+      let streamedItem: Extract<TimelineItem, { kind: "message" }> | null = null;
+      const response = await streamContinuedGuideRun(
+        runId.value,
+        sessionId.value,
+        values,
+        (delta) => {
+          streamedItem ??= beginAssistantMessage();
+          appendAssistantDelta(streamedItem, delta);
+        },
+      );
+      handleResponse(response, streamedItem ?? beginAssistantMessage());
     } else {
       const message = question.value.trim();
       const replyWithVoice = voiceDraftReady.value;
@@ -227,8 +238,8 @@ async function submit(): Promise<void> {
     if (isApiBalanceError(reason)) emit("fatalError", API_BALANCE_ERROR_CODE);
     else error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
   } finally {
+    streamingMessageId.value = null;
     loading.value = false;
-    scrollToLatest();
   }
 }
 
@@ -247,8 +258,8 @@ async function submitMessage(
     if (isApiBalanceError(reason)) emit("fatalError", API_BALANCE_ERROR_CODE);
     else error.value = reason instanceof Error ? reason.message : "森林导览员暂时走开了。";
   } finally {
+    streamingMessageId.value = null;
     loading.value = false;
-    scrollToLatest();
   }
 }
 
@@ -258,35 +269,39 @@ async function sendMessage(
   preserveRouteRequest = false,
 ): Promise<void> {
   latestRequestMessage = preserveRouteRequest ? "" : message;
-  const response = await sendGuideMessage(
+  let streamedItem: Extract<TimelineItem, { kind: "message" }> | null = null;
+  const response = await streamGuideMessage(
     message,
     sessionId.value || null,
     props.selectedSites,
     props.selectedAnimals.map((animal) => animal.name),
     props.origin,
     selectedCapabilities.value,
+    (delta) => {
+      streamedItem ??= beginAssistantMessage();
+      appendAssistantDelta(streamedItem, delta);
+    },
   );
-  handleResponse(response);
+  handleResponse(response, streamedItem ?? beginAssistantMessage());
   if (replyWithVoice && response.assistant_message) {
     await voiceClient.speak(markdownToText(response.assistant_message));
   }
 }
 
-function handleResponse(response: GuideChatResponse): void {
+function handleResponse(
+  response: GuideChatResponse,
+  item: Extract<TimelineItem, { kind: "message" }>,
+): void {
   sessionId.value = response.session_id;
   runId.value = response.run_id;
   window.localStorage.setItem("hongshan-guide-session", response.session_id);
+
+  item.text = response.assistant_message;
+  streamingMessageId.value = null;
   requiredInputs.value = response.required_inputs;
   for (const key of Object.keys(inputValues)) delete inputValues[key];
   for (const field of requiredInputs.value) inputValues[field.name] = suggestedValue(field);
-
-  timeline.value.push({
-    id: nextItemId++,
-    kind: "message",
-    role: "guide",
-    text: response.assistant_message,
-    response,
-  });
+  item.response = response;
   if (response.route_options.length) {
     lastRouteRequest = latestRequestMessage || lastRouteRequest;
     emit("routes", response.route_options);
@@ -294,7 +309,28 @@ function handleResponse(response: GuideChatResponse): void {
     showMap(true);
     moveAnimalsToEnd();
   }
-  scrollToLatest(requiredInputs.value.length > 0);
+  scrollToLatest();
+}
+
+function beginAssistantMessage(): Extract<TimelineItem, { kind: "message" }> {
+  const item: Extract<TimelineItem, { kind: "message" }> = {
+    id: nextItemId++,
+    kind: "message",
+    role: "guide",
+    text: "",
+  };
+  timeline.value.push(item);
+  streamingMessageId.value = item.id;
+  scrollToLatest(false, true);
+  return item;
+}
+
+function appendAssistantDelta(
+  item: Extract<TimelineItem, { kind: "message" }>,
+  delta: string,
+): void {
+  item.text += delta;
+  scrollToLatest(false, true);
 }
 
 function chooseOrigin(): void {
@@ -304,6 +340,10 @@ function chooseOrigin(): void {
 }
 
 function pushMessage(role: "visitor" | "guide", text: string): void {
+  if (role === "visitor") {
+    followLatest = true;
+    showLatestButton.value = false;
+  }
   timeline.value.push({ id: nextItemId++, kind: "message", role, text });
   scrollToLatest(role === "visitor");
 }
@@ -458,7 +498,7 @@ function setBackgroundInert(inert: boolean): void {
   }
 }
 
-function scrollToLatest(force = false): void {
+function scrollToLatest(force = false, streaming = false): void {
   void nextTick(() => {
     window.requestAnimationFrame(() => {
       const area = scrollArea.value;
@@ -470,7 +510,7 @@ function scrollToLatest(force = false): void {
       if (area.scrollHeight > area.clientHeight + 1) {
         area.scrollTo({
           top: area.scrollHeight,
-          behavior: force ? "auto" : "smooth",
+          behavior: force || streaming ? "auto" : "smooth",
         });
         return;
       }
@@ -479,7 +519,7 @@ function scrollToLatest(force = false): void {
       window.scrollTo({
         top: Math.max(0, latest.getBoundingClientRect().bottom + window.scrollY - window.innerHeight + 24),
         left: 0,
-        behavior: "smooth",
+        behavior: streaming ? "auto" : "smooth",
       });
     });
   });
@@ -527,7 +567,12 @@ function handleComposerKeydown(event: KeyboardEvent): void {
       </article>
 
       <template v-for="item in timeline" :key="item.id">
-        <article v-if="item.kind === 'message'" class="chat-turn" :class="`is-${item.role}`">
+        <article
+          v-if="item.kind === 'message'"
+          class="chat-turn"
+          :class="[`is-${item.role}`, { 'is-streaming': item.id === streamingMessageId }]"
+          :aria-busy="item.id === streamingMessageId"
+        >
           <span class="chat-turn__speaker">{{ item.role === "guide" ? "导览员" : "你" }}</span>
           <div class="chat-turn__bubble">
             <div
@@ -672,7 +717,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
         <button type="submit" :disabled="!canSubmit">继续规划</button>
       </form>
 
-      <p v-if="loading" class="chat-thinking"><span></span><span></span><span></span>导览员正在查看资料</p>
+      <p v-if="loading && streamingMessageId === null" class="chat-thinking"><span></span><span></span><span></span>导览员正在查看资料</p>
     </div>
 
     <button

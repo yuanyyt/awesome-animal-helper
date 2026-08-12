@@ -7,6 +7,7 @@ import os
 import re
 from ast import literal_eval
 from pathlib import Path
+from collections.abc import AsyncIterator
 from typing import Any
 from uuid import uuid4
 
@@ -14,7 +15,7 @@ from agno.agent import Agent
 from agno.db.sqlite import SqliteDb
 from agno.models.openai.like import OpenAILike
 from agno.run import RunContext
-from agno.run.agent import RunOutput
+from agno.run.agent import RunContentEvent, RunOutput
 from agno.tools.function import Function
 from agno.tools.user_control_flow import UserControlFlowTools
 from dotenv import load_dotenv
@@ -186,21 +187,9 @@ class GuideAgentService:
         map_context: GuideMapContext,
         enabled_capabilities: list[GuideCapability],
     ) -> GuideChatResponse:
-        session = _session_id(session_id)
-        turn = self.resolver.resolve(message, map_context)
-        dependencies = turn.as_dependencies(map_context)
-        preferences = _tool_preferences(enabled_capabilities)
-        dependencies["tool_preferences"] = preferences
-        context = {
-            "visitor_message": message,
-            "animal_names": list(turn.animal_names),
-            "resolved_sites": list(turn.resolved_sites),
-            "must_see_sites": list(turn.must_see_sites),
-            "unresolved_terms": list(turn.unresolved_terms),
-            "map_context": map_context.model_dump(mode="json"),
-            "tool_preferences": preferences,
-            "available_venues": [site.name for site in self.repository.site_summaries()],
-        }
+        session, turn, dependencies, context = self._start_turn(
+            message, session_id, map_context, enabled_capabilities
+        )
         output = await self.agent.arun(
             json.dumps(context, ensure_ascii=False),
             session_id=session,
@@ -214,6 +203,66 @@ class GuideAgentService:
                 rejected_message=_content_text(output.content),
             )
         return self._response(output, session, turn)
+
+    async def chat_stream(
+        self,
+        message: str,
+        session_id: str | None,
+        map_context: GuideMapContext,
+        enabled_capabilities: list[GuideCapability],
+    ) -> AsyncIterator[str | GuideChatResponse]:
+        """Stream assistant text, followed by the completed structured response."""
+
+        session, turn, dependencies, context = self._start_turn(
+            message, session_id, map_context, enabled_capabilities
+        )
+        events = await self.agent.arun(
+            json.dumps(context, ensure_ascii=False),
+            stream=True,
+            yield_run_output=True,
+            session_id=session,
+            dependencies=dependencies,
+            metadata={"guide_turn": dependencies},
+        )
+        output: RunOutput | None = None
+        async for event in events:
+            if isinstance(event, RunOutput):
+                output = event
+            elif isinstance(event, RunContentEvent) and isinstance(event.content, str):
+                yield event.content
+        if output is None:
+            raise GuideAgentError("导览员未返回完整结果，请重试")
+        if not output.is_paused and _requests_plain_input(output):
+            output = await self._force_user_input(
+                session,
+                dependencies,
+                rejected_message=_content_text(output.content),
+            )
+        yield self._response(output, session, turn)
+
+    def _start_turn(
+        self,
+        message: str,
+        session_id: str | None,
+        map_context: GuideMapContext,
+        enabled_capabilities: list[GuideCapability],
+    ) -> tuple[str, TurnResolution, dict[str, object], dict[str, object]]:
+        session = _session_id(session_id)
+        turn = self.resolver.resolve(message, map_context)
+        dependencies = turn.as_dependencies(map_context)
+        preferences = _tool_preferences(enabled_capabilities)
+        dependencies["tool_preferences"] = preferences
+        context: dict[str, object] = {
+            "visitor_message": message,
+            "animal_names": list(turn.animal_names),
+            "resolved_sites": list(turn.resolved_sites),
+            "must_see_sites": list(turn.must_see_sites),
+            "unresolved_terms": list(turn.unresolved_terms),
+            "map_context": map_context.model_dump(mode="json"),
+            "tool_preferences": preferences,
+            "available_venues": [site.name for site in self.repository.site_summaries()],
+        }
+        return session, turn, dependencies, context
 
     async def _force_user_input(
         self,
@@ -243,6 +292,54 @@ class GuideAgentService:
         session_id: str,
         values: dict[str, str | int | float | bool],
     ) -> GuideChatResponse:
+        session, output, dependencies, metadata = await self._prepare_continuation(
+            run_id, session_id, values
+        )
+        continued = await self.agent.acontinue_run(
+            run_id=output.run_id,
+            requirements=output.requirements,
+            session_id=session,
+            dependencies=dependencies,
+            metadata=metadata,
+        )
+        return self._response(continued, session)
+
+    async def continue_run_stream(
+        self,
+        run_id: str,
+        session_id: str,
+        values: dict[str, str | int | float | bool],
+    ) -> AsyncIterator[str | GuideChatResponse]:
+        """Resume a paused run and stream its assistant text."""
+
+        session, output, dependencies, metadata = await self._prepare_continuation(
+            run_id, session_id, values
+        )
+        events = await self.agent.acontinue_run(
+            run_id=output.run_id,
+            requirements=output.requirements,
+            stream=True,
+            yield_run_output=True,
+            session_id=session,
+            dependencies=dependencies,
+            metadata=metadata,
+        )
+        continued: RunOutput | None = None
+        async for event in events:
+            if isinstance(event, RunOutput):
+                continued = event
+            elif isinstance(event, RunContentEvent) and isinstance(event.content, str):
+                yield event.content
+        if continued is None:
+            raise GuideAgentError("导览会话未返回完整结果，请重试")
+        yield self._response(continued, session)
+
+    async def _prepare_continuation(
+        self,
+        run_id: str,
+        session_id: str,
+        values: dict[str, str | int | float | bool],
+    ) -> tuple[str, RunOutput, dict[str, object], dict[str, Any]]:
         session = _session_id(session_id)
         output = await self.agent.aget_run_output(run_id=run_id, session_id=session)
         if output is None or output.session_id != session:
@@ -268,14 +365,7 @@ class GuideAgentService:
         dependencies["used_tool_kinds"] = sorted(_tool_kinds(output, dependencies))
         metadata = dict(output.metadata or {})
         metadata["guide_turn"] = dependencies
-        continued = await self.agent.acontinue_run(
-            run_id=output.run_id,
-            requirements=output.requirements,
-            session_id=session,
-            dependencies=dependencies,
-            metadata=metadata,
-        )
-        return self._response(continued, session)
+        return session, output, dependencies, metadata
 
     def _response(
         self,

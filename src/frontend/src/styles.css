@@ -2961,6 +2961,22 @@ body {
   margin-bottom: 0;
 }
 
+.chat-turn.is-streaming .chat-turn__markdown::after {
+  content: "";
+  width: 0.16em;
+  height: 1em;
+  display: inline-block;
+  margin-inline-start: 0.18em;
+  border-radius: var(--radius-round);
+  background: var(--color-accent);
+  vertical-align: -0.12em;
+  animation: stream-caret 720ms steps(2, jump-none) infinite;
+}
+
+@keyframes stream-caret {
+  50% { opacity: 0.24; }
+}
+
 .chat-turn__markdown p,
 .chat-turn__markdown ul,
 .chat-turn__markdown ol,
@@ -3480,7 +3496,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .chat-animal-skeleton,
-  .chat-thinking span {
+  .chat-thinking span,
+  .chat-turn.is-streaming .chat-turn__markdown::after {
     animation: none;
   }
 }
