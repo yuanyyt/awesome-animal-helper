@@ -413,7 +413,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     >
       <header class="animals-page__heading">
         <div>
-          <h1 id="animals-title">想看的动物，加入路线。</h1>
+          <h1 id="animals-title">把想看的动物，加入路线。</h1>
           <p v-if="data">{{ data.total }} 位动物邻居</p>
         </div>
       </header>

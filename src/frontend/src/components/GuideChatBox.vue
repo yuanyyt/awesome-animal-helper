@@ -322,11 +322,18 @@ async function sendMessage(
       streamedItem ??= beginAssistantMessage();
       appendAssistantDelta(streamedItem, delta);
     },
+    replyWithVoice
+      ? (completed) => {
+          if (!completed.assistant_message) return;
+          void voiceClient
+            .speak(markdownToText(completed.assistant_message))
+            .catch((reason: unknown) => {
+              error.value = reason instanceof Error ? reason.message : "语音回复暂时无法播放";
+            });
+        }
+      : undefined,
   );
   handleResponse(response, streamedItem ?? beginAssistantMessage());
-  if (replyWithVoice && response.assistant_message) {
-    await voiceClient.speak(markdownToText(response.assistant_message));
-  }
 }
 
 function handleResponse(

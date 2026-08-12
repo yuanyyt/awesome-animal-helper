@@ -114,6 +114,7 @@ export async function streamGuideMessage(
   origin: MapNamedLocation | null,
   enabledCapabilities: GuideCapability[],
   onDelta: (delta: string) => void,
+  onResponse?: (response: GuideChatResponse) => void,
 ): Promise<GuideChatResponse> {
   return guideStreamRequest(
     "/api/guide/chat/stream",
@@ -128,6 +129,7 @@ export async function streamGuideMessage(
       },
     },
     onDelta,
+    onResponse,
   );
 }
 
@@ -179,6 +181,7 @@ async function guideStreamRequest(
   path: string,
   body: object,
   onDelta: (delta: string) => void,
+  onResponse?: (response: GuideChatResponse) => void,
 ): Promise<GuideChatResponse> {
   const response = await fetch(path, {
     method: "POST",
@@ -202,8 +205,9 @@ async function guideStreamRequest(
   const decoder = new TextDecoder();
   let buffer = "";
   let result: GuideChatResponse | null = null;
+  let displayQueue = Promise.resolve();
 
-  const consumeLine = async (line: string): Promise<void> => {
+  const consumeLine = (line: string): void => {
     if (!line.trim()) return;
     const event = JSON.parse(line) as {
       type: "delta" | "response" | "error";
@@ -212,9 +216,13 @@ async function guideStreamRequest(
       message?: string;
       code?: string;
     };
-    if (event.type === "delta" && event.content) await displayStreamDelta(event.content, onDelta);
-    else if (event.type === "response" && event.data) result = event.data;
-    else if (event.type === "error") {
+    const content = event.content;
+    if (event.type === "delta" && content) {
+      displayQueue = displayQueue.then(() => displayStreamDelta(content, onDelta));
+    } else if (event.type === "response" && event.data) {
+      result = event.data;
+      onResponse?.(event.data);
+    } else if (event.type === "error") {
       throw new ApiRequestError(event.message || "导览员暂时无法回答", 200, event.code);
     }
   };
@@ -224,11 +232,12 @@ async function guideStreamRequest(
     buffer += decoder.decode(value, { stream: !done });
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
-    for (const line of lines) await consumeLine(line);
+    for (const line of lines) consumeLine(line);
     if (done) break;
   }
-  await consumeLine(buffer);
+  consumeLine(buffer);
   if (!result) throw new ApiRequestError("导览回复意外中断，请重试", response.status);
+  await displayQueue;
   return result;
 }
 
