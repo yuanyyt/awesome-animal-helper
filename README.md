@@ -65,11 +65,14 @@ LLM 配置同样放在项目根目录 `.env`：
 DASHSCOPE_API_KEY=OpenAI兼容服务密钥
 LLM_BASE_URL=https://example.com/compatible-mode/v1
 LLM_MODEL=qwen3.6-flash
-# 可选；留空时使用模型服务自身的思考模式默认值
-LLM_ENABLE_THINKING=
+# 可选；导览默认关闭思考模式，需要时可显式开启
+LLM_ENABLE_THINKING=false
 ```
 
-后端默认使用模型服务自身的思考模式；仅在设置 `LLM_ENABLE_THINKING` 时显式覆盖。
+后端默认关闭模型思考模式以缩短首字延迟；设置 `LLM_ENABLE_THINKING=true` 可显式开启。
+模型接口会启用并行工具调用，Agno 将同一轮中互不依赖的 Wiki、知识检索、设施查询
+和路线规划并发执行；存在结果依赖的工具仍会按顺序调用。
+对话仅保留最近三轮文本，不重复向模型发送历史工具结果和路线坐标，以控制上下文长度。
 会话保存在忽略版本控制的
 `src/data/runtime/guide_agent.db`；距离、步行时间、指令和路线坐标来自高德，
 参观时间、体力上限和卡路里会在界面中标注为估算值。

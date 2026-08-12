@@ -107,6 +107,7 @@ class GuideAgentService:
                 api_key=api_key,
                 base_url=base_url,
                 extra_body=_model_extra_body(),
+                request_params={"parallel_tool_calls": True},
                 timeout=90,
                 max_retries=2,
             ),
@@ -117,8 +118,8 @@ class GuideAgentService:
             tools=tools,
             instructions=_INSTRUCTIONS,
             add_history_to_context=True,
-            num_history_runs=5,
-            max_tool_calls_from_history=4,
+            num_history_runs=3,
+            max_tool_calls_from_history=0,
             markdown=False,
             reasoning=False,
             telemetry=False,
@@ -569,11 +570,9 @@ def _session_id(value: str | None) -> str:
 
 
 def _model_extra_body() -> dict[str, bool]:
-    """Only override provider thinking mode when the environment requests it."""
+    """Disable thinking by default while retaining an explicit environment override."""
 
     configured = os.getenv("LLM_ENABLE_THINKING", "").strip().casefold()
-    if not configured:
-        return {}
     return {"enable_thinking": configured in {"1", "true", "yes", "on"}}
 
 
@@ -600,8 +599,8 @@ _INSTRUCTIONS = """
 2. 严格区分两类路线。用户已有明确目的地，说“怎么走”“带我去”“从A到B”“规划去某处”，包括明确的多个目的地时，调用 plan_zoo_navigation；它不需要游览时长、体力或出行方式，缺省 transport_preference=自动，会同时考虑步行和运营中的观光车，禁止为这些字段调用 get_user_input。只有用户要求一日游、完整游园、整体安排，或需要在多个候选场馆间按时间和体力取舍时，才调用 plan_zoo_routes；缺少游览时长、体力状况或游览方式时必须调用 get_user_input 一次性收集。
 3. 路线 HITL 仅用于完整游园规划。点到点导航能从本轮消息、对话上下文或 map_context 确定起点和目的地时必须直接规划，不得在正文询问是否需要规划。真正无法解析起点或目的地时才澄清；不得猜测坐标，不得在正文中展示工具字段名和参数清单。
 4. 完整游园规划会自动采用后端解析的候选场馆和必到场馆，并为每个已选动物选择一个最顺路的对应场馆；这些数据无需也不得作为工具参数传递。plan_zoo_navigation 按 destination_names 顺序导航，不添加顺路场馆。用户明确说“从某处出发”时把名称原样传给 origin_name；后续消息可沿用对话中已经明确的起点。没有明确起点时省略 origin_name，让工具使用地图起点。
-5. 动物事实和园区故事只能依据动物知识工具。通用物种知识使用 search_animal_knowledge；园内有哪些某种动物、具体成员或个体、昵称、饲养训练、园区经历、公众号趣事、文章标题和谜面必须调用 search_animal_wiki_stories。
-6. 一个问题同时包含知识查询和路线请求时，两部分都要完成：先调用匹配的动物知识工具，再按路线类型调用 plan_zoo_navigation 或 plan_zoo_routes；最终先回答动物资料，再说明路线。不得因工具偏好只完成其中一部分。
+5. 动物事实和园区故事只能依据动物知识工具。通用物种知识使用 search_animal_knowledge；公众号趣事、文章标题和谜面使用 search_animal_wiki_stories。查询具体成员或个体的身份、物种、性别、昵称、亲缘关系、饲养训练或园区经历时，必须在同一轮并行调用 search_animal_knowledge 和 search_animal_wiki_stories，综合两边资料后回答。
+6. 一个问题同时包含知识查询和路线请求时，两部分都要完成。相互独立的动物知识、Wiki、设施与路线工具应在同一轮并行调用；只有后一个工具确实依赖前一个工具的结果时才串行调用。最终先回答动物资料，再说明路线。不得因工具偏好只完成其中一部分。
 7. 问题像动物事实、园区趣事、文章标题或谜面时先尝试知识工具；只有真正无法判断用户目的时才调用 get_user_input 澄清，不要臆测。
 8. 体重是可选项；除非用户要求精确卡路里，否则不要强制询问。
 9. 两个路线工具都只返回一条路线。直接介绍工具结果，不得声称还有三个方案，也不要要求用户在多个方案中选择。
@@ -610,8 +609,8 @@ _INSTRUCTIONS = """
 12. 观光车为单向环线：北门站→猩猩馆站→中心广场站→东门站→猴山站→北门站。平日15元/人、8:30-16:00售票、8:30-16:30乘车；法定节假日20元/人、8:30-16:30售票、8:30-17:00乘车。身高1米以下儿童免票，车票当日有效、隔日作废，一经乘坐不予退换。
 13. 回答观光车状态或使用 plan_zoo_routes 的可乘观光车规划前必须调用 get_current_zoo_time；plan_zoo_navigation 会自行查询运营状态并比较方案，无需额外调用。观光车车程按12km/h、每次上车候车5分钟估算；实际采用观光车时必须说明时间是估算，但不要把设施点位描述为估算。
 14. 只有首轮知识片段指代不清、缺少前后文或用户明确要求完整故事时，才调用 get_neighboring_knowledge_chunks；只能传入本轮 search_animal_knowledge 返回的 chunk ID，不得猜测 ID。
-15. CSV 结构化资料和 intro 讲解片段用于通用物种事实与场馆讲解；昵称、具体个体、饲养训练、园区经历、公众号趣事、文章标题和谜面式问题必须调用 search_animal_wiki_stories。无法判断资料类型时同时调用两个知识工具。
-16. 用户要求“介绍一下”或同时询问物种知识与园区趣事时，先调用 search_animal_knowledge，再调用 search_animal_wiki_stories。
+15. CSV 结构化资料和 intro 讲解片段用于通用物种事实、场馆讲解，也可能包含个体名录；Wiki 用于具体个体、饲养训练、园区经历、公众号趣事、文章标题和谜面式问题。个体问题和无法判断资料类型时并行调用两个知识工具，不得因其中一个工具返回了同物种但不相关的资料而停止检索。
+16. 用户要求“介绍一下”或同时询问物种知识与园区趣事时，在同一轮并行调用 search_animal_knowledge 和 search_animal_wiki_stories。
 17. Wiki 事实只能表述为特定个体或特定时间的园区故事，不得泛化为整个物种的习性；引用时附上工具返回的文章标题和 URL。任一知识工具无结果时可使用另一个，但要说明资料类型。
 18. 资料没有说明的内容要明确说不知道，不得补造。
 19. 科普讲解和行为训练展示时间只能来自 get_zoo_education_schedule；区分工作日与节假日，并提醒游客因客流与场地限制，以现场实际工作为准。

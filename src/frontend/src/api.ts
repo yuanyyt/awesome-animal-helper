@@ -203,7 +203,7 @@ async function guideStreamRequest(
   let buffer = "";
   let result: GuideChatResponse | null = null;
 
-  const consumeLine = (line: string): void => {
+  const consumeLine = async (line: string): Promise<void> => {
     if (!line.trim()) return;
     const event = JSON.parse(line) as {
       type: "delta" | "response" | "error";
@@ -212,7 +212,7 @@ async function guideStreamRequest(
       message?: string;
       code?: string;
     };
-    if (event.type === "delta" && event.content) onDelta(event.content);
+    if (event.type === "delta" && event.content) await displayStreamDelta(event.content, onDelta);
     else if (event.type === "response" && event.data) result = event.data;
     else if (event.type === "error") {
       throw new ApiRequestError(event.message || "导览员暂时无法回答", 200, event.code);
@@ -224,10 +224,26 @@ async function guideStreamRequest(
     buffer += decoder.decode(value, { stream: !done });
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
-    for (const line of lines) consumeLine(line);
+    for (const line of lines) await consumeLine(line);
     if (done) break;
   }
-  consumeLine(buffer);
+  await consumeLine(buffer);
   if (!result) throw new ApiRequestError("导览回复意外中断，请重试", response.status);
   return result;
+}
+
+async function displayStreamDelta(
+  delta: string,
+  onDelta: (delta: string) => void,
+): Promise<void> {
+  const characters = Array.from(delta);
+  const chunkSize = 8;
+  if (characters.length <= chunkSize * 2) {
+    onDelta(delta);
+    return;
+  }
+  for (let index = 0; index < characters.length; index += chunkSize) {
+    onDelta(characters.slice(index, index + chunkSize).join(""));
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 16));
+  }
 }
