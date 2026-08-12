@@ -53,10 +53,30 @@ type TimelineItem =
   | { id: number; kind: "map" }
   | { id: number; kind: "animals" };
 
-const capabilityOptions: { id: GuideCapability; label: string; ariaLabel: string }[] = [
-  { id: "route", label: "路线规划", ariaLabel: "优先路线规划" },
-  { id: "animal", label: "动物讲解", ariaLabel: "优先动物讲解" },
-  { id: "service", label: "园区服务", ariaLabel: "优先园区服务" },
+const capabilityOptions: {
+  id: GuideCapability;
+  label: string;
+  ariaLabel: string;
+  defaultMessage: string;
+}[] = [
+  {
+    id: "route",
+    label: "路线规划",
+    ariaLabel: "优先路线规划",
+    defaultMessage: "请根据我选择的动物规划一条游览路线",
+  },
+  {
+    id: "animal",
+    label: "动物讲解",
+    ariaLabel: "优先动物讲解",
+    defaultMessage: "请介绍一下我选择的动物",
+  },
+  {
+    id: "service",
+    label: "园区服务",
+    ariaLabel: "优先园区服务",
+    defaultMessage: "请介绍园区内的游客服务与便民设施",
+  },
 ];
 
 const question = ref("");
@@ -69,12 +89,14 @@ const voiceNotice = ref("");
 const voiceState = ref<VoiceState>("disconnected");
 const scrollArea = ref<HTMLElement | null>(null);
 const questionInput = ref<HTMLTextAreaElement | null>(null);
+const hitlForm = ref<HTMLFormElement | null>(null);
 const showLatestButton = ref(false);
 const mapExpanded = ref(false);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
 const voiceDraftReady = ref(false);
 const selectedCapabilities = ref<GuideCapability[]>(["route"]);
+const defaultCapability = ref<GuideCapability>("route");
 const streamingMessageId = ref<number | null>(null);
 let voiceQuestionPrefix = "";
 let nextItemId = 2;
@@ -127,6 +149,21 @@ watch(
 
 watch(question, () => resizeQuestionInput());
 
+watch(
+  () => requiredInputs.value.length,
+  async (fieldCount) => {
+    if (!fieldCount) return;
+    await nextTick();
+    const form = hitlForm.value;
+    if (!form) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    form.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+    if (window.matchMedia("(pointer: fine)").matches) {
+      form.querySelector<HTMLElement>("input, select")?.focus({ preventScroll: true });
+    }
+  },
+);
+
 let handledAutoRequest = 0;
 watch(
   () => props.autoRequest,
@@ -174,11 +211,15 @@ const voiceActionLabel = computed(() => {
   if (voiceState.value === "speaking") return "停止语音播报";
   return "开始语音输入";
 });
+const defaultUserMessage = computed(() => {
+  if (requiredInputs.value.length) return "请先补充信息…";
+  return capabilityOptions.find((item) => item.id === defaultCapability.value)?.defaultMessage ?? "";
+});
 const canSubmit = computed(
   () =>
     !loading.value &&
     !voiceBusy.value &&
-    (requiredInputs.value.length > 0 || question.value.trim().length > 0),
+    (requiredInputs.value.length > 0 || Boolean(question.value.trim() || defaultUserMessage.value)),
 );
 const originLabel = computed(() => {
   if (props.locationState === "locating") return "正在确认你在园里的位置…";
@@ -227,7 +268,7 @@ async function submit(): Promise<void> {
       );
       handleResponse(response, streamedItem ?? beginAssistantMessage());
     } else {
-      const message = question.value.trim();
+      const message = question.value.trim() || defaultUserMessage.value;
       const replyWithVoice = voiceDraftReady.value;
       pushMessage("visitor", message);
       question.value = "";
@@ -405,15 +446,20 @@ function toggleCapability(capability: GuideCapability): void {
     selectedCapabilities.value = selectedCapabilities.value.filter(
       (item) => item !== capability,
     );
+    if (defaultCapability.value === capability) {
+      defaultCapability.value = selectedCapabilities.value.at(-1) ?? "route";
+    }
     return;
   }
   selectedCapabilities.value = [...selectedCapabilities.value, capability];
+  defaultCapability.value = capability;
 }
 
 function ensureCapability(capability: GuideCapability): void {
   if (!selectedCapabilities.value.includes(capability)) {
     selectedCapabilities.value = [...selectedCapabilities.value, capability];
   }
+  defaultCapability.value = capability;
 }
 
 async function toggleVoice(): Promise<void> {
@@ -672,7 +718,13 @@ function handleComposerKeydown(event: KeyboardEvent): void {
         </article>
       </template>
 
-      <form v-if="requiredInputs.length" class="guide-chat__hitl" @submit.prevent="submit">
+      <form
+        v-if="requiredInputs.length"
+        ref="hitlForm"
+        class="guide-chat__hitl"
+        aria-label="补充游览偏好"
+        @submit.prevent="submit"
+      >
         <label v-for="field in requiredInputs" :key="field.name" :for="fieldInputId(field)">
           <span>{{ field.description }}</span>
           <span v-if="isEnergyField(field)" class="guide-chat__select">
@@ -730,7 +782,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
       <span aria-hidden="true">↓</span>
     </button>
 
-    <footer class="guide-chat__dock">
+    <footer v-if="!requiredInputs.length" class="guide-chat__dock">
       <button
         class="guide-chat__origin"
         :class="{ 'is-locating': locationState === 'locating' }"
@@ -801,7 +853,8 @@ function handleComposerKeydown(event: KeyboardEvent): void {
           rows="1"
           enterkeyhint="enter"
           autocomplete="off"
-          :placeholder="requiredInputs.length ? '请先补充信息…' : '问路线或动物…'"
+          :class="{ 'has-default-message': !question && !requiredInputs.length }"
+          :placeholder="defaultUserMessage"
           @input="resizeQuestionInput"
           @keydown="handleComposerKeydown"
         ></textarea>

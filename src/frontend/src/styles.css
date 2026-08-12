@@ -1224,6 +1224,11 @@ main {
   color: var(--color-muted);
 }
 
+.guide-chat__composer textarea.has-default-message::placeholder {
+  color: color-mix(in srgb, var(--color-muted) 72%, transparent);
+  opacity: 1;
+}
+
 .guide-chat__composer textarea:focus-visible {
   outline-color: transparent;
 }
