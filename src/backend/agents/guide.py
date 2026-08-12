@@ -128,15 +128,24 @@ class GuideAgentService:
     def _tools_for_run(self, run_context: RunContext) -> list[Any]:
         """Expose every guide tool; UI choices are preferences, not permissions."""
 
+        route_tool = Function.from_callable(
+            self.tools.plan_zoo_routes_for_agent,
+            name="plan_zoo_routes",
+        )
+        # Accept stale or hallucinated calls without advertising this internal field.
+        route_tool.parameters.get("properties", {}).pop(
+            "must_see_site_groups", None
+        )
         return [
             Function.from_callable(
                 self.tools.get_current_zoo_time,
                 name="get_current_zoo_time",
             ),
             self._user_input_tools(),
+            route_tool,
             Function.from_callable(
-                self.tools.plan_zoo_routes_for_agent,
-                name="plan_zoo_routes",
+                self.tools.plan_zoo_navigation_for_agent,
+                name="plan_zoo_navigation",
             ),
             Function.from_callable(
                 self.tools.search_animal_knowledge_for_agent,
@@ -187,10 +196,6 @@ class GuideAgentService:
             "animal_names": list(turn.animal_names),
             "resolved_sites": list(turn.resolved_sites),
             "must_see_sites": list(turn.must_see_sites),
-            "must_see_site_groups": [
-                {"label": label, "sites": list(sites)}
-                for label, sites in turn.must_see_site_groups
-            ],
             "unresolved_terms": list(turn.unresolved_terms),
             "map_context": map_context.model_dump(mode="json"),
             "tool_preferences": preferences,
@@ -348,7 +353,10 @@ class GuideAgentService:
 
 def _extract_route_payload(output: RunOutput) -> dict[str, Any]:
     for tool in reversed(output.tools or []):
-        if tool.tool_name != "plan_zoo_routes" or tool.tool_call_error:
+        if (
+            tool.tool_name not in {"plan_zoo_routes", "plan_zoo_navigation"}
+            or tool.tool_call_error
+        ):
             continue
         payload = tool.result
         if isinstance(payload, str):
@@ -416,7 +424,7 @@ def _tool_kinds(output: RunOutput, stored: dict[str, Any]) -> set[str]:
     for tool in output.tools or []:
         if tool.tool_call_error:
             continue
-        if tool.tool_name == "plan_zoo_routes":
+        if tool.tool_name in {"plan_zoo_routes", "plan_zoo_navigation"}:
             kinds.add("route")
         elif tool.tool_name in {
             "search_animal_knowledge",
@@ -498,19 +506,19 @@ _INSTRUCTIONS = """
 
 规则：
 0. tool_preferences 是游客在界面表达的路线、动物或服务偏好，只影响回答侧重点，不禁用任何工具。明确问题语义优先于偏好；不得要求游客先打开某个工具。
-1. 路线、距离、时间和卡路里只能来自 plan_zoo_routes，绝不自行编造。
-2. 只有用户确实要求路线时才调用 plan_zoo_routes。规划需要游览时长、体力状况和游览方式；从本轮消息或上下文能确定的值直接使用，缺少时必须调用 get_user_input 一次性收集。不得猜测、填默认值或在正文中提问，不得在正文中展示工具字段名和参数清单。
-3. 当任务所需的其他关键数据无法从本轮消息、map_context、上下文或工具结果中可靠确定时，也必须调用 get_user_input 进入 HITL；不要只在正文中提问，不要自行补默认值。字段描述应具体说明用户要提供什么。
-4. plan_zoo_routes 会把 resolved_sites 作为高优先级候选，把 must_see_sites 作为必到场馆，并为每个已选动物从 must_see_site_groups 中择一最顺路场馆；不要擅自提升、删除或重复动物场馆，也不要声称已解析目标未匹配，除非工具明确返回 unresolved_sites。用户明确说“从某处出发”时，把该名称原样传给 origin_name；不要为它编造坐标。没有明确命名起点时省略 origin_name，让工具使用地图起点。
+1. 路线、距离、时间和卡路里只能来自 plan_zoo_navigation 或 plan_zoo_routes，绝不自行编造。
+2. 严格区分两类路线。用户已有明确目的地，说“怎么走”“带我去”“从A到B”“规划去某处”，包括明确的多个目的地时，调用 plan_zoo_navigation；它不需要游览时长、体力或出行方式，缺省 transport_preference=自动，会同时考虑步行和运营中的观光车，禁止为这些字段调用 get_user_input。只有用户要求一日游、完整游园、整体安排，或需要在多个候选场馆间按时间和体力取舍时，才调用 plan_zoo_routes；缺少游览时长、体力状况或游览方式时必须调用 get_user_input 一次性收集。
+3. 路线 HITL 仅用于完整游园规划。点到点导航能从本轮消息、对话上下文或 map_context 确定起点和目的地时必须直接规划，不得在正文询问是否需要规划。真正无法解析起点或目的地时才澄清；不得猜测坐标，不得在正文中展示工具字段名和参数清单。
+4. 完整游园规划会自动采用后端解析的候选场馆和必到场馆，并为每个已选动物选择一个最顺路的对应场馆；这些数据无需也不得作为工具参数传递。plan_zoo_navigation 按 destination_names 顺序导航，不添加顺路场馆。用户明确说“从某处出发”时把名称原样传给 origin_name；后续消息可沿用对话中已经明确的起点。没有明确起点时省略 origin_name，让工具使用地图起点。
 5. 动物事实和园区故事只能依据动物知识工具。通用物种知识使用 search_animal_knowledge；园内有哪些某种动物、具体成员或个体、昵称、饲养训练、园区经历、公众号趣事、文章标题和谜面必须调用 search_animal_wiki_stories。
-6. 一个问题同时包含知识查询和路线请求时，两部分都要完成：先调用匹配的动物知识工具，再在信息齐全后调用 plan_zoo_routes；最终先回答动物资料，再说明路线。不得因工具偏好只完成其中一部分。
+6. 一个问题同时包含知识查询和路线请求时，两部分都要完成：先调用匹配的动物知识工具，再按路线类型调用 plan_zoo_navigation 或 plan_zoo_routes；最终先回答动物资料，再说明路线。不得因工具偏好只完成其中一部分。
 7. 问题像动物事实、园区趣事、文章标题或谜面时先尝试知识工具；只有真正无法判断用户目的时才调用 get_user_input 澄清，不要臆测。
 8. 体重是可选项；除非用户要求精确卡路里，否则不要强制询问。
-9. plan_zoo_routes 只返回一条最符合用户明确时间、体力和出行方式的路线。直接介绍这条路线，不得声称还有三个方案，也不要要求用户在多个方案中选择。
+9. 两个路线工具都只返回一条路线。直接介绍工具结果，不得声称还有三个方案，也不要要求用户在多个方案中选择。
 10. 不讨论园外交通，不声称路线具备无障碍或坡度保证。
-11. 用户查询园区设施时调用 search_zoo_facilities；卫生间、家庭卫生间、母婴室、餐饮、咖啡、烘焙、商店、文创、市集、饮水、寄存、停车、游客中心、售票、警务、吸烟区和观光车站信息只能来自该工具。查询“文创”“购物”“市集”时使用 shopping 类别，查询“烘焙”时使用 restaurant 类别；回答时优先说明工具返回的 nearby 邻近场馆。工具提供的所有点位均可正常使用，不讨论其采集来源或精度。
+11. 用户查询园区设施时调用 search_zoo_facilities；卫生间、家庭卫生间、母婴室、餐饮、咖啡、烘焙、商店、文创、市集、饮水、寄存、停车、游客中心、售票、警务、吸烟区和观光车站信息只能来自该工具。查询“文创”“购物”“市集”时使用 shopping 类别，查询“烘焙”时使用 restaurant 类别。用户同时问“怎么走”时，将明确起点传给 near_name；若用户没有点名具体设施，必须把 facilities 数组第一项的完整 name 传给 plan_zoo_navigation，不得自行改选更远、品类更丰富或所谓官方门店；用户点名设施时遵从其选择。不得只列设施后询问是否需要规划。仅问“有哪些”时只列设施。回答优先说明 nearby 邻近场馆，不讨论采集来源或精度。
 12. 观光车为单向环线：北门站→猩猩馆站→中心广场站→东门站→猴山站→北门站。平日15元/人、8:30-16:00售票、8:30-16:30乘车；法定节假日20元/人、8:30-16:30售票、8:30-17:00乘车。身高1米以下儿童免票，车票当日有效、隔日作废，一经乘坐不予退换。
-13. 回答观光车状态或使用可乘观光车规划前必须调用 get_current_zoo_time。观光车车程按12km/h、每次上车候车5分钟估算；必须说明时间是估算，但不要把设施点位描述为估算。
+13. 回答观光车状态或使用 plan_zoo_routes 的可乘观光车规划前必须调用 get_current_zoo_time；plan_zoo_navigation 会自行查询运营状态并比较方案，无需额外调用。观光车车程按12km/h、每次上车候车5分钟估算；实际采用观光车时必须说明时间是估算，但不要把设施点位描述为估算。
 14. 只有首轮知识片段指代不清、缺少前后文或用户明确要求完整故事时，才调用 get_neighboring_knowledge_chunks；只能传入本轮 search_animal_knowledge 返回的 chunk ID，不得猜测 ID。
 15. CSV 结构化资料和 intro 讲解片段用于通用物种事实与场馆讲解；昵称、具体个体、饲养训练、园区经历、公众号趣事、文章标题和谜面式问题必须调用 search_animal_wiki_stories。无法判断资料类型时同时调用两个知识工具。
 16. 用户要求“介绍一下”或同时询问物种知识与园区趣事时，先调用 search_animal_knowledge，再调用 search_animal_wiki_stories。

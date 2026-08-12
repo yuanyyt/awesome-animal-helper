@@ -108,7 +108,7 @@ const activeFacilityCategories = computed(
 );
 const visibleFacilities = computed(() =>
   (props.guide?.facilities ?? []).filter((facility) =>
-    activeFacilityCategories.value.has(facility.category),
+    activeFacilityCategories.value.has(facility.category) || isFacilityRouteStop(facility),
   ),
 );
 const displayedRouteSites = computed(() => props.activeRoute?.sites ?? props.routeSites);
@@ -476,8 +476,17 @@ function toggleSelectedPointRoute(): void {
 
 function updateFacilityVisibility(): void {
   for (const { marker, facility } of facilityMarkers) {
-    marker.getContent().hidden = !activeFacilityCategories.value.has(facility.category);
+    const content = marker.getContent();
+    const routeStop = isFacilityRouteStop(facility);
+    content.classList.toggle("is-route-stop", routeStop);
+    content.hidden = !activeFacilityCategories.value.has(facility.category) && !routeStop;
   }
+}
+
+function isFacilityRouteStop(facility: FacilityPoint): boolean {
+  const routeNames = new Set(displayedRouteSites.value);
+  return routeNames.has(facility.name)
+    || facility.aliases.some((name) => routeNames.has(name));
 }
 
 function facilityIconPath(category: FacilityCategory): string {
@@ -1040,6 +1049,7 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
             v-for="facility in visibleFacilities"
             :key="facility.id"
             class="zoo-map__facility-marker is-static"
+            :class="{ 'is-route-stop': isFacilityRouteStop(facility) }"
             :style="facilityMarkerStyle(facility)"
             type="button"
             :title="facility.name"

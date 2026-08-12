@@ -11,7 +11,12 @@ from typing import Any, Protocol
 
 from agno.run import RunContext
 
-from src.backend.domain.models import AnimalDetail, GuideMapContext, MapNamedLocation
+from src.backend.domain.models import (
+    AnimalDetail,
+    GuideMapContext,
+    MapGuideResponse,
+    MapNamedLocation,
+)
 from src.backend.integrations.amap.client import AmapClient
 from src.backend.knowledge import KnowledgeService
 from src.backend.knowledge.service import KnowledgeBuildError
@@ -85,19 +90,11 @@ class ZooGuideTools:
         label = reference.name if reference else "园区中心"
         normalized_near = near_name.strip()
         if normalized_near:
-            resolved_near, _ = self.resolver.resolve_site_terms([normalized_near])
-            point = next(
-                (
-                    point
-                    for point in guide.points
-                    if point.site in resolved_near
-                    or normalized_near in point.site
-                    or normalized_near in point.poi_name
-                ),
-                None,
-            )
-            if point is not None:
-                reference, label = point, point.site
+            try:
+                reference = self._resolve_named_location(normalized_near, guide)
+                label = reference.name
+            except RoutePlanningError:
+                pass
         elif reference is None and context.selected_sites:
             point = next(
                 (point for point in guide.points if point.site == context.selected_sites[0]),
@@ -354,7 +351,9 @@ class ZooGuideTools:
                 longitude=longitude,
                 latitude=latitude,
             )
-        shuttle_status = self.get_current_zoo_time()
+        shuttle_status = zoo_operating_status(
+            guide.shuttle or shuttle_service(), self.now_provider
+        )
         transport = _transport_preference(transport_preference)
         routes = self.planner.plan(
             guide=guide,
@@ -396,6 +395,7 @@ class ZooGuideTools:
         transport_preference: str,
         selected_sites: list[str] | str | None = None,
         must_see_sites: list[str] | str | None = None,
+        must_see_site_groups: list[dict[str, Any]] | str | None = None,
         origin_name: str | None = None,
         origin_longitude: float | str | None = None,
         origin_latitude: float | str | None = None,
@@ -412,6 +412,9 @@ class ZooGuideTools:
         """
 
         dependencies = run_context.dependencies or {}
+        # Compatibility only: canonical animal-to-site groups are resolved by the
+        # backend and an agent-provided value must never override them.
+        del must_see_site_groups
         selected = (
             _string_list(dependencies.get("resolved_sites"))
             if "resolved_sites" in dependencies
@@ -456,51 +459,138 @@ class ZooGuideTools:
             single_route=True,
         )
 
+    def plan_zoo_navigation_for_agent(
+        self,
+        run_context: RunContext,
+        destination_names: list[str] | str,
+        origin_name: str | None = None,
+        transport_preference: str = "自动",
+    ) -> dict[str, Any]:
+        """Navigate directly to named zoo places without whole-visit HITL.
+
+        Args:
+            destination_names: One or more exact venue or facility names, in visit order.
+            origin_name: A named start stated by the visitor or established in conversation.
+                Omit it to use the current map origin and then the default entrance.
+            transport_preference: 自动, 纯步行, or 观光车. 自动 compares walking
+                with an operating shuttle and keeps the faster route.
+        """
+
+        names = normalize_site_list(destination_names)
+        if not names:
+            raise RoutePlanningError("请至少提供一个路线目的地")
+        guide = self.amap.build_guide(self.repository.site_summaries())
+        destinations = [
+            self._resolve_named_location(name, guide, role="目的地") for name in names
+        ]
+        context = GuideMapContext.model_validate(
+            (run_context.dependencies or {}).get("map_context") or {}
+        )
+        origin = (
+            self._resolve_named_location(origin_name, guide, role="起点")
+            if origin_name and origin_name.strip()
+            else context.origin
+        )
+        shuttle_status = zoo_operating_status(
+            guide.shuttle or shuttle_service(), self.now_provider
+        )
+        route = self.planner.navigate(
+            guide=guide,
+            destinations=destinations,
+            origin=origin,
+            transport_preference=_navigation_preference(transport_preference),
+            shuttle_operating=bool(shuttle_status["shuttle_operating"]),
+            shuttle_fare_yuan=(
+                int(shuttle_status["fare_yuan"])
+                if shuttle_status["fare_yuan"] is not None
+                else None
+            ),
+        )
+        return {
+            "routes": [route.model_dump(mode="json")],
+            "resolved_sites": [item.name for item in destinations],
+            "unresolved_sites": [],
+        }
+
     def _resolve_named_origin(self, name: str) -> MapNamedLocation:
         """Resolve an agent-supplied zoo place name without guessing coordinates."""
 
         guide = self.amap.build_guide(self.repository.site_summaries())
+        return self._resolve_named_location(name, guide, role="起点")
+
+    def _resolve_named_location(
+        self,
+        name: str,
+        guide: MapGuideResponse,
+        *,
+        role: str = "地点",
+    ) -> MapNamedLocation:
+        """Resolve venue, facility, station, and map-origin aliases."""
+
         normalized = _place_name(name)
         resolved_sites, _ = self.resolver.resolve_site_terms([name])
-        candidates: list[tuple[str, float, float]] = [
-            (point.site, point.longitude, point.latitude) for point in guide.points
+        candidates: list[tuple[MapNamedLocation, set[str]]] = [
+            (
+                MapNamedLocation(
+                    name=point.site,
+                    longitude=point.longitude,
+                    latitude=point.latitude,
+                ),
+                {_place_name(point.site), _place_name(point.poi_name)},
+            )
+            for point in guide.points
         ]
         candidates.extend(
-            (point.poi_name, point.longitude, point.latitude) for point in guide.points
-        )
-        candidates.extend(
-            (facility.name, facility.longitude, facility.latitude)
+            (
+                MapNamedLocation(
+                    name=facility.name,
+                    longitude=facility.longitude,
+                    latitude=facility.latitude,
+                ),
+                {_place_name(facility.name), *map(_place_name, facility.aliases)},
+            )
             for facility in guide.facilities
         )
+        if guide.default_origin is not None:
+            candidates.append(
+                (guide.default_origin, {_place_name(guide.default_origin.name)})
+            )
         if guide.shuttle is not None:
             candidates.extend(
-                (station.name, station.longitude, station.latitude)
+                (
+                    MapNamedLocation(
+                        name=station.name,
+                        longitude=station.longitude,
+                        latitude=station.latitude,
+                    ),
+                    {_place_name(station.name)},
+                )
                 for station in guide.shuttle.stations
             )
 
         exact = next(
             (
                 candidate
-                for candidate in candidates
-                if _place_name(candidate[0]) == normalized
-                or candidate[0] in resolved_sites
+                for candidate, aliases in candidates
+                if normalized in aliases or candidate.name in resolved_sites
             ),
             None,
         )
         if exact is None:
             matches = [
                 candidate
-                for candidate in candidates
-                if normalized and normalized in _place_name(candidate[0])
+                for candidate, aliases in candidates
+                if normalized and any(normalized in alias for alias in aliases)
             ]
-            exact = matches[0] if len(matches) == 1 else None
+            unique_matches = {item.name: item for item in matches}
+            exact = (
+                next(iter(unique_matches.values()))
+                if len(unique_matches) == 1
+                else None
+            )
         if exact is None:
-            raise RoutePlanningError(f"无法解析路线起点：{name}")
-        return MapNamedLocation(
-            name=exact[0],
-            longitude=exact[1],
-            latitude=exact[2],
-        )
+            raise RoutePlanningError(f"无法解析路线{role}：{name}")
+        return exact
 
     def plan_with_context(
         self,
@@ -597,6 +687,17 @@ def _transport_preference(value: str) -> str:
     if normalized in {"walking", "纯步行", "步行"}:
         return "walking"
     raise RoutePlanningError("出行方式应为纯步行或可乘观光车")
+
+
+def _navigation_preference(value: str) -> str:
+    normalized = value.strip().casefold()
+    if normalized in {"", "auto", "自动", "自动选择", "均可", "都可以"}:
+        return "auto"
+    if normalized in {"walking", "纯步行", "步行"}:
+        return "walking"
+    if normalized in {"shuttle", "观光车", "乘观光车", "只坐观光车"}:
+        return "shuttle"
+    raise RoutePlanningError("导航方式应为自动、纯步行或观光车")
 
 
 def _map_distance(first: object, second: object) -> float:

@@ -144,6 +144,95 @@ class RoutePlanner:
                 results.append(route)
         return results
 
+    def navigate(
+        self,
+        *,
+        guide: MapGuideResponse,
+        destinations: list[MapNamedLocation],
+        origin: MapNamedLocation | None = None,
+        transport_preference: str = "auto",
+        shuttle_operating: bool = False,
+        shuttle_fare_yuan: int | None = None,
+        weight_kg: float | None = None,
+    ) -> RouteOption:
+        """Build direct navigation without adding itinerary stops or visit time."""
+
+        if not destinations:
+            raise RoutePlanningError("请至少提供一个路线目的地")
+        if transport_preference not in {"auto", "walking", "shuttle"}:
+            raise RoutePlanningError("导航方式应为自动、纯步行或观光车")
+        start = origin or guide.default_origin or MapNamedLocation(
+            name="红山森林动物园入口",
+            longitude=guide.center.longitude,
+            latitude=guide.center.latitude,
+        )
+        allow_shuttle = transport_preference != "walking" and shuttle_operating
+        prefer_shuttle = transport_preference == "shuttle"
+        legs: list[RouteLeg] = []
+        current: MapLocation = start
+        current_name = start.name
+        for destination in destinations:
+            legs.extend(
+                self._travel_legs(
+                    current,
+                    current_name,
+                    destination,
+                    destination.name,
+                    guide,
+                    allow_shuttle,
+                    prefer_shuttle=prefer_shuttle,
+                    compare_shuttle_by_time=transport_preference == "auto",
+                )
+            )
+            current, current_name = destination, destination.name
+
+        walking_distance = sum(
+            leg.distance_meters for leg in legs if leg.mode == "walking"
+        )
+        walking_seconds = sum(
+            leg.duration_seconds for leg in legs if leg.mode == "walking"
+        )
+        shuttle_seconds = sum(
+            leg.duration_seconds for leg in legs if leg.mode == "shuttle"
+        )
+        uses_shuttle = bool(shuttle_seconds)
+        warnings: list[str] = []
+        if transport_preference == "shuttle" and not shuttle_operating:
+            warnings.append("当前不在观光车运营时段内，本次按纯步行规划")
+        if uses_shuttle:
+            warnings.append("观光车车程按平均 12 km/h、候车 5 分钟估算")
+        has_stairs = any(
+            step.walk_type == "21" for leg in legs for step in leg.steps
+        )
+        if has_stairs:
+            warnings.append("路线包含高德标记的阶梯路段")
+        calories, calories_range = _calories(walking_seconds, weight_kg)
+        walking_minutes = math.ceil(walking_seconds / 60)
+        shuttle_minutes = math.ceil(shuttle_seconds / 60)
+        mode_name = "观光车接驳导航" if uses_shuttle else "步行导航"
+        return RouteOption(
+            id="navigation",
+            name=mode_name,
+            description=f"从{start.name}前往{'、'.join(item.name for item in destinations)}。",
+            sites=[item.name for item in destinations],
+            distance_meters=sum(leg.distance_meters for leg in legs),
+            walking_distance_meters=walking_distance,
+            walking_minutes=walking_minutes,
+            shuttle_minutes=shuttle_minutes,
+            visiting_minutes=0,
+            total_minutes=walking_minutes + shuttle_minutes,
+            calories_kcal=calories,
+            calories_range_kcal=calories_range,
+            has_stairs=has_stairs,
+            warnings=warnings,
+            legs=legs,
+            polyline=[point for leg in legs for point in leg.polyline],
+            transport_preference="mixed" if uses_shuttle else "walking",
+            uses_shuttle=uses_shuttle,
+            shuttle_fare_yuan=shuttle_fare_yuan if uses_shuttle else None,
+            estimated_wait_minutes=5 if uses_shuttle else 0,
+        )
+
     def _pick_sites(
         self,
         origin: MapLocation,
@@ -343,6 +432,9 @@ class RoutePlanner:
         destination_name: str,
         guide: MapGuideResponse,
         allow_shuttle: bool,
+        *,
+        prefer_shuttle: bool = False,
+        compare_shuttle_by_time: bool = False,
     ) -> list[RouteLeg]:
         direct = self._walking_leg(origin, origin_name, destination, destination_name)
         shuttle = guide.shuttle
@@ -361,13 +453,20 @@ class RoutePlanner:
                 ride = _shuttle_leg(shuttle, start.id, end.id)
                 candidate = [leg for leg in (before, ride, after) if leg.distance_meters or leg.mode == "shuttle"]
                 walk_distance = sum(leg.distance_meters for leg in candidate if leg.mode == "walking")
-                if walk_distance + 200 >= direct.distance_meters:
+                if (
+                    not prefer_shuttle
+                    and not compare_shuttle_by_time
+                    and walk_distance + 200 >= direct.distance_meters
+                ):
                     continue
                 candidates.append(candidate)
         if not candidates:
             return [direct]
         best = min(candidates, key=lambda legs: sum(leg.duration_seconds for leg in legs))
-        if sum(leg.duration_seconds for leg in best) >= direct.duration_seconds:
+        if (
+            not prefer_shuttle
+            and sum(leg.duration_seconds for leg in best) >= direct.duration_seconds
+        ):
             return [direct]
         return best
 

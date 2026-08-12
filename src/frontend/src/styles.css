@@ -711,6 +711,13 @@ main {
   display: none;
 }
 
+.zoo-map__facility-marker.is-route-stop {
+  border-color: var(--color-paper);
+  background: var(--color-map-walk);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-map-walk) 28%, transparent),
+    0 3px 10px var(--color-shadow);
+}
+
 .zoo-map__facility-marker.is-static {
   position: absolute;
   z-index: 7;
