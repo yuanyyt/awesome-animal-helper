@@ -144,7 +144,6 @@ function completeSelection(): void {
     <dialog
       ref="dialog"
       class="search-dialog"
-      :autofocus="touchDevice"
       tabindex="-1"
       aria-labelledby="search-title"
       @cancel.prevent="emit('close')"
@@ -164,7 +163,7 @@ function completeSelection(): void {
             v-model="query"
             name="animal-search"
             type="search"
-            placeholder="动物名、学名或故事关键词…"
+            placeholder="搜索动物或趣事…"
             autocomplete="off"
             autocapitalize="none"
             :spellcheck="false"
@@ -180,7 +179,7 @@ function completeSelection(): void {
           <p v-else-if="error" class="search-dialog__message is-error">{{ error }}</p>
           <p v-else-if="!results.length" class="search-dialog__message">没有找到，换个动物名或故事关键词试试。</p>
           <template v-else>
-            <p class="search-dialog__group">找到 {{ results.length }} 个结果</p>
+            <p class="search-dialog__group">{{ results.length }} 个结果</p>
             <button
               v-for="(result, index) in results"
               :key="result.animal.name"

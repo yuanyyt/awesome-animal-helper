@@ -158,7 +158,7 @@ function navigate(page: NavPage): void {
   .mobile-bottom-nav__label {
     max-width: 100%;
     overflow: hidden;
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     font-weight: 700;
     line-height: 1;
     text-overflow: ellipsis;

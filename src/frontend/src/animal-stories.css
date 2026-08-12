@@ -18,7 +18,8 @@
 }
 
 .detail-dialog__panel:focus-visible {
-  outline: 0;
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
 }
 
 .detail-dialog__header {
@@ -390,6 +391,44 @@
   .animal-story-group a,
   .expandable-text__toggle {
     min-height: 3rem;
+  }
+}
+
+@media (max-width: 48rem) {
+  .animal-stories__heading {
+    align-items: center;
+    padding-bottom: var(--space-sm);
+  }
+
+  .animal-stories__pages {
+    gap: var(--space-lg);
+  }
+
+  .detail-dialog__body .animal-story-group {
+    padding-top: var(--space-sm);
+  }
+
+  .animal-story-group > header {
+    margin-bottom: var(--space-sm);
+  }
+
+  .animal-story-group li {
+    gap: var(--space-xs);
+    padding-block: var(--space-md);
+  }
+
+  .animal-story-group li p {
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-reading);
+    line-height: 1.6;
+  }
+
+  .animal-story-group a {
+    font-size: var(--text-sm);
+  }
+
+  .animal-story-group a small {
+    font-size: var(--text-xs);
   }
 }
 

@@ -45,7 +45,7 @@ onMounted(() => page.value?.focus());
           </svg>
           联系开发者
         </a>
-        <small>1375417741@qq.com</small>
+        <span class="api-error-page__email">1375417741@qq.com</span>
       </div>
     </section>
   </main>
@@ -64,7 +64,12 @@ onMounted(() => page.value?.focus());
   overflow: hidden;
   background: var(--color-paper);
   color: var(--color-ink);
-  outline: none;
+  outline: 3px solid transparent;
+  outline-offset: -3px;
+}
+
+.api-error-page:focus-visible {
+  outline-color: var(--color-focus);
 }
 
 .api-error-page__header img {
@@ -184,10 +189,10 @@ onMounted(() => page.value?.focus());
   outline-offset: 3px;
 }
 
-.api-error-page__copy small {
+.api-error-page__email {
   margin-top: var(--space-xs);
   color: var(--color-muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 
 @media (max-width: 48rem) {

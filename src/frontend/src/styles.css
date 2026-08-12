@@ -1,5 +1,6 @@
 /* Hallmark · macrostructure: Workbench · genre: playful-editorial · theme: field-guide dialogue · tone: child-friendly editorial · anchor hue: forest-green + warm-amber
  * enrichment: real AMap + animal photography · nav: N13 field tabs · footer: conversation dock · critique: P5 H5 E5 S5 R5 V5
+ * mobile-density: task-first · body-floor: 16px · metadata-floor: 13px · redundant-copy: removed
  * contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47)
  * tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50–57)
  */
@@ -1491,10 +1492,15 @@ main {
 }
 
 .route-options p,
-.route-options small {
+.route-options small,
+.route-options__meta {
   margin: 0;
   color: var(--color-muted);
   font-size: var(--text-xs);
+}
+
+.route-options__meta {
+  line-height: 1.5;
 }
 
 .route-options em {
@@ -1972,6 +1978,8 @@ main {
 }
 
 .search-dialog__result {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 3.75rem;
   display: grid;
   width: 100%;
   min-height: 3.75rem;
@@ -3943,7 +3951,7 @@ body {
   border-radius: var(--radius-round);
   background: var(--color-paper-3);
   color: var(--color-accent);
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   line-height: 1;
 }
@@ -5189,7 +5197,7 @@ body.has-expanded-map {
     flex: 1;
     justify-content: center;
     padding-inline: var(--space-xs);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
   }
 
   .zoo-map__sheet {
@@ -5239,6 +5247,204 @@ body.has-expanded-map {
 
   .zoo-map__attribution {
     display: none;
+  }
+}
+
+/* Mobile density pass: one-hand reading, fewer labels, larger useful text. */
+@media (max-width: 48rem) {
+  .app-pages.is-intro .guide-hero {
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--space-sm);
+    padding-block-start: var(--space-lg);
+  }
+
+  .app-pages.is-intro .guide-hero__lede {
+    max-width: 25rem;
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-md);
+    line-height: 1.55;
+  }
+
+  .app-pages.is-intro .guide-hero__actions {
+    margin-bottom: 0;
+  }
+
+  .app-pages.is-intro .guide-hero__art {
+    width: min(100%, 26rem);
+    align-self: center;
+    justify-self: center;
+    margin-top: 0;
+  }
+
+  .animals-page {
+    gap: var(--space-lg);
+    padding-block: var(--space-lg);
+  }
+
+  .animals-page__heading {
+    gap: var(--space-xs);
+    padding-bottom: var(--space-sm);
+  }
+
+  .animals-page__heading h1 {
+    max-width: 12ch;
+    font-size: clamp(2.2rem, 10vw, 2.75rem);
+    line-height: 1.03;
+  }
+
+  .animals-page__heading p {
+    margin-top: var(--space-xs);
+    color: var(--color-ink-2);
+    font-size: var(--text-md);
+  }
+
+  .site-filter {
+    gap: var(--space-xs);
+    padding-block: var(--space-xs);
+  }
+
+  .site-filter__chip {
+    font-size: var(--text-sm);
+  }
+
+  .site-filter__chip span {
+    font-size: var(--text-xs);
+  }
+
+  .animal-grid {
+    gap: var(--space-sm);
+  }
+
+  .animal-card__content {
+    gap: var(--space-2xs);
+    padding: var(--space-sm);
+  }
+
+  .animal-card__sites {
+    color: var(--color-ink-2);
+    font-size: var(--text-sm);
+  }
+
+  .animal-card__stories {
+    right: var(--space-xs);
+    bottom: var(--space-xs);
+    max-width: calc(100% - 2 * var(--space-xs));
+    font-size: var(--text-sm);
+  }
+
+  .animal-card__route {
+    min-height: 2.75rem;
+    font-size: var(--text-sm);
+  }
+
+  .detail-dialog__body {
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+  }
+
+  .detail-dialog__body h3 {
+    font-size: var(--text-md);
+  }
+
+  .detail-dialog__footer {
+    padding-top: 0;
+  }
+
+  .detail-dialog__footer a {
+    font-size: var(--text-sm);
+  }
+
+  .search-dialog__field {
+    gap: var(--space-xs);
+    padding-inline: var(--space-md);
+  }
+
+  .search-dialog__field input {
+    font-size: var(--text-lg);
+  }
+
+  .search-dialog__results {
+    padding: var(--space-xs);
+  }
+
+  .search-dialog__group {
+    margin: var(--space-xs) var(--space-sm);
+    font-size: var(--text-sm);
+  }
+
+  .search-dialog__result {
+    min-height: 3.5rem;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .search-dialog__result span:not(:first-child),
+  .search-dialog__result small {
+    font-size: var(--text-xs);
+  }
+
+  .guide-workspace > .guide-chat .guide-chat__scroll {
+    gap: var(--space-md);
+    padding-block: var(--space-sm);
+  }
+
+  .chat-turn__speaker {
+    display: none;
+  }
+
+  .chat-turn__bubble {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .chat-turn.is-guide .chat-turn__bubble {
+    padding-inline-start: var(--space-md);
+  }
+
+  .chat-artifact > header {
+    align-items: center;
+    padding: var(--space-sm);
+  }
+
+  .chat-artifact > header p {
+    display: none;
+  }
+
+  .route-options > button {
+    gap: var(--space-xs);
+    padding: var(--space-sm);
+  }
+
+  .route-options p {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--color-ink-2);
+    font-size: var(--text-sm);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .route-options__meta {
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .guide-chat__origin {
+    min-height: 2.75rem;
+    margin-bottom: var(--space-xs);
+  }
+
+  .guide-chat__origin small {
+    display: none;
+  }
+
+  .guide-chat__origin strong,
+  .guide-chat__origin em {
+    font-size: var(--text-sm);
+  }
+
+  .guide-tool-chips button {
+    font-size: var(--text-sm);
   }
 }
 

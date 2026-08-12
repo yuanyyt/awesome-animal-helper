@@ -26,9 +26,6 @@ const emit = defineEmits<{
           <strong>{{ animal.name }}</strong>
           <span aria-hidden="true">↗</span>
         </span>
-        <span class="animal-card__scientific">
-          {{ animal.scientific_name || "学名待补充" }}
-        </span>
         <span class="animal-card__sites">{{ animal.sites.join(" · ") }}</span>
       </span>
     </button>
@@ -41,7 +38,7 @@ const emit = defineEmits<{
       @click="emit('toggle')"
     >
       <span aria-hidden="true">{{ selected ? "✓" : "+" }}</span>
-      {{ selected ? "已想看" : "加入想看" }}
+      {{ selected ? "已添加" : "加入路线" }}
     </button>
   </article>
 </template>

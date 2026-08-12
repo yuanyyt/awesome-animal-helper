@@ -388,7 +388,7 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
       <div class="guide-hero__copy">
         <h1 id="intro-title">在城市的森林里，<br />认识每一位邻居。</h1>
         <p class="guide-hero__lede">
-          从动物故事到实时导览，陪你更轻松地逛红山森林动物园。
+          问动物、查路线，轻松逛红山森林动物园。
         </p>
         <div class="guide-hero__actions">
           <button class="button-link is-primary" type="button" @click="showPage('guide')">园区导览</button>
@@ -413,8 +413,8 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
     >
       <header class="animals-page__heading">
         <div>
-          <h1 id="animals-title">把想见的邻居，放进今天的路线。</h1>
-          <p v-if="data">{{ data.total }} 位动物邻居，故事和档案都在这里。</p>
+          <h1 id="animals-title">想看的动物，加入路线。</h1>
+          <p v-if="data">{{ data.total }} 位动物邻居</p>
         </div>
       </header>
 

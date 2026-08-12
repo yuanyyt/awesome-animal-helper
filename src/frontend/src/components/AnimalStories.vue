@@ -76,7 +76,6 @@ function exactMatches(items: WikiAnimalSummary[]): WikiAnimalSummary[] {
     <header class="animal-stories__heading">
       <div>
         <h3 id="animal-stories-title">园内趣事</h3>
-        <p>来自园方公众号文章的真实记录</p>
       </div>
       <span v-if="factCount">{{ factCount }} 条</span>
       <span v-else>{{ animal.wiki_fact_count }} 条待打开</span>
@@ -114,7 +113,7 @@ function exactMatches(items: WikiAnimalSummary[]): WikiAnimalSummary[] {
                 rel="noopener noreferrer"
               >
                 <span>{{ fact.source.title }}</span>
-                <small v-if="fact.source.published_at">{{ fact.source.published_at }}</small>
+                <small v-if="fact.source.published_at">{{ fact.source.published_at.slice(0, 10) }}</small>
                 <b aria-hidden="true">↗</b>
               </a>
             </div>

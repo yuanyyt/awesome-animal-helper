@@ -548,7 +548,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                 @click="emit('animalSelect', animal, $event)"
               >
                 <AnimalPhoto :animal="animal" :variant="index" />
-                <span><strong>{{ animal.name }}</strong><small>{{ animal.scientific_name || "学名待补充" }}</small></span>
+                <span><strong>{{ animal.name }}</strong></span>
                 <em>{{ animal.sites.join(" · ") || "场馆待确认" }}</em>
               </button>
             </div>
@@ -561,10 +561,9 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                 :class="{ 'is-active': activeRoute?.id === route.id }"
                 @click="emit('routeSelect', route)"
               >
-                <span class="route-options__eyebrow">{{ route.sites.length }} 站 · 步行 {{ Math.round((route.walking_distance_meters ?? route.distance_meters) / 10) * 10 }} 米</span>
                 <strong>{{ route.name }}</strong>
                 <p>{{ route.description }}</p>
-                <small>{{ route.total_minutes }} 分钟 · {{ calories(route) }}{{ route.uses_shuttle ? ` · 观光车 ${route.shuttle_fare_yuan} 元/人` : "" }}</small>
+                <span class="route-options__meta">{{ route.sites.length }} 站 · {{ route.total_minutes }} 分钟 · 步行 {{ Math.round((route.walking_distance_meters ?? route.distance_meters) / 10) * 10 }} 米 · {{ calories(route) }}{{ route.uses_shuttle ? ` · 观光车 ${route.shuttle_fare_yuan} 元/人` : "" }}</span>
                 <em v-if="route.warnings.length">{{ route.warnings.join("；") }}</em>
               </button>
             </div>
@@ -620,9 +619,9 @@ function handleComposerKeydown(event: KeyboardEvent): void {
               :key="animal.name"
               type="button"
               @click="emit('animalSelect', animal, $event)"
-            >
-              <AnimalPhoto :animal="animal" :variant="index" />
-              <span><strong>{{ animal.name }}</strong><small>{{ animal.scientific_name || "学名待补充" }}</small></span>
+              >
+                <AnimalPhoto :animal="animal" :variant="index" />
+              <span><strong>{{ animal.name }}</strong></span>
             </button>
           </div>
         </article>
@@ -660,6 +659,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
             type="number"
             min="1"
             inputmode="numeric"
+            autocomplete="off"
           />
           <input
             v-else
@@ -667,6 +667,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
             v-model="inputValues[field.name]"
             :name="field.name"
             type="text"
+            autocomplete="off"
           />
         </label>
         <button type="submit" :disabled="!canSubmit">继续规划</button>
@@ -755,6 +756,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
           name="guide-question"
           rows="1"
           enterkeyhint="enter"
+          autocomplete="off"
           :placeholder="requiredInputs.length ? '请先补充信息…' : '问路线或动物…'"
           @input="resizeQuestionInput"
           @keydown="handleComposerKeydown"

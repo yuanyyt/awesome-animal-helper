@@ -52,6 +52,10 @@ const visibleFunFacts = computed(
   () => props.animal?.fun_facts.map((fact) => fact.trim()).filter(Boolean) ?? [],
 );
 
+const visibleSites = computed(
+  () => props.animal?.sites.filter((site) => site.trim() && site.trim() !== props.animal?.name) ?? [],
+);
+
 watch(
   () => props.animal,
   async (animal) => {
@@ -96,7 +100,7 @@ function scrollToStories(): void {
       <article v-if="animal" ref="panel" class="detail-dialog__panel" tabindex="-1">
         <header class="detail-dialog__header">
           <div>
-            <p v-if="animal.sites.length">{{ animal.sites.join(" · ") }}</p>
+            <p v-if="visibleSites.length">{{ visibleSites.join(" · ") }}</p>
             <h2 id="detail-title">{{ animal.name }}</h2>
             <span v-if="animal.scientific_name?.trim()">{{ animal.scientific_name.trim() }}</span>
           </div>
@@ -107,7 +111,6 @@ function scrollToStories(): void {
 
         <figure class="detail-dialog__illustration">
           <AnimalPhoto :animal="animal" :variant="animal.name.length" />
-          <figcaption>动物图册 · {{ animal.name }}</figcaption>
         </figure>
 
         <div class="detail-dialog__body">
@@ -137,10 +140,8 @@ function scrollToStories(): void {
           </section>
         </div>
 
-        <footer class="detail-dialog__footer">
-          <span v-if="animal.data_status !== 'success'">部分资料仍在补充</span>
-          <span v-else>资料已整理</span>
-          <a v-if="animal.source_url" :href="animal.source_url" target="_blank" rel="noopener noreferrer">
+        <footer v-if="animal.source_url" class="detail-dialog__footer">
+          <a :href="animal.source_url" target="_blank" rel="noopener noreferrer">
             查看 Wikipedia 来源 ↗
           </a>
         </footer>
