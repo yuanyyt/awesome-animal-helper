@@ -35,7 +35,9 @@ watch(
     if (open) {
       dialog.value?.showModal();
       await nextTick();
-      input.value?.focus();
+      if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+        input.value?.focus();
+      }
       await search();
     } else if (dialog.value?.open) {
       dialog.value.close();
@@ -90,7 +92,7 @@ async function search(): Promise<void> {
       }
     }
 
-    results.value = [...merged.values()].slice(0, 12);
+    results.value = [...merged.values()];
     activeIndex.value = 0;
   } catch (reason) {
     if ((reason as Error).name !== "AbortError") {
@@ -153,9 +155,12 @@ function completeSelection(): void {
             id="animal-search"
             ref="input"
             v-model="query"
+            name="animal-search"
             type="search"
             placeholder="动物名、学名或故事关键词…"
             autocomplete="off"
+            autocapitalize="none"
+            :spellcheck="false"
             @keydown="handleKeys"
           />
           <button type="button" class="search-dialog__esc" aria-label="关闭搜索" @click="emit('close')">
