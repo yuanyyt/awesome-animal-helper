@@ -1210,8 +1210,11 @@ main {
 }
 
 .guide-chat__composer {
+  width: 100%;
+  min-width: 0;
   min-height: 5rem;
-  display: flex;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm);
@@ -1227,9 +1230,9 @@ main {
 }
 
 .guide-chat__composer textarea {
+  width: 100%;
   min-width: 0;
   min-height: 3rem;
-  flex: 1;
   resize: none;
   border: var(--rule-hair) solid transparent;
   outline: 2px solid transparent;
@@ -1254,12 +1257,15 @@ main {
 .guide-chat__composer button {
   width: 2.75rem;
   height: 2.75rem;
-  flex: 0 0 auto;
   padding: var(--space-sm);
   border: var(--rule-hair) solid var(--color-accent);
   border-radius: 50%;
   background: var(--color-accent);
   color: var(--color-accent-ink);
+}
+
+.guide-chat__send {
+  justify-self: end;
 }
 
 .guide-chat__composer button:disabled {
