@@ -36,7 +36,7 @@
 
 ### *Rhinopithecus roxellana*
 
-- [川金丝猴](亚洲灵长区/Rhinopithecus roxellana/川金丝猴.md) · 6 条趣事
+- [川金丝猴](亚洲灵长区/Rhinopithecus roxellana/川金丝猴.md) · 9 条趣事
 
 ## 冈瓦纳
 
@@ -50,7 +50,7 @@
 
 ### *Callithrix jacchus*
 
-- [普通狨](冈瓦纳/Callithrix jacchus/普通绒.md) · 3 条趣事
+- [普通狨](冈瓦纳/Callithrix jacchus/普通狨.md) · 3 条趣事
 
 ### *Chiropotes chiropotes*
 
@@ -78,7 +78,7 @@
 
 ### *Lemur catta*
 
-- [环尾狐猴](冈瓦纳/Lemur catta/环尾狐猴.md) · 7 条趣事
+- [环尾狐猴](冈瓦纳/Lemur catta/环尾狐猴.md) · 14 条趣事
 
 ### *Leontopithecus rosalia*
 
@@ -94,11 +94,11 @@
 
 ### *Saguinus midas*
 
-- [赤掌狨](冈瓦纳/Saguinus midas/赤掌縃.md) · 13 条趣事
+- [赤掌狨](冈瓦纳/Saguinus midas/赤掌狨.md) · 13 条趣事
 
 ### *Saguinus oedipus*
 
-- [棉顶狨](冈瓦纳/Saguinus oedipus/棉顶楈.md) · 5 条趣事
+- [棉顶狨](冈瓦纳/Saguinus oedipus/棉顶狨.md) · 5 条趣事
 
 ### *Saimiri sciureus*
 
@@ -112,15 +112,19 @@
 
 ### *Ailurus*
 
-- [小熊猫](唐家河/Ailurus/小熊猫.md) · 2 条趣事
+- [小熊猫](唐家河/Ailurus/小熊猫.md) · 7 条趣事
 
 ### *Cuon alpinus*
 
 - [豺](唐家河/Cuon alpinus/豺.md) · 4 条趣事
 
+### *Muntiacus reevesi*
+
+- [小麂](唐家河/Muntiacus reevesi/小麂.md) · 5 条趣事
+
 ### *Rhinopithecus roxellana*
 
-- [川金丝猴](唐家河/Rhinopithecus roxellana/川金丝猴.md) · 5 条趣事
+- [川金丝猴](唐家河/Rhinopithecus roxellana/川金丝猴.md) · 8 条趣事
 
 ## 大熊猫
 
@@ -128,37 +132,23 @@
 
 - [大熊猫](大熊猫/Ailuropoda melanoleuca/大熊猫.md) · 3 条趣事
 
-## 待确认
-
-### *Ailurus*
-
-- [小熊猫](待确认/Ailurus/小熊猫.md) · 5 条趣事
-
-### *Lemur catta*
-
-- [环尾狐猴](待确认/Lemur catta/环尾狐猴.md) · 7 条趣事
-
-### *Muntiacus reevesi*
-
-- [小麂](待确认/Muntiacus reevesi/小麂.md) · 5 条趣事
-
-### *Rhinopithecus roxellana*
-
-- [川金丝猴](待确认/Rhinopithecus roxellana/川金丝猴.md) · 3 条趣事
-
 ## 本土物种保育区
 
 ### *Alligator sinensis*
 
 - [扬子鳄](本土物种保育区/Alligator sinensis/扬子鳄.md) · 2 条趣事
 
+### *Aonyx cinerea*
+
+- [小爪水獭](本土物种保育区/Aonyx cinerea/小爪水獭.md) · 8 条趣事
+
 ### *Hydropotes inermis*
 
 - [獐子](本土物种保育区/Hydropotes inermis/獐子.md) · 4 条趣事
 
-### *Aonyx cinerea*
+### *Muntiacus reevesi*
 
-- [小爪水獭](本土物种保育区/Lutrinae/水獭.md) · 8 条趣事
+- [小麂](本土物种保育区/Muntiacus reevesi/小麂.md) · 5 条趣事
 
 ### *Mustela sibirica*
 
@@ -194,7 +184,7 @@
 
 ### *Lemur catta*
 
-- [环尾狐猴](狐猴之家/Lemur catta/环尾狐猴.md) · 2 条趣事
+- [环尾狐猴](狐猴之家/Lemur catta/环尾狐猴.md) · 9 条趣事
 
 ## 狼
 
@@ -244,7 +234,7 @@
 
 ### *Elephas maximus*
 
-- [亚洲象](象/Elephantidae/象.md) · 4 条趣事
+- [亚洲象](象/Elephas maximus/亚洲象.md) · 4 条趣事
 
 ## 非洲之歌
 
@@ -272,7 +262,7 @@
 
 ### *Ailurus*
 
-- [小熊猫](高黎贡/Ailurus/小熊猫.md) · 4 条趣事
+- [小熊猫](高黎贡/Ailurus/小熊猫.md) · 9 条趣事
 
 ### *Lophura nycthemera*
 
@@ -280,7 +270,7 @@
 
 ### *Muntiacus reevesi*
 
-- [小麂](高黎贡/Muntiacus reevesi/小麂.md) · 2 条趣事
+- [小麂](高黎贡/Muntiacus reevesi/小麂.md) · 7 条趣事
 
 ### *Phalacrocorax carbo*
 

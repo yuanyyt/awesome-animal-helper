@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-11T15:00:18.533999+00:00",
+  "generated_at": "2026-08-13T01:44:04.109275+00:00",
   "items": [
     {
       "site": "中国猫科",
@@ -356,10 +356,17 @@
         "大春一家",
         "六娃一家",
         "重阳一家",
-        "突突"
+        "突突",
+        "金家",
+        "小萌",
+        "彤彤",
+        "瑞瑞",
+        "不懂",
+        "来福",
+        "重阳"
       ],
-      "fact_count": 6,
-      "source_count": 2,
+      "fact_count": 9,
+      "source_count": 4,
       "page_file": "亚洲灵长区/Rhinopithecus roxellana/川金丝猴.md",
       "facts": [
         {
@@ -414,6 +421,33 @@
             "title": "把春天吃进肚子里~",
             "url": "https://mp.weixin.qq.com/s/66vCofzajM1FcKpXoX3m4g",
             "published_at": "2026-04-14 17:52:24"
+          }
+        },
+        {
+          "text": "川金丝猴家族中会出现“偷崽”、“忘崽”事件，其他成员像阿姨一样热情照顾幼崽。",
+          "evidence": "“偷”崽、“忘”崽事件时常发生，家族成员们都表现出热情的“阿姨行为”。",
+          "source": {
+            "title": "踮起脚尖，一起长大～",
+            "url": "https://mp.weixin.qq.com/s/7jZopNtqr5Iz0vzmlznwMw",
+            "published_at": "2026-06-01 18:51:32"
+          }
+        },
+        {
+          "text": "年长的金丝猴如瑞瑞和不懂会变成能干的小大猴，带着弟弟妹妹在树干间穿梭。",
+          "evidence": "瑞瑞、不懂也变成了能干的“小大猴”，带着弟弟妹妹在树干间穿梭，动作十分娴熟～",
+          "source": {
+            "title": "踮起脚尖，一起长大～",
+            "url": "https://mp.weixin.qq.com/s/7jZopNtqr5Iz0vzmlznwMw",
+            "published_at": "2026-06-01 18:51:32"
+          }
+        },
+        {
+          "text": "川金丝猴来福紧紧抱住父亲重阳，由重阳宽阔的胸膛为其抵挡寒风。",
+          "evidence": "川金丝猴来福紧紧抱住爸爸重阳，重阳温暖宽阔的胸膛为来福抵挡寒风",
+          "source": {
+            "title": "雪天 动物们的好奇值",
+            "url": "https://mp.weixin.qq.com/s/-fvvxQtgJfE7px2rxpH6QQ",
+            "published_at": "2026-01-20 18:41:22"
           }
         }
       ]
@@ -523,7 +557,7 @@
       "aliases": [],
       "fact_count": 3,
       "source_count": 3,
-      "page_file": "冈瓦纳/Callithrix jacchus/普通绒.md",
+      "page_file": "冈瓦纳/Callithrix jacchus/普通狨.md",
       "facts": [
         {
           "text": "珍珠鸡们在油菜花丛中钻进钻出，花瓣落下沾在油亮羽毛上像戴了金色皇冠。",
@@ -764,10 +798,12 @@
         "楚巴卡",
         "杜鹃",
         "杜仲",
-        "星辰"
+        "星辰",
+        "莉莉",
+        "coco"
       ],
-      "fact_count": 7,
-      "source_count": 3,
+      "fact_count": 14,
+      "source_count": 6,
       "page_file": "冈瓦纳/Lemur catta/环尾狐猴.md",
       "facts": [
         {
@@ -831,6 +867,69 @@
             "title": "把春天吃进肚子里~",
             "url": "https://mp.weixin.qq.com/s/66vCofzajM1FcKpXoX3m4g",
             "published_at": "2026-04-14 17:52:24"
+          }
+        },
+        {
+          "text": "环尾狐猴幼崽coco出生时体重不足100g，饲养员通过人工育幼和精细护理，使其在两个月内体重增长至160克。",
+          "evidence": "Coco也一天天地长大，体重从四月初的不足100克，增长到五月中旬的160克！",
+          "source": {
+            "title": "Mora mora，慢慢来、慢慢来~",
+            "url": "https://mp.weixin.qq.com/s/P_Zpq5z38IbtAiAbAuEr7A",
+            "published_at": "2025-12-17 19:44:37"
+          }
+        },
+        {
+          "text": "饲养员为帮助幼崽coco发育标志性的“梳齿”，特意提供了咬胶作为成长辅助工具。",
+          "evidence": "饲养员还给coco找到了一个秘密武器——咬胶，来帮助coco在成长初期中发育环尾狐猴标志性的“梳齿”",
+          "source": {
+            "title": "Mora mora，慢慢来、慢慢来~",
+            "url": "https://mp.weixin.qq.com/s/P_Zpq5z38IbtAiAbAuEr7A",
+            "published_at": "2025-12-17 19:44:37"
+          }
+        },
+        {
+          "text": "红山动物园曾为狐猴提供包含五十多种蔬果的丰富食谱，但因强势个体抢食导致弱势个体营养不良，且高糖水果引发粪便异常和肥胖。",
+          "evidence": "从最初每天十几种蔬菜水果，逐渐增加到最多的时候，每天能够提供五十多种蔬菜和水果。",
+          "source": {
+            "title": "从满汉全席到一根胡萝卜，狐猴的餐盘里藏着一个“断舍离”的秘密",
+            "url": "https://mp.weixin.qq.com/s/bYeqN_4mwNkxZYjcixN_IA",
+            "published_at": "2026-06-23 17:59:05"
+          }
+        },
+        {
+          "text": "为解决争食和健康问题，红山将狐猴食谱简化为每餐仅一种食物，并将水果改为行为训练奖励，显著减少了打架并提高了动物配合度。",
+          "evidence": "一天四餐，每一餐只有一个品种。...我们把水果变成了奖励。结果发现，动物的配合度变得更高了",
+          "source": {
+            "title": "从满汉全席到一根胡萝卜，狐猴的餐盘里藏着一个“断舍离”的秘密",
+            "url": "https://mp.weixin.qq.com/s/bYeqN_4mwNkxZYjcixN_IA",
+            "published_at": "2026-06-23 17:59:05"
+          }
+        },
+        {
+          "text": "初到新环境时，环尾狐猴表现得非常谨慎，集体进入观察模式，睁大眼睛远远关注新邻居褐美狐猴的一举一动。",
+          "evidence": "环尾狐猴们则集体进入了“谨慎观察”模式，睁大圆溜溜的眼睛，远远关注着这些新邻居的一举一动。",
+          "source": {
+            "title": "我这室友怎么长得不太一样啊？",
+            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
+            "published_at": "2026-04-08 18:23:37"
+          }
+        },
+        {
+          "text": "在进食时，环尾狐猴十分警惕，一旦褐美狐猴靠近平台就会跳开等待，以免发生冲突或吃到剩食。",
+          "evidence": "只要褐美狐猴来到平台上进食，环尾狐猴就会跳开或在附近等着，这样一来轮到环尾再上前采食时往往只能吃到一些被挑剩下的食物。",
+          "source": {
+            "title": "我这室友怎么长得不太一样啊？",
+            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
+            "published_at": "2026-04-08 18:23:37"
+          }
+        },
+        {
+          "text": "经过饲养员调整喂食方式后，环尾狐猴开始在地面和低矮栖架上活动，悠闲地享受日光浴。",
+          "evidence": "环尾狐猴更多地在地面和低矮的栖架上活动，悠闲地享受日光浴。",
+          "source": {
+            "title": "我这室友怎么长得不太一样啊？",
+            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
+            "published_at": "2026-04-08 18:23:37"
           }
         }
       ]
@@ -987,7 +1086,7 @@
       ],
       "fact_count": 13,
       "source_count": 4,
-      "page_file": "冈瓦纳/Saguinus midas/赤掌縃.md",
+      "page_file": "冈瓦纳/Saguinus midas/赤掌狨.md",
       "facts": [
         {
           "text": "出生时体重52.4克，是正常新生儿体重（约30克）的一倍多。",
@@ -1120,7 +1219,7 @@
       ],
       "fact_count": 5,
       "source_count": 3,
-      "page_file": "冈瓦纳/Saguinus oedipus/棉顶楈.md",
+      "page_file": "冈瓦纳/Saguinus oedipus/棉顶狨.md",
       "facts": [
         {
           "text": "饲养员通过逐步拉大空间距离的方式帮助康康适应独立生活，期间父母与康康会隔着格网互相梳理毛发或发出叫声传递信号。",
@@ -1246,9 +1345,13 @@
       "site": "唐家河",
       "scientific_name": "Ailurus",
       "animal_name": "小熊猫",
-      "aliases": [],
-      "fact_count": 2,
-      "source_count": 1,
+      "aliases": [
+        "仲夏",
+        "孟夏",
+        "夏夏"
+      ],
+      "fact_count": 7,
+      "source_count": 2,
       "page_file": "唐家河/Ailurus/小熊猫.md",
       "facts": [
         {
@@ -1267,6 +1370,51 @@
             "title": "一棵枫杨 微缩故乡",
             "url": "https://mp.weixin.qq.com/s/dDYB2RuB2KDgDGGUQia6TA",
             "published_at": "2026-01-28 18:20:18"
+          }
+        },
+        {
+          "text": "双胞胎兄妹仲夏和孟夏于2025年7月17日傍晚出生，哥哥仲夏比妹妹孟夏早出生20分钟。",
+          "evidence": "20分钟后，第一只幼崽顺利诞生——这就是我们后来的哥哥“仲夏”。又过了10分钟，妹妹“孟夏”也平安落地。",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏在三个多月大时患上肺炎，因血管细无法挂水，只能打针和雾化治疗。",
+          "evidence": "确诊是肺炎后...没有办法进行常规的挂水治疗，只能依靠打针和雾化。",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏在康复期间曾在氧舱里拆掉门上的胶条，饲养员认为这是身体好转的迹象。",
+          "evidence": "接受治疗的第三天，就已经开始在氧舱里搞起了破坏，把氧舱门上的胶条全都拆掉了。",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏病愈回家后兴奋追逐妈妈，导致夏娃受惊逃跑，但妹妹孟夏第一时间接纳了哥哥。",
+          "evidence": "冲上去就想和妈妈贴贴。可当时孟夏已经处于有点“独立”的阶段了...夏娃的第一反应竟是：跑！",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏通过少食多餐的专属恢复饮食计划追赶生长，最终健康状况追平妹妹。",
+          "evidence": "饲养员给大病初愈的仲夏量身定制了专属恢复饮食计划...从清晨六七点的第一顿补奶，到深夜十一点的最后一次照料",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
           }
         }
       ]
@@ -1320,243 +1468,6 @@
     },
     {
       "site": "唐家河",
-      "scientific_name": "Rhinopithecus roxellana",
-      "animal_name": "川金丝猴",
-      "aliases": [
-        "大春一家",
-        "六娃一家",
-        "重阳一家"
-      ],
-      "fact_count": 5,
-      "source_count": 1,
-      "page_file": "唐家河/Rhinopithecus roxellana/川金丝猴.md",
-      "facts": [
-        {
-          "text": "入冬后，川金丝猴会通过三三两两依偎或全家聚在栖架、巢箱等处紧紧贴在一起，形成圆融的“金球”来保存体温。",
-          "evidence": "他们依旧会在觅食完后，三三两两依偎或一家聚在栖架、巢箱里、平台或是树干上，紧紧贴在一起，从一小团渐渐汇成一个个圆融的“金球”。",
-          "source": {
-            "title": "在红山，最懂拥抱的居然是他们！",
-            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
-            "published_at": "2026-01-26 19:03:49"
-          }
-        },
-        {
-          "text": "川金丝猴家族中，雌猴之间发生争执后，往往一方主动靠近并紧紧抱住对方，以此作为和解的第一步，使不快烟消云散。",
-          "evidence": "即便气氛一度紧张，他们也极少真正动手。往往在情绪稍缓的片刻，总会有一方主动迈出和解的第一步，缓缓靠近，然后紧紧抱住对方。",
-          "source": {
-            "title": "在红山，最懂拥抱的居然是他们！",
-            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
-            "published_at": "2026-01-26 19:03:49"
-          }
-        },
-        {
-          "text": "幼猴通过拥抱建立友谊和包容，久别重逢时扑进彼此怀里撒欢，闹不愉快后轻抱致歉，同伴受惊时静静陪着紧贴对方。",
-          "evidence": "久别重逢时，扑进彼此怀里撒欢；闹了不愉快后，主动凑上前轻抱致歉；忘突友谊找到新奇玩意儿、心情大好时，也会相拥着分享喜悦",
-          "source": {
-            "title": "在红山，最懂拥抱的居然是他们！",
-            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
-            "published_at": "2026-01-26 19:03:49"
-          }
-        },
-        {
-          "text": "川金丝猴家族中存在“阿姨抱”现象，其他雌猴会主动抱抱、抚摸甚至抢婴护婴，帮助母猴觅食并让幼猴适应群体生活。",
-          "evidence": "新生幼猴总会引来家族其他雌猴的格外关注，他们会主动凑上前抱抱幼崽、轻轻抚摸，甚至出现抢婴、护婴的小剧场。",
-          "source": {
-            "title": "在红山，最懂拥抱的居然是他们！",
-            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
-            "published_at": "2026-01-26 19:03:49"
-          }
-        },
-        {
-          "text": "雄猴作为大家长会用拥抱强化与幼崽的亲子联结，幼崽主动撒娇蹭毛发，雄猴则轻轻环住幼崽或用温热身躯给予回应。",
-          "evidence": "幼崽们常常主动凑到父亲身边撒娇，用小身子蹭着父亲的毛发，而雄猴也会轻轻环住幼崽，用温热的身躯给予回应，或是“爸爸巴士”即刻发车。",
-          "source": {
-            "title": "在红山，最懂拥抱的居然是他们！",
-            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
-            "published_at": "2026-01-26 19:03:49"
-          }
-        }
-      ]
-    },
-    {
-      "site": "大熊猫",
-      "scientific_name": "Ailuropoda melanoleuca",
-      "animal_name": "大熊猫",
-      "aliases": [
-        "九九"
-      ],
-      "fact_count": 3,
-      "source_count": 2,
-      "page_file": "大熊猫/Ailuropoda melanoleuca/大熊猫.md",
-      "facts": [
-        {
-          "text": "大熊猫不冬眠，因其主食竹子四季常青且抗寒能力强，全年食物来源稳定充足，无需靠冬眠躲避饥荒。",
-          "evidence": "答案是否定的，大熊猫不冬眠。冬眠本质上是熊类应对冬季食物短缺、严寒低温的“节能避荒”策略...但大熊猫的主食是竹子，竹子抗寒能力极强，四季常青，哪怕遭遇零下低温",
-          "source": {
-            "title": "到底谁才是红山真正的“熊孩子”？",
-            "url": "https://mp.weixin.qq.com/s/jhJGjkQQ4P4pQ7IM0x4MVw",
-            "published_at": "2026-03-23 18:23:53"
-          }
-        },
-        {
-          "text": "大熊猫拥有厚实的双层毛发作为天然保暖大衣，外层针毛坚硬防风，内层绒毛浓密锁温，配合圆润体型利于储存热量，能轻松抵御冬季低温。",
-          "evidence": "除此之外，大熊猫的身体构造，也没有进化出适配冬眠的低代谢机制...不过大熊猫自有一套御寒本领，他们一身厚实的双层毛发堪称天然“保暖大衣”，外层针毛坚硬防风，内层",
-          "source": {
-            "title": "到底谁才是红山真正的“熊孩子”？",
-            "url": "https://mp.weixin.qq.com/s/jhJGjkQQ4P4pQ7IM0x4MVw",
-            "published_at": "2026-03-23 18:23:53"
-          }
-        },
-        {
-          "text": "大熊猫九九在覆雪的木台上抱着沾着雪花的竹笋津津有味地咀嚼。",
-          "evidence": "大熊猫九九在覆雪的木台上抱起一根沾着雪花的竹笋，咔嚓咔嚓嚼得津津有味",
-          "source": {
-            "title": "雪天 动物们的好奇值",
-            "url": "https://mp.weixin.qq.com/s/-fvvxQtgJfE7px2rxpH6QQ",
-            "published_at": "2026-01-20 18:41:22"
-          }
-        }
-      ]
-    },
-    {
-      "site": "待确认",
-      "scientific_name": "Ailurus",
-      "animal_name": "小熊猫",
-      "aliases": [
-        "仲夏",
-        "孟夏",
-        "夏夏"
-      ],
-      "fact_count": 5,
-      "source_count": 1,
-      "page_file": "待确认/Ailurus/小熊猫.md",
-      "facts": [
-        {
-          "text": "双胞胎兄妹仲夏和孟夏于2025年7月17日傍晚出生，哥哥仲夏比妹妹孟夏早出生20分钟。",
-          "evidence": "20分钟后，第一只幼崽顺利诞生——这就是我们后来的哥哥“仲夏”。又过了10分钟，妹妹“孟夏”也平安落地。",
-          "source": {
-            "title": "新小小熊猫前来报到~",
-            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
-            "published_at": "2026-01-03 19:02:30"
-          }
-        },
-        {
-          "text": "仲夏在三个多月大时患上肺炎，因血管细无法挂水，只能打针和雾化治疗。",
-          "evidence": "确诊是肺炎后...没有办法进行常规的挂水治疗，只能依靠打针和雾化。",
-          "source": {
-            "title": "新小小熊猫前来报到~",
-            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
-            "published_at": "2026-01-03 19:02:30"
-          }
-        },
-        {
-          "text": "仲夏在康复期间曾在氧舱里拆掉门上的胶条，饲养员认为这是身体好转的迹象。",
-          "evidence": "接受治疗的第三天，就已经开始在氧舱里搞起了破坏，把氧舱门上的胶条全都拆掉了。",
-          "source": {
-            "title": "新小小熊猫前来报到~",
-            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
-            "published_at": "2026-01-03 19:02:30"
-          }
-        },
-        {
-          "text": "仲夏病愈回家后兴奋追逐妈妈，导致夏娃受惊逃跑，但妹妹孟夏第一时间接纳了哥哥。",
-          "evidence": "冲上去就想和妈妈贴贴。可当时孟夏已经处于有点“独立”的阶段了...夏娃的第一反应竟是：跑！",
-          "source": {
-            "title": "新小小熊猫前来报到~",
-            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
-            "published_at": "2026-01-03 19:02:30"
-          }
-        },
-        {
-          "text": "仲夏通过少食多餐的专属恢复饮食计划追赶生长，最终健康状况追平妹妹。",
-          "evidence": "饲养员给大病初愈的仲夏量身定制了专属恢复饮食计划...从清晨六七点的第一顿补奶，到深夜十一点的最后一次照料",
-          "source": {
-            "title": "新小小熊猫前来报到~",
-            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
-            "published_at": "2026-01-03 19:02:30"
-          }
-        }
-      ]
-    },
-    {
-      "site": "待确认",
-      "scientific_name": "Lemur catta",
-      "animal_name": "环尾狐猴",
-      "aliases": [
-        "莉莉",
-        "coco"
-      ],
-      "fact_count": 7,
-      "source_count": 3,
-      "page_file": "待确认/Lemur catta/环尾狐猴.md",
-      "facts": [
-        {
-          "text": "环尾狐猴幼崽coco出生时体重不足100g，饲养员通过人工育幼和精细护理，使其在两个月内体重增长至160克。",
-          "evidence": "Coco也一天天地长大，体重从四月初的不足100克，增长到五月中旬的160克！",
-          "source": {
-            "title": "Mora mora，慢慢来、慢慢来~",
-            "url": "https://mp.weixin.qq.com/s/P_Zpq5z38IbtAiAbAuEr7A",
-            "published_at": "2025-12-17 19:44:37"
-          }
-        },
-        {
-          "text": "饲养员为帮助幼崽coco发育标志性的“梳齿”，特意提供了咬胶作为成长辅助工具。",
-          "evidence": "饲养员还给coco找到了一个秘密武器——咬胶，来帮助coco在成长初期中发育环尾狐猴标志性的“梳齿”",
-          "source": {
-            "title": "Mora mora，慢慢来、慢慢来~",
-            "url": "https://mp.weixin.qq.com/s/P_Zpq5z38IbtAiAbAuEr7A",
-            "published_at": "2025-12-17 19:44:37"
-          }
-        },
-        {
-          "text": "红山动物园曾为狐猴提供包含五十多种蔬果的丰富食谱，但因强势个体抢食导致弱势个体营养不良，且高糖水果引发粪便异常和肥胖。",
-          "evidence": "从最初每天十几种蔬菜水果，逐渐增加到最多的时候，每天能够提供五十多种蔬菜和水果。",
-          "source": {
-            "title": "从满汉全席到一根胡萝卜，狐猴的餐盘里藏着一个“断舍离”的秘密",
-            "url": "https://mp.weixin.qq.com/s/bYeqN_4mwNkxZYjcixN_IA",
-            "published_at": "2026-06-23 17:59:05"
-          }
-        },
-        {
-          "text": "为解决争食和健康问题，红山将狐猴食谱简化为每餐仅一种食物，并将水果改为行为训练奖励，显著减少了打架并提高了动物配合度。",
-          "evidence": "一天四餐，每一餐只有一个品种。...我们把水果变成了奖励。结果发现，动物的配合度变得更高了",
-          "source": {
-            "title": "从满汉全席到一根胡萝卜，狐猴的餐盘里藏着一个“断舍离”的秘密",
-            "url": "https://mp.weixin.qq.com/s/bYeqN_4mwNkxZYjcixN_IA",
-            "published_at": "2026-06-23 17:59:05"
-          }
-        },
-        {
-          "text": "初到新环境时，环尾狐猴表现得非常谨慎，集体进入观察模式，睁大眼睛远远关注新邻居褐美狐猴的一举一动。",
-          "evidence": "环尾狐猴们则集体进入了“谨慎观察”模式，睁大圆溜溜的眼睛，远远关注着这些新邻居的一举一动。",
-          "source": {
-            "title": "我这室友怎么长得不太一样啊？",
-            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
-            "published_at": "2026-04-08 18:23:37"
-          }
-        },
-        {
-          "text": "在进食时，环尾狐猴十分警惕，一旦褐美狐猴靠近平台就会跳开等待，以免发生冲突或吃到剩食。",
-          "evidence": "只要褐美狐猴来到平台上进食，环尾狐猴就会跳开或在附近等着，这样一来轮到环尾再上前采食时往往只能吃到一些被挑剩下的食物。",
-          "source": {
-            "title": "我这室友怎么长得不太一样啊？",
-            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
-            "published_at": "2026-04-08 18:23:37"
-          }
-        },
-        {
-          "text": "经过饲养员调整喂食方式后，环尾狐猴开始在地面和低矮栖架上活动，悠闲地享受日光浴。",
-          "evidence": "环尾狐猴更多地在地面和低矮的栖架上活动，悠闲地享受日光浴。",
-          "source": {
-            "title": "我这室友怎么长得不太一样啊？",
-            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
-            "published_at": "2026-04-08 18:23:37"
-          }
-        }
-      ]
-    },
-    {
-      "site": "待确认",
       "scientific_name": "Muntiacus reevesi",
       "animal_name": "小麂",
       "aliases": [
@@ -1567,7 +1478,7 @@
       ],
       "fact_count": 5,
       "source_count": 2,
-      "page_file": "待确认/Muntiacus reevesi/小麂.md",
+      "page_file": "唐家河/Muntiacus reevesi/小麂.md",
       "facts": [
         {
           "text": "饲养员通过蹲守观察和美食脱敏训练，让原本敏感、见到人就会藏起来的小麂能够主动出现在面前进食。",
@@ -1617,10 +1528,13 @@
       ]
     },
     {
-      "site": "待确认",
+      "site": "唐家河",
       "scientific_name": "Rhinopithecus roxellana",
       "animal_name": "川金丝猴",
       "aliases": [
+        "大春一家",
+        "六娃一家",
+        "重阳一家",
         "金家",
         "小萌",
         "彤彤",
@@ -1629,10 +1543,55 @@
         "来福",
         "重阳"
       ],
-      "fact_count": 3,
-      "source_count": 2,
-      "page_file": "待确认/Rhinopithecus roxellana/川金丝猴.md",
+      "fact_count": 8,
+      "source_count": 3,
+      "page_file": "唐家河/Rhinopithecus roxellana/川金丝猴.md",
       "facts": [
+        {
+          "text": "入冬后，川金丝猴会通过三三两两依偎或全家聚在栖架、巢箱等处紧紧贴在一起，形成圆融的“金球”来保存体温。",
+          "evidence": "他们依旧会在觅食完后，三三两两依偎或一家聚在栖架、巢箱里、平台或是树干上，紧紧贴在一起，从一小团渐渐汇成一个个圆融的“金球”。",
+          "source": {
+            "title": "在红山，最懂拥抱的居然是他们！",
+            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
+            "published_at": "2026-01-26 19:03:49"
+          }
+        },
+        {
+          "text": "川金丝猴家族中，雌猴之间发生争执后，往往一方主动靠近并紧紧抱住对方，以此作为和解的第一步，使不快烟消云散。",
+          "evidence": "即便气氛一度紧张，他们也极少真正动手。往往在情绪稍缓的片刻，总会有一方主动迈出和解的第一步，缓缓靠近，然后紧紧抱住对方。",
+          "source": {
+            "title": "在红山，最懂拥抱的居然是他们！",
+            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
+            "published_at": "2026-01-26 19:03:49"
+          }
+        },
+        {
+          "text": "幼猴通过拥抱建立友谊和包容，久别重逢时扑进彼此怀里撒欢，闹不愉快后轻抱致歉，同伴受惊时静静陪着紧贴对方。",
+          "evidence": "久别重逢时，扑进彼此怀里撒欢；闹了不愉快后，主动凑上前轻抱致歉；忘突友谊找到新奇玩意儿、心情大好时，也会相拥着分享喜悦",
+          "source": {
+            "title": "在红山，最懂拥抱的居然是他们！",
+            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
+            "published_at": "2026-01-26 19:03:49"
+          }
+        },
+        {
+          "text": "川金丝猴家族中存在“阿姨抱”现象，其他雌猴会主动抱抱、抚摸甚至抢婴护婴，帮助母猴觅食并让幼猴适应群体生活。",
+          "evidence": "新生幼猴总会引来家族其他雌猴的格外关注，他们会主动凑上前抱抱幼崽、轻轻抚摸，甚至出现抢婴、护婴的小剧场。",
+          "source": {
+            "title": "在红山，最懂拥抱的居然是他们！",
+            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
+            "published_at": "2026-01-26 19:03:49"
+          }
+        },
+        {
+          "text": "雄猴作为大家长会用拥抱强化与幼崽的亲子联结，幼崽主动撒娇蹭毛发，雄猴则轻轻环住幼崽或用温热身躯给予回应。",
+          "evidence": "幼崽们常常主动凑到父亲身边撒娇，用小身子蹭着父亲的毛发，而雄猴也会轻轻环住幼崽，用温热的身躯给予回应，或是“爸爸巴士”即刻发车。",
+          "source": {
+            "title": "在红山，最懂拥抱的居然是他们！",
+            "url": "https://mp.weixin.qq.com/s/Hfhqgp1_YPx006oJVtJVpw",
+            "published_at": "2026-01-26 19:03:49"
+          }
+        },
         {
           "text": "川金丝猴家族中会出现“偷崽”、“忘崽”事件，其他成员像阿姨一样热情照顾幼崽。",
           "evidence": "“偷”崽、“忘”崽事件时常发生，家族成员们都表现出热情的“阿姨行为”。",
@@ -1654,6 +1613,46 @@
         {
           "text": "川金丝猴来福紧紧抱住父亲重阳，由重阳宽阔的胸膛为其抵挡寒风。",
           "evidence": "川金丝猴来福紧紧抱住爸爸重阳，重阳温暖宽阔的胸膛为来福抵挡寒风",
+          "source": {
+            "title": "雪天 动物们的好奇值",
+            "url": "https://mp.weixin.qq.com/s/-fvvxQtgJfE7px2rxpH6QQ",
+            "published_at": "2026-01-20 18:41:22"
+          }
+        }
+      ]
+    },
+    {
+      "site": "大熊猫",
+      "scientific_name": "Ailuropoda melanoleuca",
+      "animal_name": "大熊猫",
+      "aliases": [
+        "九九"
+      ],
+      "fact_count": 3,
+      "source_count": 2,
+      "page_file": "大熊猫/Ailuropoda melanoleuca/大熊猫.md",
+      "facts": [
+        {
+          "text": "大熊猫不冬眠，因其主食竹子四季常青且抗寒能力强，全年食物来源稳定充足，无需靠冬眠躲避饥荒。",
+          "evidence": "答案是否定的，大熊猫不冬眠。冬眠本质上是熊类应对冬季食物短缺、严寒低温的“节能避荒”策略...但大熊猫的主食是竹子，竹子抗寒能力极强，四季常青，哪怕遭遇零下低温",
+          "source": {
+            "title": "到底谁才是红山真正的“熊孩子”？",
+            "url": "https://mp.weixin.qq.com/s/jhJGjkQQ4P4pQ7IM0x4MVw",
+            "published_at": "2026-03-23 18:23:53"
+          }
+        },
+        {
+          "text": "大熊猫拥有厚实的双层毛发作为天然保暖大衣，外层针毛坚硬防风，内层绒毛浓密锁温，配合圆润体型利于储存热量，能轻松抵御冬季低温。",
+          "evidence": "除此之外，大熊猫的身体构造，也没有进化出适配冬眠的低代谢机制...不过大熊猫自有一套御寒本领，他们一身厚实的双层毛发堪称天然“保暖大衣”，外层针毛坚硬防风，内层",
+          "source": {
+            "title": "到底谁才是红山真正的“熊孩子”？",
+            "url": "https://mp.weixin.qq.com/s/jhJGjkQQ4P4pQ7IM0x4MVw",
+            "published_at": "2026-03-23 18:23:53"
+          }
+        },
+        {
+          "text": "大熊猫九九在覆雪的木台上抱着沾着雪花的竹笋津津有味地咀嚼。",
+          "evidence": "大熊猫九九在覆雪的木台上抱起一根沾着雪花的竹笋，咔嚓咔嚓嚼得津津有味",
           "source": {
             "title": "雪天 动物们的好奇值",
             "url": "https://mp.weixin.qq.com/s/-fvvxQtgJfE7px2rxpH6QQ",
@@ -1693,53 +1692,6 @@
     },
     {
       "site": "本土物种保育区",
-      "scientific_name": "Hydropotes inermis",
-      "animal_name": "獐子",
-      "aliases": [],
-      "fact_count": 4,
-      "source_count": 2,
-      "page_file": "本土物种保育区/Hydropotes inermis/獐子.md",
-      "facts": [
-        {
-          "text": "为了让救助的獐子更有安全感，饲养员利用树枝、竹叶等材料为它们搭建遮风避雨的棚子和遮蔽路线。",
-          "evidence": "我们就利用树枝、竹叶、茅草等材料给它们增加了一些遮风避雨的棚子和行走路线中的遮蔽",
-          "source": {
-            "title": "动物园没有大事，它由一万件小事组成",
-            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
-            "published_at": "2026-06-30 17:58:59"
-          }
-        },
-        {
-          "text": "经过经验积累，红山动物园成功将救助的獐子放归到南京的湿地系统中。",
-          "evidence": "经过了一些经验的积累以后，我们也终于将救助的獐子放归到南京的湿地系统中",
-          "source": {
-            "title": "动物园没有大事，它由一万件小事组成",
-            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
-            "published_at": "2026-06-30 17:58:59"
-          }
-        },
-        {
-          "text": "獐子专门挑选竹叶花椒最鲜嫩的芽尖品尝，避开带有浓郁气味的成熟叶子。",
-          "evidence": "竹叶花椒的叶子自带浓郁的气味，但獐子偏偏钟情于这份独特的 “风味”，却也只在嫩芽阶段 “解馋”",
-          "source": {
-            "title": "吃完就走，今年又没拍到你！",
-            "url": "https://mp.weixin.qq.com/s/69fcaGvhDG1IEUPgK1w7zQ",
-            "published_at": "2026-01-27 17:47:46"
-          }
-        },
-        {
-          "text": "獐子扫光嫩芽后，未被啃食的植株在短时间内迅速长出新的嫩芽。",
-          "evidence": "在獐子未曾光顾的仅仅一两天的时间里，竹叶花椒就抓住机会快速生长，长出了新的嫩芽",
-          "source": {
-            "title": "吃完就走，今年又没拍到你！",
-            "url": "https://mp.weixin.qq.com/s/69fcaGvhDG1IEUPgK1w7zQ",
-            "published_at": "2026-01-27 17:47:46"
-          }
-        }
-      ]
-    },
-    {
-      "site": "本土物种保育区",
       "scientific_name": "Aonyx cinerea",
       "animal_name": "小爪水獭",
       "aliases": [
@@ -1750,7 +1702,7 @@
       ],
       "fact_count": 8,
       "source_count": 3,
-      "page_file": "本土物种保育区/Lutrinae/水獭.md",
+      "page_file": "本土物种保育区/Aonyx cinerea/小爪水獭.md",
       "facts": [
         {
           "text": "水獭有持续絮窝的习惯，会撕扯芭蕉根部的嫩皮拖回巢箱铺成软垫，甚至将新抽的小芭蕉嫩芽征用。",
@@ -1822,6 +1774,114 @@
             "title": "踮起脚尖，一起长大～",
             "url": "https://mp.weixin.qq.com/s/7jZopNtqr5Iz0vzmlznwMw",
             "published_at": "2026-06-01 18:51:32"
+          }
+        }
+      ]
+    },
+    {
+      "site": "本土物种保育区",
+      "scientific_name": "Hydropotes inermis",
+      "animal_name": "獐子",
+      "aliases": [],
+      "fact_count": 4,
+      "source_count": 2,
+      "page_file": "本土物种保育区/Hydropotes inermis/獐子.md",
+      "facts": [
+        {
+          "text": "为了让救助的獐子更有安全感，饲养员利用树枝、竹叶等材料为它们搭建遮风避雨的棚子和遮蔽路线。",
+          "evidence": "我们就利用树枝、竹叶、茅草等材料给它们增加了一些遮风避雨的棚子和行走路线中的遮蔽",
+          "source": {
+            "title": "动物园没有大事，它由一万件小事组成",
+            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
+            "published_at": "2026-06-30 17:58:59"
+          }
+        },
+        {
+          "text": "经过经验积累，红山动物园成功将救助的獐子放归到南京的湿地系统中。",
+          "evidence": "经过了一些经验的积累以后，我们也终于将救助的獐子放归到南京的湿地系统中",
+          "source": {
+            "title": "动物园没有大事，它由一万件小事组成",
+            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
+            "published_at": "2026-06-30 17:58:59"
+          }
+        },
+        {
+          "text": "獐子专门挑选竹叶花椒最鲜嫩的芽尖品尝，避开带有浓郁气味的成熟叶子。",
+          "evidence": "竹叶花椒的叶子自带浓郁的气味，但獐子偏偏钟情于这份独特的 “风味”，却也只在嫩芽阶段 “解馋”",
+          "source": {
+            "title": "吃完就走，今年又没拍到你！",
+            "url": "https://mp.weixin.qq.com/s/69fcaGvhDG1IEUPgK1w7zQ",
+            "published_at": "2026-01-27 17:47:46"
+          }
+        },
+        {
+          "text": "獐子扫光嫩芽后，未被啃食的植株在短时间内迅速长出新的嫩芽。",
+          "evidence": "在獐子未曾光顾的仅仅一两天的时间里，竹叶花椒就抓住机会快速生长，长出了新的嫩芽",
+          "source": {
+            "title": "吃完就走，今年又没拍到你！",
+            "url": "https://mp.weixin.qq.com/s/69fcaGvhDG1IEUPgK1w7zQ",
+            "published_at": "2026-01-27 17:47:46"
+          }
+        }
+      ]
+    },
+    {
+      "site": "本土物种保育区",
+      "scientific_name": "Muntiacus reevesi",
+      "animal_name": "小麂",
+      "aliases": [
+        "大王",
+        "奶昔",
+        "蜜瓜",
+        "椰果"
+      ],
+      "fact_count": 5,
+      "source_count": 2,
+      "page_file": "本土物种保育区/Muntiacus reevesi/小麂.md",
+      "facts": [
+        {
+          "text": "饲养员通过蹲守观察和美食脱敏训练，让原本敏感、见到人就会藏起来的小麂能够主动出现在面前进食。",
+          "evidence": "我就尝试蹲在里面，用望远镜先观察，慢慢地再通过好吃的给它们做一些脱敏的训练。渐渐地，所有小麂都能出现在我面前吃东西了",
+          "source": {
+            "title": "动物园没有大事，它由一万件小事组成",
+            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
+            "published_at": "2026-06-30 17:58:59"
+          }
+        },
+        {
+          "text": "工作人员记录了5月到8月小麂角的脱落变化，形成换角日记分享给游客，科普其角会每年脱落的特征。",
+          "evidence": "那段时间我们刚好捡到了它们脱落的角，就在5月到8月记录了角的脱落变化，形成换角日记，分享给来的游客",
+          "source": {
+            "title": "动物园没有大事，它由一万件小事组成",
+            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
+            "published_at": "2026-06-30 17:58:59"
+          }
+        },
+        {
+          "text": "饲养员通过从颈部到腹部、臀部的渐进式抚触建立信任，使天性敏感的小麂能配合完成肛温检测。",
+          "evidence": "从去年开始，我们就靠着彼此的信任打底，一步一步、慢慢地做适应引导。先从它们接受度最高的颈部区域进行轻柔抚触...再慢慢将接触范围延伸至腹部、臀部区域",
+          "source": {
+            "title": "除了老虎，还有谁的屁股“摸”不得？",
+            "url": "https://mp.weixin.qq.com/s/4SBhOqNIFwEmWfc5UKgPtg",
+            "published_at": "2026-02-06 15:55:07"
+          }
+        },
+        {
+          "text": "目前可稳定为名为奶昔、蜜瓜、椰果的三只小麂采集有效体温数据。",
+          "evidence": "目前，我们已经可以稳定为奶昔、蜜瓜、椰果三只小麂采集有效体温数据。",
+          "source": {
+            "title": "除了老虎，还有谁的屁股“摸”不得？",
+            "url": "https://mp.weixin.qq.com/s/4SBhOqNIFwEmWfc5UKgPtg",
+            "published_at": "2026-02-06 15:55:07"
+          }
+        },
+        {
+          "text": "小麂幼崽的肛温会略高于成年个体。",
+          "evidence": "你知道嘛，小麂幼崽的肛温会略高于成年个体哦~",
+          "source": {
+            "title": "除了老虎，还有谁的屁股“摸”不得？",
+            "url": "https://mp.weixin.qq.com/s/4SBhOqNIFwEmWfc5UKgPtg",
+            "published_at": "2026-02-06 15:55:07"
           }
         }
       ]
@@ -2124,11 +2184,77 @@
       "site": "狐猴之家",
       "scientific_name": "Lemur catta",
       "animal_name": "环尾狐猴",
-      "aliases": [],
-      "fact_count": 2,
-      "source_count": 1,
+      "aliases": [
+        "莉莉",
+        "coco"
+      ],
+      "fact_count": 9,
+      "source_count": 4,
       "page_file": "狐猴之家/Lemur catta/环尾狐猴.md",
       "facts": [
+        {
+          "text": "环尾狐猴幼崽coco出生时体重不足100g，饲养员通过人工育幼和精细护理，使其在两个月内体重增长至160克。",
+          "evidence": "Coco也一天天地长大，体重从四月初的不足100克，增长到五月中旬的160克！",
+          "source": {
+            "title": "Mora mora，慢慢来、慢慢来~",
+            "url": "https://mp.weixin.qq.com/s/P_Zpq5z38IbtAiAbAuEr7A",
+            "published_at": "2025-12-17 19:44:37"
+          }
+        },
+        {
+          "text": "饲养员为帮助幼崽coco发育标志性的“梳齿”，特意提供了咬胶作为成长辅助工具。",
+          "evidence": "饲养员还给coco找到了一个秘密武器——咬胶，来帮助coco在成长初期中发育环尾狐猴标志性的“梳齿”",
+          "source": {
+            "title": "Mora mora，慢慢来、慢慢来~",
+            "url": "https://mp.weixin.qq.com/s/P_Zpq5z38IbtAiAbAuEr7A",
+            "published_at": "2025-12-17 19:44:37"
+          }
+        },
+        {
+          "text": "红山动物园曾为狐猴提供包含五十多种蔬果的丰富食谱，但因强势个体抢食导致弱势个体营养不良，且高糖水果引发粪便异常和肥胖。",
+          "evidence": "从最初每天十几种蔬菜水果，逐渐增加到最多的时候，每天能够提供五十多种蔬菜和水果。",
+          "source": {
+            "title": "从满汉全席到一根胡萝卜，狐猴的餐盘里藏着一个“断舍离”的秘密",
+            "url": "https://mp.weixin.qq.com/s/bYeqN_4mwNkxZYjcixN_IA",
+            "published_at": "2026-06-23 17:59:05"
+          }
+        },
+        {
+          "text": "为解决争食和健康问题，红山将狐猴食谱简化为每餐仅一种食物，并将水果改为行为训练奖励，显著减少了打架并提高了动物配合度。",
+          "evidence": "一天四餐，每一餐只有一个品种。...我们把水果变成了奖励。结果发现，动物的配合度变得更高了",
+          "source": {
+            "title": "从满汉全席到一根胡萝卜，狐猴的餐盘里藏着一个“断舍离”的秘密",
+            "url": "https://mp.weixin.qq.com/s/bYeqN_4mwNkxZYjcixN_IA",
+            "published_at": "2026-06-23 17:59:05"
+          }
+        },
+        {
+          "text": "初到新环境时，环尾狐猴表现得非常谨慎，集体进入观察模式，睁大眼睛远远关注新邻居褐美狐猴的一举一动。",
+          "evidence": "环尾狐猴们则集体进入了“谨慎观察”模式，睁大圆溜溜的眼睛，远远关注着这些新邻居的一举一动。",
+          "source": {
+            "title": "我这室友怎么长得不太一样啊？",
+            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
+            "published_at": "2026-04-08 18:23:37"
+          }
+        },
+        {
+          "text": "在进食时，环尾狐猴十分警惕，一旦褐美狐猴靠近平台就会跳开等待，以免发生冲突或吃到剩食。",
+          "evidence": "只要褐美狐猴来到平台上进食，环尾狐猴就会跳开或在附近等着，这样一来轮到环尾再上前采食时往往只能吃到一些被挑剩下的食物。",
+          "source": {
+            "title": "我这室友怎么长得不太一样啊？",
+            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
+            "published_at": "2026-04-08 18:23:37"
+          }
+        },
+        {
+          "text": "经过饲养员调整喂食方式后，环尾狐猴开始在地面和低矮栖架上活动，悠闲地享受日光浴。",
+          "evidence": "环尾狐猴更多地在地面和低矮的栖架上活动，悠闲地享受日光浴。",
+          "source": {
+            "title": "我这室友怎么长得不太一样啊？",
+            "url": "https://mp.weixin.qq.com/s/GyEMDbSZYy2fUoLEndPf7w",
+            "published_at": "2026-04-08 18:23:37"
+          }
+        },
         {
           "text": "环尾狐猴在室外可选择在集成小太阳的巢箱里抱团休息度过温暖午后。",
           "evidence": "在室外运动场时，她们可以选择自由活动、张开双臂追寻太阳的温暖，也可以选择在巢箱里抱团休息，度过一个温暖的午后。",
@@ -2754,7 +2880,7 @@
       ],
       "fact_count": 4,
       "source_count": 2,
-      "page_file": "象/Elephantidae/象.md",
+      "page_file": "象/Elephas maximus/亚洲象.md",
       "facts": [
         {
           "text": "大象麦哥来到新湿地后，用灵巧的象鼻卷起新鲜的黑麦草嫩叶作为加餐。",
@@ -3513,12 +3639,58 @@
       "animal_name": "小熊猫",
       "aliases": [
         "仲夏",
-        "孟夏"
+        "孟夏",
+        "夏夏"
       ],
-      "fact_count": 4,
-      "source_count": 2,
+      "fact_count": 9,
+      "source_count": 3,
       "page_file": "高黎贡/Ailurus/小熊猫.md",
       "facts": [
+        {
+          "text": "双胞胎兄妹仲夏和孟夏于2025年7月17日傍晚出生，哥哥仲夏比妹妹孟夏早出生20分钟。",
+          "evidence": "20分钟后，第一只幼崽顺利诞生——这就是我们后来的哥哥“仲夏”。又过了10分钟，妹妹“孟夏”也平安落地。",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏在三个多月大时患上肺炎，因血管细无法挂水，只能打针和雾化治疗。",
+          "evidence": "确诊是肺炎后...没有办法进行常规的挂水治疗，只能依靠打针和雾化。",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏在康复期间曾在氧舱里拆掉门上的胶条，饲养员认为这是身体好转的迹象。",
+          "evidence": "接受治疗的第三天，就已经开始在氧舱里搞起了破坏，把氧舱门上的胶条全都拆掉了。",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏病愈回家后兴奋追逐妈妈，导致夏娃受惊逃跑，但妹妹孟夏第一时间接纳了哥哥。",
+          "evidence": "冲上去就想和妈妈贴贴。可当时孟夏已经处于有点“独立”的阶段了...夏娃的第一反应竟是：跑！",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
+        {
+          "text": "仲夏通过少食多餐的专属恢复饮食计划追赶生长，最终健康状况追平妹妹。",
+          "evidence": "饲养员给大病初愈的仲夏量身定制了专属恢复饮食计划...从清晨六七点的第一顿补奶，到深夜十一点的最后一次照料",
+          "source": {
+            "title": "新小小熊猫前来报到~",
+            "url": "https://mp.weixin.qq.com/s/_Y5ASEr0coZhB72qkw7ZIA",
+            "published_at": "2026-01-03 19:02:30"
+          }
+        },
         {
           "text": "小熊猫在二月蓝铺成的紫色花毯上慢悠悠行走，远看像一团移动的焦糖色毛球。",
           "evidence": "小熊猫踩着二月蓝铺成的紫色绒毯，步子慢悠悠的。远远望去，就像一团会移动的焦糖色毛球",
@@ -3591,12 +3763,61 @@
       "scientific_name": "Muntiacus reevesi",
       "animal_name": "小麂",
       "aliases": [
+        "大王",
+        "奶昔",
+        "蜜瓜",
+        "椰果",
         "白点"
       ],
-      "fact_count": 2,
-      "source_count": 1,
+      "fact_count": 7,
+      "source_count": 3,
       "page_file": "高黎贡/Muntiacus reevesi/小麂.md",
       "facts": [
+        {
+          "text": "饲养员通过蹲守观察和美食脱敏训练，让原本敏感、见到人就会藏起来的小麂能够主动出现在面前进食。",
+          "evidence": "我就尝试蹲在里面，用望远镜先观察，慢慢地再通过好吃的给它们做一些脱敏的训练。渐渐地，所有小麂都能出现在我面前吃东西了",
+          "source": {
+            "title": "动物园没有大事，它由一万件小事组成",
+            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
+            "published_at": "2026-06-30 17:58:59"
+          }
+        },
+        {
+          "text": "工作人员记录了5月到8月小麂角的脱落变化，形成换角日记分享给游客，科普其角会每年脱落的特征。",
+          "evidence": "那段时间我们刚好捡到了它们脱落的角，就在5月到8月记录了角的脱落变化，形成换角日记，分享给来的游客",
+          "source": {
+            "title": "动物园没有大事，它由一万件小事组成",
+            "url": "https://mp.weixin.qq.com/s/SA70e89RDpOkBXjzwoHvEQ",
+            "published_at": "2026-06-30 17:58:59"
+          }
+        },
+        {
+          "text": "饲养员通过从颈部到腹部、臀部的渐进式抚触建立信任，使天性敏感的小麂能配合完成肛温检测。",
+          "evidence": "从去年开始，我们就靠着彼此的信任打底，一步一步、慢慢地做适应引导。先从它们接受度最高的颈部区域进行轻柔抚触...再慢慢将接触范围延伸至腹部、臀部区域",
+          "source": {
+            "title": "除了老虎，还有谁的屁股“摸”不得？",
+            "url": "https://mp.weixin.qq.com/s/4SBhOqNIFwEmWfc5UKgPtg",
+            "published_at": "2026-02-06 15:55:07"
+          }
+        },
+        {
+          "text": "目前可稳定为名为奶昔、蜜瓜、椰果的三只小麂采集有效体温数据。",
+          "evidence": "目前，我们已经可以稳定为奶昔、蜜瓜、椰果三只小麂采集有效体温数据。",
+          "source": {
+            "title": "除了老虎，还有谁的屁股“摸”不得？",
+            "url": "https://mp.weixin.qq.com/s/4SBhOqNIFwEmWfc5UKgPtg",
+            "published_at": "2026-02-06 15:55:07"
+          }
+        },
+        {
+          "text": "小麂幼崽的肛温会略高于成年个体。",
+          "evidence": "你知道嘛，小麂幼崽的肛温会略高于成年个体哦~",
+          "source": {
+            "title": "除了老虎，还有谁的屁股“摸”不得？",
+            "url": "https://mp.weixin.qq.com/s/4SBhOqNIFwEmWfc5UKgPtg",
+            "published_at": "2026-02-06 15:55:07"
+          }
+        },
         {
           "text": "刚出生的小小麂身上布满浅白色斑点，这是幼年小麂的共有特征，长大后会逐渐褪去。",
           "evidence": "刚来到这个世界时，小小麂的身上布满了浅白色的斑点，这是幼年小麂共有的特征，随着渐渐长大，这些斑点会逐渐褪去",

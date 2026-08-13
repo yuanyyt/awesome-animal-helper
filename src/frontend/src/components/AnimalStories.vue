@@ -97,8 +97,7 @@ function exactMatches(items: WikiAnimalSummary[]): WikiAnimalSummary[] {
     <div v-else class="animal-stories__pages">
       <section v-for="page in pages" :key="`${page.site}-${page.scientific_name}`" class="animal-story-group">
         <header>
-          <h4>{{ page.site }}</h4>
-          <span v-if="page.aliases.length">文中也叫 {{ page.aliases.join("、") }}</span>
+          <span v-if="page.aliases.length">包括 {{ page.aliases.join("、") }} 等</span>
         </header>
 
         <ol>

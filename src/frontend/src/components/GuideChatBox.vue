@@ -354,10 +354,9 @@ function handleResponse(
     lastRouteRequest = latestRequestMessage || lastRouteRequest;
     emit("routes", response.route_options);
     emit("routeSelect", response.route_options[1] ?? response.route_options[0]);
-    showMap(true);
+    showMap(true, false);
     moveAnimalsToEnd();
   }
-  scrollToLatest();
 }
 
 function beginAssistantMessage(): Extract<TimelineItem, { kind: "message" }> {
@@ -396,7 +395,7 @@ function pushMessage(role: "visitor" | "guide", text: string): void {
   scrollToLatest(role === "visitor");
 }
 
-function showMap(moveToEnd = false): void {
+function showMap(moveToEnd = false, scroll = true): void {
   const index = timeline.value.findIndex((item) => item.kind === "map");
   if (index < 0) {
     timeline.value.push({ id: nextItemId++, kind: "map" });
@@ -404,7 +403,7 @@ function showMap(moveToEnd = false): void {
     const [mapItem] = timeline.value.splice(index, 1);
     timeline.value.push(mapItem);
   }
-  scrollToLatest();
+  if (scroll) scrollToLatest();
 }
 
 function moveAnimalsToEnd(): void {
@@ -647,7 +646,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
               >
                 <AnimalPhoto :animal="animal" :variant="index" />
                 <span><strong>{{ animal.name }}</strong></span>
-                <em>{{ animal.sites.join(" · ") || "场馆待确认" }}</em>
+                <em>{{ animal.sites.join(" · ") || animal.name }}</em>
               </button>
             </div>
 
@@ -678,7 +677,6 @@ function handleComposerKeydown(event: KeyboardEvent): void {
           >
             <header>
               <div>
-                <span>{{ activeRoute ? `${activeRoute.name}路线图` : "园区地图" }}</span>
                 <p>{{ activeRoute ? activeRoute.sites.join(" → ") : "点按场馆查看，再决定是否加入路线。" }}</p>
               </div>
               <button

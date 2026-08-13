@@ -279,13 +279,81 @@ def resolve_sites(extracted: ExtractedAnimal, animal: CanonicalAnimal) -> tuple[
     matched = [site for site in explicit if site in known]
     if matched:
         return matched, ""
-    if len(animal.sites) == 1:
-        return [animal.sites[0]], ""
-    if explicit:
-        return ["待确认"], f"场馆未匹配：{'、'.join(explicit)}"
-    if len(animal.sites) > 1:
-        return ["待确认"], f"{animal.name} 对应多个场馆"
-    return ["待确认"], f"{animal.name} 没有场馆映射"
+    if animal.sites:
+        warning = f"场馆未匹配：{'、'.join(explicit)}" if explicit else ""
+        return list(animal.sites), warning
+    return [animal.name], f"{animal.name} 没有场馆映射，按动物名归档"
+
+
+def remap_pending_sites(
+    wiki_dir: Path,
+    catalogue: list[CanonicalAnimal],
+) -> dict[str, Any]:
+    """Replace legacy pending-site pages with canonical site mappings."""
+
+    manifest = _read_json(wiki_dir / "manifest.json", {})
+    report = _read_json(wiki_dir / "report.json", {})
+    by_name = {animal.name: animal for animal in catalogue}
+    grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+    for item in manifest.get("items", []):
+        animal_name = str(item.get("animal_name", "")).strip()
+        canonical = by_name.get(animal_name)
+        current_site = str(item.get("site", "")).strip()
+        sites = [current_site]
+        if current_site == "待确认":
+            sites = list(canonical.sites) if canonical and canonical.sites else [animal_name]
+        for site in sites:
+            _merge_manifest_item(grouped, item, site)
+
+    updated = write_wiki(grouped, wiki_dir, list(report.get("warnings", [])))
+    report.update(
+        generated_at=updated["generated_at"],
+        animal_pages=len(updated["items"]),
+        fun_facts=sum(item["fact_count"] for item in updated["items"]),
+    )
+    _write_json(wiki_dir / "report.json", report)
+    return updated
+
+
+def _merge_manifest_item(
+    grouped: dict[tuple[str, str, str], dict[str, Any]],
+    item: dict[str, Any],
+    site: str,
+) -> None:
+    key = (
+        site,
+        str(item.get("scientific_name", "")).strip() or "未确认学名",
+        str(item.get("animal_name", "")).strip(),
+    )
+    entry = grouped.setdefault(
+        key,
+        {
+            "site": key[0],
+            "scientific_name": key[1],
+            "animal_name": key[2],
+            "aliases": [],
+            "facts": [],
+        },
+    )
+    aliases = [str(value) for value in item.get("aliases", [])]
+    entry["aliases"] = list(dict.fromkeys([*entry["aliases"], *aliases]))
+    known_facts = {(fact.text, fact.source.url) for fact in entry["facts"]}
+    for value in item.get("facts", []):
+        source = value.get("source", {})
+        fact = WikiFact(
+            text=str(value.get("text", "")).strip(),
+            evidence=str(value.get("evidence", "")).strip(),
+            source=WikiSource(
+                title=str(source.get("title", "")).strip(),
+                url=str(source.get("url", "")).strip(),
+                published_at=str(source.get("published_at", "")).strip(),
+            ),
+        )
+        identity = (fact.text, fact.source.url)
+        if fact.text and identity not in known_facts:
+            entry["facts"].append(fact)
+            known_facts.add(identity)
 
 
 def build_wiki(
@@ -489,6 +557,8 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--articles", type=Path, default=DEFAULT_ARTICLES)
     build.add_argument("--wiki", type=Path, default=DEFAULT_WIKI)
     build.add_argument("--llm-timeout", type=float, default=90)
+    remap = subparsers.add_parser("remap-sites", help="用场馆表修正已有 Wiki 场馆")
+    remap.add_argument("--wiki", type=Path, default=DEFAULT_WIKI)
     return parser
 
 
@@ -506,12 +576,16 @@ def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = build_parser().parse_args(argv)
-    manifest = build_wiki(
-        articles_dir=args.articles,
-        wiki_dir=args.wiki,
-        extractor=build_extractor(args.llm_timeout),
-        catalogue=load_catalogue(ANIMALS_PATH, SITES_PATH),
-    )
+    catalogue = load_catalogue(ANIMALS_PATH, SITES_PATH)
+    if args.command == "remap-sites":
+        manifest = remap_pending_sites(args.wiki, catalogue)
+    else:
+        manifest = build_wiki(
+            articles_dir=args.articles,
+            wiki_dir=args.wiki,
+            extractor=build_extractor(args.llm_timeout),
+            catalogue=catalogue,
+        )
     LOGGER.info("已生成 %d 个动物 Wiki 页面", len(manifest["items"]))
 
 
