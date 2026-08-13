@@ -1,15 +1,15 @@
 ---
+datasets:
+  evaluation: null
+  test: null
+  train: null
 domain: multi-modal
+license: CC-BY-NC-4.0
+models: null
 tags:
 - 动物园导览
 - 智能体
 - 地图导航
-datasets:
-  evaluation:
-  test:
-  train:
-models:
-license: Apache License 2.0
 ---
 
 # Awesome Animal Helper
@@ -240,3 +240,4 @@ docker build -t awesome-animal-helper:local \
 后端字节码、运行依赖和必需数据，不包含项目 Python 源文件、Git 历史、公众号原始
 抓取结果或 `.env`。这能阻止从最终镜像层直接还原源码，但字节码仍可能被专业工具
 逆向；浏览器端 JavaScript 和接口返回的公开知识内容也无法对访问者保密。
+
