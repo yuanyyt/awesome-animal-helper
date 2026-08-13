@@ -110,7 +110,11 @@ function scrollToStories(): void {
         </header>
 
         <figure class="detail-dialog__illustration">
-          <AnimalPhoto :animal="animal" :variant="animal.name.length" />
+          <AnimalPhoto
+            :animal="animal"
+            :variant="animal.name.length"
+            sizes="(max-width: 640px) 100vw, 720px"
+          />
         </figure>
 
         <div class="detail-dialog__body">

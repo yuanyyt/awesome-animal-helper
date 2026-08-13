@@ -1,6 +1,13 @@
 import type { AnimalDetail } from "./types";
 
 const MANIFEST_URL = "/animals/manifest.csv";
+const RESPONSIVE_WIDTHS = [320, 640, 1024] as const;
+
+export interface AnimalImageSet {
+  fallback: string;
+  src: string;
+  srcset: string;
+}
 
 let manifestPromise: Promise<Map<string, string>> | undefined;
 
@@ -56,7 +63,8 @@ export function parseAnimalImageManifest(csv: string): Map<string, string> {
 
   for (const row of rows) {
     const path = row[pathColumn]?.trim();
-    if (!path?.startsWith("/animals/") || row[statusColumn]?.trim() !== "success") continue;
+    const status = row[statusColumn]?.trim();
+    if (!path?.startsWith("/animals/") || !["success", "cached"].includes(status)) continue;
 
     const animal = row[animalColumn]?.trim();
     const scientificName = row[scientificNameColumn]?.trim();
@@ -75,24 +83,42 @@ async function loadManifest(): Promise<Map<string, string>> {
   return parseAnimalImageManifest(await response.text());
 }
 
-export async function resolveAnimalImage(
+function responsivePath(path: string, width: (typeof RESPONSIVE_WIDTHS)[number]): string {
+  return path.replace(/\.png$/i, `-${width}.webp`);
+}
+
+export async function resolveAnimalImageSet(
   animal: Pick<AnimalDetail, "name" | "scientific_name">,
-): Promise<string | null> {
+): Promise<AnimalImageSet | null> {
   manifestPromise ??= loadManifest();
 
   try {
     const images = await manifestPromise;
-    return (
+    const fallback =
       images.get(`name:${normalize(animal.name)}`) ??
       (animal.scientific_name
         ? images.get(`scientific:${normalize(animal.scientific_name)}`)
         : undefined) ??
-      null
-    );
+      null;
+    if (!fallback) return null;
+    return {
+      fallback,
+      src: responsivePath(fallback, 640),
+      srcset: RESPONSIVE_WIDTHS.map(
+        (width) => `${responsivePath(fallback, width)} ${width}w`,
+      ).join(", "),
+    };
   } catch {
     manifestPromise = undefined;
     return null;
   }
+}
+
+export async function resolveAnimalImage(
+  animal: Pick<AnimalDetail, "name" | "scientific_name">,
+): Promise<string | null> {
+  const image = await resolveAnimalImageSet(animal);
+  return image ? responsivePath(image.fallback, 320) : null;
 }
 
 export const animalImageManifestUrl = MANIFEST_URL;

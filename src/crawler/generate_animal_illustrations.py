@@ -9,6 +9,8 @@ import logging
 import os
 import random
 import re
+import shutil
+import subprocess
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
@@ -28,6 +30,7 @@ DEFAULT_ENDPOINT = (
 DEFAULT_MODEL = "qwen-image-3.0"
 DEFAULT_SIZE = "1024*1024"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+RESPONSIVE_WIDTHS = (320, 640, 1024)
 
 STYLE_PROMPT = """为南京红山森林动物园的儿童导览绘制一张正方形动物图鉴插画。
 视觉风格必须统一：温暖象牙白纸张背景，森林深绿色的圆润轮廓线，苔藓绿与叶绿色主体色块，少量琥珀橙和陶土棕作点睛；几何化的扁平矢量造型，边缘干净，色块克制，不使用渐变和厚重阴影。气质像认真绘制的自然观察手册，同时友好、活泼、有童趣。
@@ -245,6 +248,31 @@ def stable_seed(animal: AnimalSource, base_seed: int) -> int:
     return (base_seed + offset) % 2_147_483_648
 
 
+def generate_responsive_images(source: Path) -> None:
+    """Create compact WebP variants used by responsive frontend images."""
+
+    converter = shutil.which("magick") or shutil.which("convert")
+    if not converter:
+        raise QwenImageError("生成响应式图片需要安装 ImageMagick")
+    for width in RESPONSIVE_WIDTHS:
+        destination = source.with_name(f"{source.stem}-{width}.webp")
+        if destination.exists() and destination.stat().st_mtime >= source.stat().st_mtime:
+            continue
+        subprocess.run(
+            [
+                converter,
+                str(source),
+                "-resize",
+                f"{width}x{width}",
+                "-strip",
+                "-quality",
+                "82",
+                str(destination),
+            ],
+            check=True,
+        )
+
+
 def generate_all(
     animals: Iterable[AnimalSource],
     *,
@@ -282,6 +310,7 @@ def generate_all(
             )
             LOGGER.info("提示词预览：\n%s", build_prompt(animal))
         elif destination.exists() and not overwrite:
+            generate_responsive_images(destination)
             previous = entries.get(animal.name)
             entry = ManifestEntry(
                 animal.name,
@@ -299,6 +328,7 @@ def generate_all(
             try:
                 generated = client.generate(build_prompt(animal), seed)
                 client.download(generated.url, destination)
+                generate_responsive_images(destination)
                 entry = ManifestEntry(
                     animal.name,
                     animal.scientific_name,
