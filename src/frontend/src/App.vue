@@ -350,12 +350,27 @@ function handleGlobalShortcut(event: KeyboardEvent): void {
   <a class="skip-link" href="#page-content">跳到主要内容</a>
   <header class="site-nav" :class="`is-${activePage}`">
     <div class="site-nav__inner">
-      <a class="site-nav__brand" href="#home" aria-label="返回红山动物指南首页" @click.prevent="showPage('intro')">
+      <a
+        class="site-nav__brand"
+        href="#home"
+        aria-label="红山森林动物园与小青可为，返回红山动物指南首页"
+        @click.prevent="showPage('intro')"
+      >
         <img
+          class="site-nav__zoo-logo"
           src="/logo/logo-forest.png"
           alt=""
           width="1579"
           height="382"
+          decoding="async"
+        />
+        <span class="site-nav__brand-cross" aria-hidden="true">×</span>
+        <img
+          class="site-nav__competition-logo"
+          src="/logo/比赛logo.png"
+          alt=""
+          width="681"
+          height="210"
           decoding="async"
         />
       </a>
