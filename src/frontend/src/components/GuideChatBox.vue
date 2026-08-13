@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 
 import {
   API_BALANCE_ERROR_CODE,
@@ -92,6 +92,8 @@ const questionInput = ref<HTMLTextAreaElement | null>(null);
 const hitlForm = ref<HTMLFormElement | null>(null);
 const showLatestButton = ref(false);
 const mapExpanded = ref(false);
+const isComposerFocused = ref(false);
+const isKeyboardOpen = ref(false);
 const inputValues = reactive<Record<string, string | number | boolean>>({});
 const sessionId = ref(window.localStorage.getItem("hongshan-guide-session") || "");
 const voiceDraftReady = ref(false);
@@ -104,6 +106,7 @@ let followLatest = true;
 let mapReturnFocus: HTMLElement | null = null;
 let lastRouteRequest = "";
 let latestRequestMessage = "";
+let viewportBaseline = window.visualViewport?.height ?? window.innerHeight;
 
 const voiceClient = new VoiceGuideClient(
   {
@@ -187,11 +190,18 @@ watch(
   },
 );
 
+onMounted(() => {
+  window.visualViewport?.addEventListener("resize", syncKeyboardState);
+  window.addEventListener("resize", syncKeyboardState);
+});
+
 onBeforeUnmount(() => {
   voiceClient.close();
   document.body.classList.remove("has-expanded-map");
   setBackgroundInert(false);
   window.removeEventListener("keydown", handleMapEscape);
+  window.visualViewport?.removeEventListener("resize", syncKeyboardState);
+  window.removeEventListener("resize", syncKeyboardState);
 });
 
 const voiceBusy = computed(() => !["disconnected", "idle"].includes(voiceState.value));
@@ -592,10 +602,36 @@ function handleComposerKeydown(event: KeyboardEvent): void {
   event.preventDefault();
   void submit();
 }
+
+function syncKeyboardState(): void {
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  if (!isComposerFocused.value) {
+    isKeyboardOpen.value = false;
+    viewportBaseline = viewportHeight;
+    return;
+  }
+
+  const keyboardThreshold = Math.max(120, viewportBaseline * 0.18);
+  isKeyboardOpen.value = viewportBaseline - viewportHeight > keyboardThreshold;
+}
+
+function handleComposerFocus(): void {
+  isComposerFocused.value = true;
+  window.requestAnimationFrame(syncKeyboardState);
+}
+
+function handleComposerBlur(): void {
+  isComposerFocused.value = false;
+  isKeyboardOpen.value = false;
+}
 </script>
 
 <template>
-  <section class="guide-chat" aria-labelledby="guide-chat-title">
+  <section
+    class="guide-chat"
+    :class="{ 'is-keyboard-open': isKeyboardOpen }"
+    aria-labelledby="guide-chat-title"
+  >
     <header class="guide-chat__intro">
       <span aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M5 18c1-7 5-11 14-12-1 9-5 13-12 13" /><path d="M7 19c3-4 6-7 11-10" /></svg>
@@ -860,6 +896,8 @@ function handleComposerKeydown(event: KeyboardEvent): void {
           autocomplete="off"
           :class="{ 'has-default-message': !question && !requiredInputs.length }"
           :placeholder="defaultUserMessage"
+          @focus="handleComposerFocus"
+          @blur="handleComposerBlur"
           @input="resizeQuestionInput"
           @keydown="handleComposerKeydown"
         ></textarea>

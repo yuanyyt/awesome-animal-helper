@@ -4532,6 +4532,21 @@ body {
     white-space: nowrap;
   }
 
+  .guide-chat.is-keyboard-open .guide-chat__dock {
+    margin-bottom: 0;
+    padding-block: var(--space-xs);
+  }
+
+  .guide-chat.is-keyboard-open .guide-chat__origin,
+  .guide-chat.is-keyboard-open .guide-tool-chips,
+  .guide-chat.is-keyboard-open .guide-chat__dock > .animal-selection-chips {
+    display: none;
+  }
+
+  .guide-chat.is-keyboard-open .guide-chat__latest {
+    bottom: 4.75rem;
+  }
+
   .guide-chat__latest {
     position: absolute;
     right: 50%;
