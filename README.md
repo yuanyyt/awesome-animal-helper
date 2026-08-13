@@ -334,4 +334,4 @@ npm run build --prefix src/frontend
 
 ## 许可证
 
-项目元数据声明采用 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/deed.zh-hans) 许可。第三方数据、图片、商标与服务分别遵循其各自条款。
+本项目采用 [CC BY-NC 4.0](LICENSE) 许可，仅允许署名的非商业使用与演绎。第三方数据、图片、商标与服务分别遵循其各自条款。
