@@ -5145,6 +5145,44 @@ body.has-expanded-map {
   font-style: normal;
 }
 
+.zoo-map__amap-action {
+  max-width: 14rem;
+  display: grid;
+  flex: 0 0 auto;
+  gap: var(--space-2xs);
+  margin-right: 2.75rem;
+}
+
+.zoo-map__amap-action button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding-inline: var(--space-md);
+  border: var(--rule-hair) solid var(--color-accent);
+  border-radius: var(--radius-round);
+  background: var(--color-paper);
+  color: var(--color-accent);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.zoo-map__amap-action button svg {
+  width: 1.1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.zoo-map__amap-action small {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
 .zoo-map__sheet-icon {
   width: 2.75rem;
   height: 2.75rem;
@@ -5322,6 +5360,20 @@ body.has-expanded-map {
   .zoo-map__route-action {
     width: 100%;
     margin-right: 0;
+  }
+
+  .zoo-map__amap-action {
+    width: 100%;
+    max-width: none;
+    margin-right: 0;
+  }
+
+  .zoo-map__amap-action button {
+    width: 100%;
+  }
+
+  .zoo-map__amap-action small {
+    text-align: center;
   }
 
   .zoo-map__attribution {

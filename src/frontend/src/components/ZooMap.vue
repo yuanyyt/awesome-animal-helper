@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
+import { buildAmapNavigationTarget, isAndroidBrowser } from "../amapNavigation";
 import { resolveAnimalImage } from "../animalImages";
 import { isPointInPolygon, polygonBounds } from "../mapGeometry";
 import type {
@@ -74,6 +75,8 @@ let mapResizeSettleTimer: number | undefined;
 let observedMapSize = "";
 let locationAttempt = 0;
 let automaticLocationAttempted = false;
+let amapFallbackTimer: number | undefined;
+let amapVisibilityHandler: (() => void) | undefined;
 const selectedPoint = computed(() =>
   props.guide?.points.find((point) => point.site === props.selectedSite),
 );
@@ -134,6 +137,9 @@ const selectedPointInRoute = computed(() =>
 );
 const durationLabel = computed(() =>
   props.activeRoute ? `约 ${props.activeRoute.total_minutes} 分钟` : "",
+);
+const amapNavigationTarget = computed(() =>
+  props.activeRoute ? buildAmapNavigationTarget(props.activeRoute) : null,
 );
 const locationStatus = computed(() => {
   if (settingOrigin.value) return "请在园区地图内点击新的起点";
@@ -287,7 +293,10 @@ watch(
   () => scheduleMapViewportSync(),
 );
 
-onBeforeUnmount(() => destroyInteractiveMap());
+onBeforeUnmount(() => {
+  clearAmapFallback();
+  destroyInteractiveMap();
+});
 
 async function initializeInteractiveMap(): Promise<void> {
   destroyInteractiveMap();
@@ -559,6 +568,35 @@ function toggleServicesPanel(): void {
 
 function toggleRoutePanel(): void {
   activePanel.value = activePanel.value === "route" ? null : "route";
+}
+
+function openInAmap(): void {
+  const target = amapNavigationTarget.value;
+  if (!target) return;
+  if (!isAndroidBrowser()) {
+    window.open(target.h5Uri, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  clearAmapFallback();
+  amapVisibilityHandler = () => {
+    if (document.visibilityState === "hidden") clearAmapFallback();
+  };
+  document.addEventListener("visibilitychange", amapVisibilityHandler);
+  window.location.href = target.androidUri;
+  amapFallbackTimer = window.setTimeout(() => {
+    clearAmapFallback();
+    if (document.visibilityState === "visible") window.location.href = target.fallbackH5Uri;
+  }, 2_000);
+}
+
+function clearAmapFallback(): void {
+  if (amapFallbackTimer !== undefined) window.clearTimeout(amapFallbackTimer);
+  amapFallbackTimer = undefined;
+  if (amapVisibilityHandler) {
+    document.removeEventListener("visibilitychange", amapVisibilityHandler);
+    amapVisibilityHandler = undefined;
+  }
 }
 
 function closePanel(): void {
@@ -1351,6 +1389,20 @@ function loadAmap(apiKey: string, serviceHost: string): Promise<AmapGlobal> {
                 <em>{{ leg.mode === "shuttle" ? "观光车" : "步行" }} {{ leg.minutes }} 分钟</em>
               </li>
             </ol>
+            <div v-if="amapNavigationTarget" class="zoo-map__amap-action">
+              <button
+                type="button"
+                aria-describedby="amap-navigation-note"
+                @click="openInAmap"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 5h5v5M19 5l-8 8" />
+                  <path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+                </svg>
+                {{ amapNavigationTarget.label }}
+              </button>
+              <small id="amap-navigation-note">高德会重新计算路线，结果可能略有不同</small>
+            </div>
           </template>
 
           <template v-else>
